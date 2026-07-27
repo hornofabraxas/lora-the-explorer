@@ -129,13 +129,14 @@ name, address, or anything identifying.**
 
 - **Your own install:** you control it. Delete the database or the container.
 - **The multiplayer service:** ask on [Discord](https://discord.gg/EHXemsA2SS) and the maintainer
-  will delete your registration. This removes your profile, posts, inventory, defence state and
-  leaderboard entry.
+  will delete your registration. This is a **complete erasure**, not just a profile removal. It
+  deletes your profile, Survey Posts, inventory, defence state, raid records, scout results,
+  notifications, cooldowns, anti-abuse counters and your leaderboard entry.
 
-  **Being straight with you about a limitation:** deleting a player does *not* currently purge
-  historical **raid and scout records** created by or against you. Those records can contain your
-  pseudonymous player ID and the display name you had at the time. They age out on their own. If
-  you need those purged too, say so explicitly and it will be done manually.
+  It also removes you from records that belong to *other* players. Where a rival's raid history
+  names you, your player ID and display name are replaced with "A departed explorer" — they keep
+  their own history, but nothing identifying you remains in it. Scout reports involving you are
+  deleted outright.
 
 - There is no automated retention schedule; data persists while the service runs.
 
