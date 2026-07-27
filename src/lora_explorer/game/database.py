@@ -127,9 +127,6 @@ class Database:
             "ALTER TABLE players ADD COLUMN last_survey_lon REAL",
             "ALTER TABLE players ADD COLUMN last_survey_at INTEGER",
             "ALTER TABLE survey_posts ADD COLUMN last_collected_at INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE players ADD COLUMN discord_linked INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE players ADD COLUMN community_api_key TEXT",
-            "ALTER TABLE players ADD COLUMN community_linked_at INTEGER",
             "ALTER TABLE survey_posts ADD COLUMN ruin_frozen_until INTEGER",
             "ALTER TABLE players ADD COLUMN momentum_tier INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE players ADD COLUMN last_survey_sender TEXT",
@@ -282,6 +279,12 @@ class Database:
             # that has already been renamed; both raise and are swallowed below.
             "ALTER TABLE multiplayer_items RENAME COLUMN installed_post_hex TO installed_post_token",
             "ALTER TABLE multiplayer_attacks RENAME COLUMN target_post_hex TO target_post_token",
+            # The "community server" feature was never wired up — the client that
+            # would have used these was removed before release. Dropped so a fresh
+            # schema carries no columns nothing reads. No-ops where already absent.
+            "ALTER TABLE players DROP COLUMN discord_linked",
+            "ALTER TABLE players DROP COLUMN community_api_key",
+            "ALTER TABLE players DROP COLUMN community_linked_at",
         ]
         for sql in migrations:
             try:
@@ -370,8 +373,6 @@ class Database:
             "home_lat": home_lat, "home_lon": home_lon,
             "last_survey_lat": None, "last_survey_lon": None,
             "last_survey_at": None, "created_at": now,
-            "discord_linked": 0, "community_api_key": None,
-            "community_linked_at": None,
         }
 
     async def _adjust(self, key: str, column: str, amount: int) -> int:
@@ -885,45 +886,6 @@ class Database:
                 "UPDATE survey_posts SET last_collected_at = ? WHERE id = ?",
                 (now, pid),
             )
-
-    async def link_community(self, key: str, api_key: str) -> None:
-        now = int(time.time())
-        await self._execute(
-            """UPDATE players SET
-               discord_linked = 1, community_api_key = ?,
-               community_linked_at = ?
-               WHERE key = ?""",
-            (api_key, now, key),
-        )
-
-    async def unlink_community(self, key: str) -> None:
-        await self._execute(
-            """UPDATE players SET
-               discord_linked = 0, community_api_key = NULL,
-               community_linked_at = NULL
-               WHERE key = ?""",
-            (key,),
-        )
-
-    async def get_community_stats(self, player_key: str) -> dict | None:
-        player = await self.get_player(player_key)
-        if not player:
-            return None
-        hex_count = await self.count_discovered_hexes(player_key)
-        total_dist = await self.get_total_distance(player_key)
-        posts = await self.get_all_posts(player_key)
-        active_posts = [p for p in posts if p["level"] > 0]
-        postcards = await self.get_all_postcards(player_key)
-        highest_star = max((pc["stars"] for pc in postcards), default=0)
-        return {
-            "rank": player["rank_level"],
-            "xp": player["xp"],
-            "total_distance": total_dist,
-            "hex_count": hex_count,
-            "postcard_count": len(postcards),
-            "highest_star": highest_star,
-            "active_posts": len(active_posts),
-        }
 
     # --- Relics ---
 

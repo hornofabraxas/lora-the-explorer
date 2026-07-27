@@ -58,7 +58,6 @@ async def build_bundle(db, since_timestamp: int | None = None, force: bool = Fal
             # the Worker's renown reflects true post age. (Falling back to `now`
             # would reset chartered_at on every push, pinning renown at its floor.)
             "chartered_at": post.get("created_at") or now,
-            "coarse_cell": "",
             # Warded (dormant) outposts can't be raided — the Worker enforces
             # this against dispatch. 0 = not warded.
             "dormant_until": post.get("ruin_frozen_until") or 0,

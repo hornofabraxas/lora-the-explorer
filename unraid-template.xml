@@ -22,7 +22,7 @@
   <Config Name="Connection Type" Target="CONNECTION_TYPE" Default="wifi" Mode="" Description="Connection type: wifi or usb" Type="Variable" Display="always" Required="false" Mask="false">wifi</Config>
   <Config Name="Home Latitude" Target="HOME_LAT" Default="" Mode="" Description="Latitude of your base camp location" Type="Variable" Display="always" Required="true" Mask="false"></Config>
   <Config Name="Home Longitude" Target="HOME_LON" Default="" Mode="" Description="Longitude of your base camp location" Type="Variable" Display="always" Required="true" Mask="false"></Config>
-  <Config Name="UTC Offset" Target="UTC_OFFSET" Default="0" Mode="" Description="Your timezone UTC offset (e.g. -7 for Arizona, -5 for EST)" Type="Variable" Display="always" Required="false" Mask="false">0</Config>
+  <Config Name="Timezone" Target="TZ" Default="America/Phoenix" Mode="" Description="IANA timezone name (e.g. America/Phoenix, Europe/London). Sets the clock used for timestamps in radio replies. Game resets (daily survey limit, dispatch) are always UTC and are unaffected." Type="Variable" Display="always" Required="false" Mask="false">America/Phoenix</Config>
   <Config Name="Database Path" Target="DB_PATH" Default="/app/data/explorer.db" Mode="" Description="Path to SQLite database inside the container" Type="Variable" Display="advanced" Required="false" Mask="false">/app/data/explorer.db</Config>
   <Config Name="Game Data" Target="/app/data" Default="/mnt/user/appdata/lora-the-explorer" Mode="rw" Description="Persistent game data (database)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/lora-the-explorer</Config>
 </Container>

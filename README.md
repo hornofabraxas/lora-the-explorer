@@ -51,8 +51,13 @@ precious and only commands that prove location go over the air.
 ## Quick start
 
 ```bash
-docker run -d --name lora-the-explorer -p 1492:1492 -v /path/to/data:/app/data ghcr.io/hornofabraxas/lora-the-explorer:latest
+docker run -d --name lora-the-explorer -p 1492:1492 -e TZ=America/Phoenix -v /path/to/data:/app/data ghcr.io/hornofabraxas/lora-the-explorer:latest
 ```
+
+Set `TZ` to your own [IANA timezone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) — it
+sets the clock used for the timestamps in radio replies, so you can tell a fresh reply from a stale
+one. Everything the game resets on a schedule (the daily survey limit, the dispatch) is UTC by
+design and is unaffected by this.
 
 Then open `http://localhost:1492` and follow the setup wizard — it will walk you through choosing a
 password (or OIDC SSO), connecting your companion radio, and dropping a pin for your base camp.
