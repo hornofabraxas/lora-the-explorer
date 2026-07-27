@@ -963,8 +963,8 @@ class MultiplayerManager:
         Idempotent — a missing/already-reconciled post is a no-op."""
         if not post_hex:
             return
-        # The Worker refers to posts by their opaque mp_token (hex_id for
-        # legacy posts) — resolve either form to the local record.
+        # The Worker refers to posts only by their opaque mp_token — resolve it
+        # to the local record.
         post = await self._db.get_post_by_worker_ref(post_hex)
         if not post:
             return
@@ -980,30 +980,30 @@ class MultiplayerManager:
         old_posts = self._prev_defense_snapshot
         alerts = []
 
-        for hex_id, old in old_posts.items():
-            new = new_posts.get(hex_id)
+        for post_token, old in old_posts.items():
+            new = new_posts.get(post_token)
             if not new:
-                alerts.append(f"Post razed: {hex_id[:8]}")
+                alerts.append(f"Post razed: {post_token[:8]}")
                 # The Worker destroyed this outpost — drop the local record so it
                 # isn't re-pushed (and resurrected) on the next bundle.
-                await self._apply_raid_outcome_local(hex_id, "razed")
+                await self._apply_raid_outcome_local(post_token, "razed")
             elif new.get("hp", old.get("hp", 0)) < old.get("hp", 0):
                 if new.get("level", 0) < old.get("level", 0):
-                    alerts.append(f"Post {hex_id[:8]} lost a level! HP: {new['hp']}/{new['max_hp']}")
-                    await self._apply_raid_outcome_local(hex_id, "damaged", new.get("level"))
+                    alerts.append(f"Post {post_token[:8]} lost a level! HP: {new['hp']}/{new['max_hp']}")
+                    await self._apply_raid_outcome_local(post_token, "damaged", new.get("level"))
                 else:
-                    alerts.append(f"Post {hex_id[:8]} under attack! HP: {new['hp']}/{new['max_hp']}")
+                    alerts.append(f"Post {post_token[:8]} under attack! HP: {new['hp']}/{new['max_hp']}")
 
         # Inbound raids — warn once per raid, with ETA and coarse threat band,
         # and track which raids are still in flight (rid -> target hex) so we can
         # detect repels below.
         current_incoming: dict[str, str] = {}
-        for hex_id, post in new_posts.items():
+        for post_token, post in new_posts.items():
             for raid in post.get("incoming_raids", []):
                 rid = raid.get("raid_id")
                 if not rid:
                     continue
-                current_incoming[rid] = hex_id
+                current_incoming[rid] = post_token
                 if rid in self._seen_incoming:
                     continue
                 self._seen_incoming.add(rid)
@@ -1013,16 +1013,16 @@ class MultiplayerManager:
                     "heavy": "projected heavy damage",
                     "hold": "your defenses should hold",
                 }.get(raid.get("threat", "hold"), "inbound")
-                alerts.append(f"Raid inbound on {hex_id[:8]} — ETA {eta_min}m, {threat}")
+                alerts.append(f"Raid inbound on {post_token[:8]} — ETA {eta_min}m, {threat}")
 
         # A tracked incoming raid that has vanished has landed: if its target post
         # still stands (wasn't razed off the map) the assault was repelled — the
         # currency for the Bulwark title.
         repelled = 0
-        for rid, hex_id in self._active_incoming.items():
+        for rid, post_token in self._active_incoming.items():
             if rid in current_incoming:
                 continue
-            if hex_id in new_posts:
+            if post_token in new_posts:
                 repelled += 1
             self._seen_incoming.discard(rid)
         if repelled:

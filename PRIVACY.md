@@ -72,14 +72,10 @@ pushes a signed bundle. The complete contents are (see `src/lora_explorer/multip
 territories, your XP, your provisions, your password, or your radio keys.
 
 Your Survey Posts are identified to the outside world by a **random token**, not their real hex ID,
-so a post's identifier cannot be decoded back into a place. Auto-generated post names are also
-withheld, because they are derived from the real hex.
-
-> **One honest exception.** Installs that registered before opaque tokens were introduced
-> (2026-07-23) kept `token = hex_id` for posts that already existed, to preserve their standing.
-> For those specific legacy posts, the token *is* the real H3 hex and can be decoded to a
-> ~460 m area. This affects only pre-2026-07-23 posts. If you are affected and want it fixed,
-> ask on Discord — the post can be re-tokenised at the cost of its accrued renown.
+so a post's identifier cannot be decoded back into a place. This is true of every post without
+exception — a post's token is generated randomly when it is chartered and is never derived from
+its location. Auto-generated post names are also withheld, because they are derived from the real
+hex.
 
 ### 3b. Notification webhook (optional, you configure it)
 

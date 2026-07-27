@@ -481,7 +481,7 @@ async def test_register_anchors_push_cursor_excluding_past_surveys(manager, db):
 async def test_apply_raid_outcome_razed_deletes_local_post(manager, db):
     await db.get_or_create_player("k", 40.0, -105.0)
     post = await db.create_post("k", "hex_r", "Doomed")
-    r = await manager._apply_raid_outcome_local("hex_r", "razed")
+    r = await manager._apply_raid_outcome_local(post["mp_token"], "razed")
     assert r is None
     assert await db.get_post_by_id(post["id"]) is None
 
@@ -491,7 +491,7 @@ async def test_apply_raid_outcome_damaged_downlevels(manager, db):
     await db.get_or_create_player("k", 40.0, -105.0)
     post = await db.create_post("k", "hex_d", "Hit")
     await db.set_post_level(post["id"], 3)
-    await manager._apply_raid_outcome_local("hex_d", "damaged", level_after=2)
+    await manager._apply_raid_outcome_local(post["mp_token"], "damaged", level_after=2)
     assert (await db.get_post_by_id(post["id"]))["level"] == 2
 
 
@@ -499,7 +499,7 @@ async def test_apply_raid_outcome_damaged_downlevels(manager, db):
 async def test_apply_raid_outcome_damaged_never_raises_level(manager, db):
     await db.get_or_create_player("k", 40.0, -105.0)
     post = await db.create_post("k", "hex_d", "Hit")  # level 1
-    await manager._apply_raid_outcome_local("hex_d", "damaged", level_after=4)
+    await manager._apply_raid_outcome_local(post["mp_token"], "damaged", level_after=4)
     assert (await db.get_post_by_id(post["id"]))["level"] == 1
 
 
@@ -518,7 +518,7 @@ async def test_try_push_reconciles_raze_from_notifications(manager, db, monkeypa
         "ok": True,
         "drops": [],
         "notifications": [
-            {"type": "raid_razed", "data": {"post_hex": "hex_x"}},
+            {"type": "raid_razed", "data": {"post_hex": post["mp_token"]}},
         ],
     })
 

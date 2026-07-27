@@ -91,7 +91,8 @@ async def test_build_bundle_chartered_at_from_created_at():
         {"hex_id": "hex_a", "is_discovery": 0, "provisions_earned": 10, "xp_earned": 5, "surveyed_at": 1000},
     ]
     posts = [
-        {"hex_id": "hex_a", "level": 3, "name": "Post Alpha", "created_at": 1700000000},
+        {"hex_id": "hex_a", "level": 3, "name": "Post Alpha", "created_at": 1700000000,
+         "mp_token": "tok_a"},
     ]
     db = make_mock_db(player={"key": "player1"}, surveys=surveys, posts=posts)
 

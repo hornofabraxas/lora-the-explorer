@@ -247,7 +247,7 @@ async def multiplayer_page(request: Request):
         # Worker refs (mp_token) → local post names, so the Warfront can label
         # our own threatened posts with their real names instead of a token.
         own_post_names = {
-            (p.get("mp_token") or p["hex_id"]): p["name"] for p in posts
+            p["mp_token"]: p["name"] for p in posts
         }
 
     return await _template(request, "multiplayer.html", {

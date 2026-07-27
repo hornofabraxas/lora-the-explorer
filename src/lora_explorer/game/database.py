@@ -303,45 +303,24 @@ class Database:
         await self._db.commit()
 
     async def _backfill_post_tokens(self) -> None:
-        """Assign mp_token to posts that predate the column.
+        """Assign a random mp_token to any post that predates the column.
 
-        Installs already registered with the Worker have pushed their real hex
-        ids for these posts (that exposure already happened), so keeping
-        token = hex_id preserves their Worker-side identity — renown age,
-        defense HP, and installed items all carry over seamlessly. Posts on a
-        never-registered install were never exposed, so they get fresh random
-        tokens and their hexes stay private for good.
+        A post's token is its identity everywhere outside this install. It is
+        always random: the real hex_id decodes straight to coordinates and must
+        never cross the trust boundary.
         """
         async with self._db.execute(
-            "SELECT COUNT(*) FROM survey_posts WHERE mp_token IS NULL"
+            "SELECT id FROM survey_posts WHERE mp_token IS NULL"
         ) as cursor:
-            row = await cursor.fetchone()
-        if not row or row[0] == 0:
+            ids = [r[0] for r in await cursor.fetchall()]
+        if not ids:
             return
 
-        registered = False
-        try:
-            async with self._db.execute(
-                "SELECT value FROM multiplayer_settings WHERE key = 'player_id'"
-            ) as cursor:
-                registered = (await cursor.fetchone()) is not None
-        except Exception:
-            pass
-
-        if registered:
+        for post_id in ids:
             await self._db.execute(
-                "UPDATE survey_posts SET mp_token = hex_id WHERE mp_token IS NULL"
+                "UPDATE survey_posts SET mp_token = ? WHERE id = ?",
+                (secrets.token_hex(8), post_id),
             )
-        else:
-            async with self._db.execute(
-                "SELECT id FROM survey_posts WHERE mp_token IS NULL"
-            ) as cursor:
-                ids = [r[0] for r in await cursor.fetchall()]
-            for post_id in ids:
-                await self._db.execute(
-                    "UPDATE survey_posts SET mp_token = ? WHERE id = ?",
-                    (secrets.token_hex(8), post_id),
-                )
         await self._db.commit()
 
     async def _check_integrity(self) -> None:
@@ -529,11 +508,10 @@ class Database:
         return dict(row) if row else None
 
     async def get_post_by_worker_ref(self, ref: str) -> dict | None:
-        """Resolve a Worker-side post reference (mp_token; hex_id fallback for
-        records the Worker still holds under the pre-token identity)."""
+        """Resolve a Worker-side post reference (mp_token) to the local post."""
         row = await self._fetchone(
-            "SELECT * FROM survey_posts WHERE mp_token = ? OR hex_id = ?",
-            (ref, ref),
+            "SELECT * FROM survey_posts WHERE mp_token = ?",
+            (ref,),
         )
         return dict(row) if row else None
 

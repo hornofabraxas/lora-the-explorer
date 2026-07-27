@@ -591,7 +591,7 @@ async def dashboard(request: Request):
         mp_brief = {"incoming": [], "outgoing": None, "supply": None}
         # Worker post ref (mp_token, hex_id fallback) → readable outpost name.
         name_by_ref = {
-            (p.get("mp_token") or p["hex_id"]): hex_name(p["hex_id"])
+            p["mp_token"]: hex_name(p["hex_id"])
             for p in raw_posts
         }
         cached_def = await manager.get_cached_defense()
@@ -1008,7 +1008,7 @@ async def repair_post(request: Request, post_id: int):
     if not (manager and getattr(manager, "registered", False)):
         return _flash_redirect("/outposts", "Repair is only for PvP-enabled outposts", "info")
 
-    healed = await _repair_post_hp(engine, manager, key, post.get("mp_token") or post["hex_id"])
+    healed = await _repair_post_hp(engine, manager, key, post["mp_token"])
     if not healed:
         return _flash_redirect("/outposts", "Nothing to repair — Health already full", "info")
     return _flash_redirect(

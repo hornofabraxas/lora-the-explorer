@@ -162,39 +162,16 @@ async def test_create_post_assigns_mp_token(db):
     post = await db.create_post("key1", "88aa00fffffffff", "Test Post")
     assert post["mp_token"]
     assert post["mp_token"] != post["hex_id"]
-    # Resolvable by either the token or (legacy) the hex.
+    # Resolvable by its token — and ONLY by its token. The real hex is not an
+    # identity outside this install and must never resolve as one.
     assert (await db.get_post_by_worker_ref(post["mp_token"]))["id"] == post["id"]
-    assert (await db.get_post_by_worker_ref(post["hex_id"]))["id"] == post["id"]
+    assert await db.get_post_by_worker_ref(post["hex_id"]) is None
 
 
 @pytest.mark.asyncio
-async def test_token_backfill_registered_keeps_hex(tmp_path):
-    """A registered install already pushed real hexes to the Worker, so its
-    pre-token posts keep token = hex_id (preserves Worker-side identity)."""
-    path = str(tmp_path / "backfill_reg.db")
-    db1 = Database(db_path=path)
-    await db1.connect()
-    await db1.get_or_create_player("key1", 40.0, -105.0)
-    await db1.create_post("key1", "88bb00fffffffff", "Old Post")
-    # Simulate a pre-token post and a registered install.
-    await db1._db.execute("UPDATE survey_posts SET mp_token = NULL")
-    await db1._db.execute(
-        "INSERT OR REPLACE INTO multiplayer_settings (key, value) VALUES ('player_id', 'abc')"
-    )
-    await db1._db.commit()
-    await db1.close()
-
-    db2 = Database(db_path=path)
-    await db2.connect()  # migrations + backfill run here
-    post = await db2.get_any_post_in_hex("88bb00fffffffff")
-    assert post["mp_token"] == "88bb00fffffffff"
-    await db2.close()
-
-
-@pytest.mark.asyncio
-async def test_token_backfill_unregistered_gets_random(tmp_path):
-    """A never-registered install never exposed its hexes — pre-token posts get
-    fresh random tokens so the hexes stay private for good."""
+async def test_token_backfill_always_random(tmp_path):
+    """Pre-token posts get a fresh random token on upgrade — never the hex_id,
+    which decodes straight to coordinates."""
     path = str(tmp_path / "backfill_unreg.db")
     db1 = Database(db_path=path)
     await db1.connect()

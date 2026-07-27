@@ -192,7 +192,7 @@
         {% endif %}
 
         {% if pvp_enabled|default(false) and not post.warded %}
-        <div class="post-defense" data-hex="{{ post.mp_token or post.hex_id }}" data-name="{{ post.name }}" data-post-id="{{ post.id }}">
+        <div class="post-defense" data-hex="{{ post.mp_token }}" data-name="{{ post.name }}" data-post-id="{{ post.id }}">
             <div class="cond-row cond-row-bar">
                 <span class="cond-label">❤️ Health</span>
                 <div class="cond-track cond-track-tall">
@@ -210,7 +210,7 @@
 
     {% if pvp_enabled|default(false) and not post.warded %}
     {# Boost only surfaces here when a raid is actually inbound to this post. #}
-    <div class="post-threat" id="post-threat-{{ post.id }}" data-hex="{{ post.mp_token or post.hex_id }}"
+    <div class="post-threat" id="post-threat-{{ post.id }}" data-hex="{{ post.mp_token }}"
          data-name="{{ post.name }}" hidden></div>
     {% endif %}
 
@@ -225,7 +225,7 @@
            /lora upkeep, never paid off here. Hidden until JS finds damage. #}
         <form method="post" action="/posts/{{ post.id }}/repair" style="margin:0;" hidden>
             <button type="submit" class="game-btn game-btn-primary game-btn-full confirm-btn repair-btn"
-                data-hex="{{ post.mp_token or post.hex_id }}">
+                data-hex="{{ post.mp_token }}">
                 🔧 Repair
             </button>
         </form>

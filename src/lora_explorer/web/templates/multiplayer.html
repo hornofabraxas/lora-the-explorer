@@ -284,8 +284,8 @@
             {# Scouted and unscouted rivals share one table so the card keeps its
                shape either way — unscouted rows just carry '?' where the scouted
                numbers would be. Scouted rows come from the cached snapshot;
-               otherwise prefer the richer `posts` (hex + custom name) and fall
-               back to bare hexes for legacy leaderboard payloads. #}
+               otherwise prefer the richer `posts` (token + custom name) and fall
+               back to bare post tokens. #}
             {% set ns = namespace(rows=[]) %}
             {% if scouted %}
                 {% set ns.rows = scouted %}

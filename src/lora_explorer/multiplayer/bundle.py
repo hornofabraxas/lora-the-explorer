@@ -36,10 +36,13 @@ async def build_bundle(db, since_timestamp: int | None = None, force: bool = Fal
     for post in posts:
         # The post's identity outside this install is its opaque mp_token — the
         # real H3 hex_id decodes straight to coordinates and must never cross
-        # the trust boundary. (Posts on installs registered before tokens
-        # existed keep token = hex_id; that exposure already happened, and
-        # keeping it preserves their Worker-side renown age and defense.)
-        token = post.get("mp_token") or post["hex_id"]
+        # the trust boundary. Every post has a token (assigned at charter, and
+        # backfilled on upgrade), so a missing one means something is wrong
+        # locally — skip the post rather than fall back to leaking the hex.
+        token = post.get("mp_token")
+        if not token:
+            log.warning("Post %s has no mp_token — omitted from bundle", post.get("id"))
+            continue
         # Only a custom name is sent. The auto-name is hex_name(hex_id) — a
         # deterministic hash of the real hex, brute-forceable over a region —
         # so an auto-named post ships "" and rivals' clients render a name
