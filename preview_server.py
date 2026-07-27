@@ -612,16 +612,16 @@ async def multiplayer_page(request: Request):
         ],
         "leaderboard": [
             {"player_id": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "display_name": "Wanderer", "post_count": 3, "total_renown": 1250, "renown_per_day": 18, "active_title": "Boundless"},
-            {"player_id": "x9y8z7w6v5u4t3s2r1q0p9o8n7m6l5k4", "display_name": "Pathfinder", "post_count": 2, "total_renown": 870, "active_title": "Reaver", "post_hexes": ["8a2a1072b5dffff", "8a2a1072b5effff"], "posts": [{"post_hex": "8a2a1072b5dffff", "name": "Ravensperch Watch"}, {"post_hex": "8a2a1072b5effff", "name": "Saltmarsh Redoubt"}]},
+            {"player_id": "x9y8z7w6v5u4t3s2r1q0p9o8n7m6l5k4", "display_name": "Pathfinder", "post_count": 2, "total_renown": 870, "active_title": "Reaver", "post_tokens": ["8a2a1072b5dffff", "8a2a1072b5effff"], "posts": [{"post_token": "8a2a1072b5dffff", "name": "Ravensperch Watch"}, {"post_token": "8a2a1072b5effff", "name": "Saltmarsh Redoubt"}]},
             {"player_id": "f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6", "display_name": "Trailblazer", "post_count": 1, "total_renown": 340, "active_title": None},
             {"player_id": "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7", "display_name": "Scout Rhea", "post_count": 4, "total_renown": 1610, "active_title": "Warlord"},
             {"player_id": "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8", "display_name": "Compass Kade", "post_count": 2, "total_renown": 620, "active_title": None},
             # Unscouted but with posts on file — exercises the '?' rows in the
             # shared Warfront table. Ridge Runner below keeps the legacy
-            # post_hexes-only shape (no `posts`) that older payloads sent.
-            {"player_id": "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9", "display_name": "Marsh Vell", "post_count": 3, "total_renown": 990, "active_title": "Steadfast", "post_hexes": ["8a2a1072b5a1ffff", "8a2a1072b5a2ffff", "8a2a1072b5a3ffff"], "posts": [{"post_hex": "8a2a1072b5a1ffff", "name": "Reedwater Post"}, {"post_hex": "8a2a1072b5a2ffff", "name": ""}, {"post_hex": "8a2a1072b5a3ffff", "name": "Fenlight Station"}]},
+            # post_tokens-only shape (no `posts`) that older payloads sent.
+            {"player_id": "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9", "display_name": "Marsh Vell", "post_count": 3, "total_renown": 990, "active_title": "Steadfast", "post_tokens": ["8a2a1072b5a1ffff", "8a2a1072b5a2ffff", "8a2a1072b5a3ffff"], "posts": [{"post_token": "8a2a1072b5a1ffff", "name": "Reedwater Post"}, {"post_token": "8a2a1072b5a2ffff", "name": ""}, {"post_token": "8a2a1072b5a3ffff", "name": "Fenlight Station"}]},
             {"player_id": "e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0", "display_name": "Dune Warden", "post_count": 5, "total_renown": 2040, "active_title": "Vanguard"},
-            {"player_id": "f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1", "display_name": "Ridge Runner", "post_count": 1, "total_renown": 210, "active_title": None, "post_hexes": ["8a2a1072b5b1ffff"]},
+            {"player_id": "f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1", "display_name": "Ridge Runner", "post_count": 1, "total_renown": 210, "active_title": None, "post_tokens": ["8a2a1072b5b1ffff"]},
         ],
         "available_titles": ["Boundless", "Trailblazer", "Reaver", "Pathfinder"],
         "active_title": "Boundless",
@@ -629,14 +629,14 @@ async def multiplayer_page(request: Request):
         "hex_name": lambda h: f"Territory {h[-4:].upper()}",
         "cached_scouts": {
             "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7": [
-                {"post_hex": "8a2a1072b591ffff", "name": "Ironhold Bastion", "level": 4, "age_days": 22, "hp": 90, "max_hp": 120, "defense_reduction": 0.25},
-                {"post_hex": "8a2a1072b593ffff", "name": "", "level": 2, "age_days": 6, "hp": 40, "max_hp": 50, "defense_reduction": 0.0},
+                {"post_token": "8a2a1072b591ffff", "name": "Ironhold Bastion", "level": 4, "age_days": 22, "hp": 90, "max_hp": 120, "defense_reduction": 0.25},
+                {"post_token": "8a2a1072b593ffff", "name": "", "level": 2, "age_days": 6, "hp": 40, "max_hp": 50, "defense_reduction": 0.0},
             ],
             "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8": [
-                {"post_hex": "8a2a1072b5a1ffff", "name": "Kade's Rest", "level": 2, "age_days": 9, "hp": 45, "max_hp": 50, "defense_reduction": 0.0},
+                {"post_token": "8a2a1072b5a1ffff", "name": "Kade's Rest", "level": 2, "age_days": 9, "hp": 45, "max_hp": 50, "defense_reduction": 0.0},
             ],
             "e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0": [
-                {"post_hex": "8a2a1072b5c1ffff", "name": "Dunewatch", "level": 5, "age_days": 40, "hp": 150, "max_hp": 160, "defense_reduction": 0.30},
+                {"post_token": "8a2a1072b5c1ffff", "name": "Dunewatch", "level": 5, "age_days": 40, "hp": 150, "max_hp": 160, "defense_reduction": 0.30},
             ],
         },
         "scout_ages": {
@@ -667,7 +667,7 @@ async def multiplayer_page(request: Request):
             "raid_id": "raid-preview-1",
             "attacker_name": "Wanderer",
             "target_player_name": "Pathfinder",
-            "target_post_hex": "8a2a1072b5dffff",
+            "target_post_token": "8a2a1072b5dffff",
             "target_post_name": "Ravensperch Watch",
             "item_types": ["attack_uncommon", "attack_common"],
             "raw_power": 50,
@@ -705,14 +705,14 @@ async def multiplayer_defense_api():
     return JSONResponse({
         "ok": True,
         "posts": [
-            {"post_hex": "hex_05", "defense_item": "defense_common", "defense_pct": 0.08,
+            {"post_token": "hex_05", "defense_item": "defense_common", "defense_pct": 0.08,
              "hp": 72, "max_hp": 100, "boost_hp": 40, "effective_hp": 122, "effective_max_hp": 109,
              "active_boosts": 1,
              "incoming_raids": [{"eta_seconds": 480, "threat": "heavy"}]},
-            {"post_hex": "hex_07", "defense_item": None, "defense_pct": 0.0,
+            {"post_token": "hex_07", "defense_item": None, "defense_pct": 0.0,
              "hp": 175, "max_hp": 175, "boost_hp": 0, "effective_hp": 175, "effective_max_hp": 175,
              "active_boosts": 0},
-            {"post_hex": "hex_02", "defense_item": None, "defense_pct": 0.0,
+            {"post_token": "hex_02", "defense_item": None, "defense_pct": 0.0,
              "hp": 50, "max_hp": 50, "boost_hp": 0, "effective_hp": 50, "effective_max_hp": 50,
              "active_boosts": 0},
         ],

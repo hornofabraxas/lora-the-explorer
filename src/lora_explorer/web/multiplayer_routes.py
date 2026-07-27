@@ -211,12 +211,12 @@ async def multiplayer_page(request: Request):
         for p in (leaderboard or [])
     }
     defense_data = await manager.get_defense() if manager.registered else {}
-    defense_posts = {p["post_hex"]: p for p in defense_data.get("posts", [])} if defense_data.get("ok") else {}
+    defense_posts = {p["post_token"]: p for p in defense_data.get("posts", [])} if defense_data.get("ok") else {}
     inbound_count = sum(len(p.get("incoming_raids", [])) for p in defense_posts.values())
 
     active_raid = await manager.get_active_raid() if manager.registered else None
 
-    # Per-target raid cooldowns (post_hex -> epoch seconds it clears), so the
+    # Per-target raid cooldowns (post_token -> epoch seconds it clears), so the
     # Warfront can show a countdown instead of the player only finding out a
     # target is on cooldown after Dispatch rejects it.
     raid_cooldowns = {}
@@ -410,13 +410,13 @@ async def multiplayer_install_item(request: Request):
         return JSONResponse({"ok": False, "error": "Not registered"}, status_code=400)
 
     body = await request.json()
-    post_hex = body.get("post_hex")
+    post_token = body.get("post_token")
     item_id = body.get("item_id")
 
-    if not post_hex or not item_id:
+    if not post_token or not item_id:
         return JSONResponse({"ok": False, "error": "Missing fields"}, status_code=400)
 
-    result = await manager.install_item(post_hex, item_id)
+    result = await manager.install_item(post_token, item_id)
     status = 200 if result.get("ok") else 400
     return JSONResponse(result, status_code=status)
 
@@ -428,13 +428,13 @@ async def multiplayer_restore_hp(request: Request):
         return JSONResponse({"ok": False, "error": "Not registered"}, status_code=400)
 
     body = await request.json()
-    post_hex = body.get("post_hex")
+    post_token = body.get("post_token")
     provisions_spent = body.get("provisions_spent")
 
-    if not post_hex or not isinstance(provisions_spent, int) or provisions_spent <= 0:
+    if not post_token or not isinstance(provisions_spent, int) or provisions_spent <= 0:
         return JSONResponse({"ok": False, "error": "Invalid fields"}, status_code=400)
 
-    result = await manager.restore_hp(post_hex, provisions_spent)
+    result = await manager.restore_hp(post_token, provisions_spent)
     status = 200 if result.get("ok") else 400
     return JSONResponse(result, status_code=status)
 
@@ -464,7 +464,7 @@ async def multiplayer_raid_preview(request: Request):
         return JSONResponse({"ok": False, "error": "Not registered"}, status_code=400)
     body = await request.json()
     result = await manager.preview_raid(
-        body.get("target_player_id"), body.get("target_post_hex"),
+        body.get("target_player_id"), body.get("target_post_token"),
         body.get("item_ids", []),
     )
     return JSONResponse(result)
@@ -477,11 +477,11 @@ async def multiplayer_raid_dispatch(request: Request):
         return JSONResponse({"ok": False, "error": "Not registered"}, status_code=400)
     body = await request.json()
     target_player_id = body.get("target_player_id")
-    target_post_hex = body.get("target_post_hex")
+    target_post_token = body.get("target_post_token")
     item_ids = body.get("item_ids", [])
-    if not target_player_id or not target_post_hex or not item_ids:
+    if not target_player_id or not target_post_token or not item_ids:
         return JSONResponse({"ok": False, "error": "Missing fields"}, status_code=400)
-    result = await manager.dispatch_raid(target_player_id, target_post_hex, item_ids)
+    result = await manager.dispatch_raid(target_player_id, target_post_token, item_ids)
     return JSONResponse(result, status_code=200 if result.get("ok") else 400)
 
 
@@ -491,11 +491,11 @@ async def multiplayer_defend_boost(request: Request):
     if not manager or not manager.registered:
         return JSONResponse({"ok": False, "error": "Not registered"}, status_code=400)
     body = await request.json()
-    post_hex = body.get("post_hex")
+    post_token = body.get("post_token")
     item_ids = body.get("item_ids", [])
-    if not post_hex or not item_ids:
+    if not post_token or not item_ids:
         return JSONResponse({"ok": False, "error": "Missing fields"}, status_code=400)
-    result = await manager.deploy_boost(post_hex, item_ids)
+    result = await manager.deploy_boost(post_token, item_ids)
     return JSONResponse(result, status_code=200 if result.get("ok") else 400)
 
 

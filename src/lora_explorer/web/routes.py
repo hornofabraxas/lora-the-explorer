@@ -599,7 +599,7 @@ async def dashboard(request: Request):
         # idle cadence is 20m, so anything older than ~40m can't be trusted.
         if cached_def and now_ts - cached_def.get("_cached_at", 0) <= 2400:
             for post in cached_def.get("posts", []):
-                ref = post.get("post_hex")
+                ref = post.get("post_token")
                 for raid in post.get("incoming_raids", []):
                     mp_brief["incoming"].append({
                         "post": name_by_ref.get(ref, (ref or "")[:8]),
@@ -1018,7 +1018,7 @@ async def repair_post(request: Request, post_id: int):
     )
 
 
-async def _repair_post_hp(engine, manager, player_key: str, post_hex: str) -> dict | None:
+async def _repair_post_hp(engine, manager, player_key: str, post_token: str) -> dict | None:
     """Heal a PvP post's defense HP to full, charging provisions locally.
 
     HP lives on the federated Worker, so we fetch the current deficit, spend as
@@ -1033,7 +1033,7 @@ async def _repair_post_hp(engine, manager, player_key: str, post_hex: str) -> di
     if not defense or not defense.get("ok"):
         return None
     target = next(
-        (p for p in defense.get("posts", []) if p.get("post_hex") == post_hex), None
+        (p for p in defense.get("posts", []) if p.get("post_token") == post_token), None
     )
     if not target:
         return None
@@ -1048,7 +1048,7 @@ async def _repair_post_hp(engine, manager, player_key: str, post_hex: str) -> di
     if spend <= 0:
         return None
 
-    result = await manager.restore_hp(post_hex, spend)
+    result = await manager.restore_hp(post_token, spend)
     if not result or not result.get("ok"):
         return None
     await engine._db.deduct_provisions(player_key, spend)

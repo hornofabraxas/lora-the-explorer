@@ -25,7 +25,7 @@ def manager(db):
 
 async def _add_item(db, item_id, item_type):
     await db._db.execute(
-        "INSERT INTO multiplayer_items (id, item_type, assigned_at, used, installed_post_hex) "
+        "INSERT INTO multiplayer_items (id, item_type, assigned_at, used, installed_post_token) "
         "VALUES (?, ?, ?, 0, NULL)",
         (item_id, item_type, int(time.time())),
     )
@@ -183,7 +183,7 @@ async def test_preview_raid_with_scout(manager, db):
     await db._db.execute(
         "INSERT INTO multiplayer_scouts (target_player_id, target_name, posts_json, scouted_at) "
         "VALUES (?, ?, ?, ?)",
-        ("target", "T", json.dumps([{"post_hex": "post_a", "hp": 50, "max_hp": 50, "defense_reduction": 0.25}]), int(time.time())),
+        ("target", "T", json.dumps([{"post_token": "post_a", "hp": 50, "max_hp": 50, "defense_reduction": 0.25}]), int(time.time())),
     )
     await db._db.commit()
 

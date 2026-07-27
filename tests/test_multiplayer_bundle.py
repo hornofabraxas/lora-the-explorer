@@ -114,7 +114,7 @@ async def test_build_bundle_uses_mp_token_not_hex():
     db = make_mock_db(player={"key": "player1"}, surveys=surveys, posts=posts)
 
     result = await build_bundle(db, since_timestamp=0)
-    assert result["post_summaries"][0]["post_hex"] == "tok123abc"
+    assert result["post_summaries"][0]["post_token"] == "tok123abc"
     # Custom name still travels with the token.
     assert result["post_summaries"][0]["name"] == "Post Alpha"
 

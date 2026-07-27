@@ -213,7 +213,7 @@ async def test_buy_item_worker_failure_does_not_charge(manager, db):
 async def _give_items(db, item_type, n, key="k"):
     for i in range(n):
         await db._db.execute(
-            "INSERT INTO multiplayer_items (id, item_type, assigned_at, used, installed_post_hex) "
+            "INSERT INTO multiplayer_items (id, item_type, assigned_at, used, installed_post_token) "
             "VALUES (?, ?, ?, 0, NULL)",
             (f"{item_type}-{i}", item_type, int(time.time()) + i),
         )
@@ -364,11 +364,11 @@ async def test_repelled_raids_award_bulwark(manager, db):
     manager._client._player_id = "me"
     # Three inbound raids appear, then vanish while the target post still stands.
     hex_id = "8a2a1072b59ffff"
-    incoming = {"posts": [{"post_hex": hex_id, "incoming_raids": [
+    incoming = {"posts": [{"post_token": hex_id, "incoming_raids": [
         {"raid_id": "r1"}, {"raid_id": "r2"}, {"raid_id": "r3"},
     ]}]}
     await manager._detect_defense_changes(incoming, now=1000)
-    cleared = {"posts": [{"post_hex": hex_id, "incoming_raids": []}]}
+    cleared = {"posts": [{"post_token": hex_id, "incoming_raids": []}]}
     await manager._detect_defense_changes(cleared, now=1100)
     assert "bulwark" in await manager.get_earned_mp_title_ids()
 
@@ -379,7 +379,7 @@ async def test_poll_status_idle_returns_not_engaged(manager, db):
     the loop falls back to the idle cadence, and makes exactly one request."""
     manager._client.get_status = AsyncMock(return_value={
         "ok": True,
-        "defense": {"ok": True, "posts": [{"post_hex": "h", "incoming_raids": []}]},
+        "defense": {"ok": True, "posts": [{"post_token": "h", "incoming_raids": []}]},
         "raid": {"ok": True, "active_raid_id": None, "raid": None},
     })
     engaged = await manager._poll_status()
@@ -405,7 +405,7 @@ async def test_poll_status_engaged_on_incoming_raid(manager, db):
     manager._client.get_status = AsyncMock(return_value={
         "ok": True,
         "defense": {"ok": True, "posts": [
-            {"post_hex": "h", "incoming_raids": [{"raid_id": "r9", "eta_seconds": 1800}]},
+            {"post_token": "h", "incoming_raids": [{"raid_id": "r9", "eta_seconds": 1800}]},
         ]},
         "raid": {"ok": True, "active_raid_id": None, "raid": None},
     })
@@ -518,7 +518,7 @@ async def test_try_push_reconciles_raze_from_notifications(manager, db, monkeypa
         "ok": True,
         "drops": [],
         "notifications": [
-            {"type": "raid_razed", "data": {"post_hex": post["mp_token"]}},
+            {"type": "raid_razed", "data": {"post_token": post["mp_token"]}},
         ],
     })
 

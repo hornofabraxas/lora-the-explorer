@@ -292,8 +292,8 @@
             {% else %}
                 {% set ns.rows = p.get('posts') or [] %}
                 {% if not ns.rows %}
-                    {% for hex_id in p.get('post_hexes', []) %}
-                    {% set ns.rows = ns.rows + [{'post_hex': hex_id}] %}
+                    {% for hex_id in p.get('post_tokens', []) %}
+                    {% set ns.rows = ns.rows + [{'post_token': hex_id}] %}
                     {% endfor %}
                 {% endif %}
             {% endif %}
@@ -307,13 +307,13 @@
                 <thead><tr><th>Survey Post</th><th>Level</th><th>Age</th>{% if pvp_enabled and can_attack %}<th>Actions</th>{% endif %}</tr></thead>
                 <tbody>
                 {% for post in ns.rows %}
-                {% set post_label = post.name or hex_name(post.post_hex) %}
+                {% set post_label = post.name or hex_name(post.post_token) %}
                 <tr>
                     <td>{{ post_label }}</td>
                     <td>{% if scouted %}Lv.{{ post.level }}{% else %}<span class="mp-muted">?</span>{% endif %}</td>
                     <td>{% if scouted %}{{ post.age_days }}d{% else %}<span class="mp-muted">?</span>{% endif %}</td>
                     {% if pvp_enabled and can_attack %}
-                    {% set cooldown_until = raid_cooldowns.get(post.post_hex) %}
+                    {% set cooldown_until = raid_cooldowns.get(post.post_token) %}
                     <td>
                         {% if cooldown_until and cooldown_until > now_ts %}
                         <span class="mp-cooldown-badge" data-cooldown-until="{{ cooldown_until }}"
@@ -321,7 +321,7 @@
                         {% else %}
                         <button class="game-btn game-btn-secondary game-btn-sm attack-btn"
                             data-target-player="{{ p.player_id }}"
-                            data-target-post="{{ post.post_hex }}"
+                            data-target-post="{{ post.post_token }}"
                             data-target-name="{{ p.display_name }}"
                             data-post-name="{{ post_label }}"
                             title="{% if scouted %}Attack this post{% else %}Attack blind{% endif %}">⚔️ Raid</button>
@@ -525,7 +525,7 @@ async function updateRaidPreview() {
     }
     const res = await fetch('/api/multiplayer/raid/preview', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({target_player_id: raidCtx.player, target_post_hex: raidCtx.post, item_ids: ids})
+        body: JSON.stringify({target_player_id: raidCtx.player, target_post_token: raidCtx.post, item_ids: ids})
     });
     const d = await res.json();
     let line = `Party: ${d.item_count} item(s) · Power ${d.raw_power} · Cost ${d.marks_cost}🪙`;
@@ -634,7 +634,7 @@ document.getElementById('raid-dispatch').addEventListener('click', async functio
     this.textContent = '⏳ Dispatching…';
     const res = await fetch('/api/multiplayer/raid/dispatch', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({target_player_id: raidCtx.player, target_post_hex: raidCtx.post, item_ids: ids})
+        body: JSON.stringify({target_player_id: raidCtx.player, target_post_token: raidCtx.post, item_ids: ids})
     });
     const d = await res.json();
     this.textContent = 'Dispatch Raid';

@@ -189,7 +189,7 @@ class Database:
                 item_type TEXT NOT NULL,
                 assigned_at INTEGER NOT NULL,
                 used INTEGER NOT NULL DEFAULT 0,
-                installed_post_hex TEXT,
+                installed_post_token TEXT,
                 bundle_timestamp INTEGER
             )""",
             """CREATE TABLE IF NOT EXISTS multiplayer_state (
@@ -207,7 +207,7 @@ class Database:
                 id TEXT PRIMARY KEY,
                 direction TEXT NOT NULL,
                 target_player TEXT,
-                target_post_hex TEXT,
+                target_post_token TEXT,
                 status TEXT NOT NULL,
                 renown_committed INTEGER,
                 travel_end_at INTEGER,
@@ -275,6 +275,13 @@ class Database:
             # decodes straight to coordinates, so the real hex_id must never
             # cross the trust boundary; this token carries no geography.
             "ALTER TABLE survey_posts ADD COLUMN mp_token TEXT",
+            # These columns hold a post's opaque token, never an H3 hex — the old
+            # "_hex" names were a leftover from before tokens existed and read as
+            # if coordinates were stored. No-ops on a fresh install (the CREATE
+            # TABLE statements above already use the new names) and on an install
+            # that has already been renamed; both raise and are swallowed below.
+            "ALTER TABLE multiplayer_items RENAME COLUMN installed_post_hex TO installed_post_token",
+            "ALTER TABLE multiplayer_attacks RENAME COLUMN target_post_hex TO target_post_token",
         ]
         for sql in migrations:
             try:

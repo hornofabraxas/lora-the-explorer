@@ -98,10 +98,10 @@ class WorkerClient:
             log.warning("Worker scout failed: %s", exc)
             return {"ok": False, "error": str(exc)}
 
-    async def install_item(self, post_hex: str, item_id: str) -> dict:
+    async def install_item(self, post_token: str, item_id: str) -> dict:
         try:
             import json
-            body = json.dumps({"post_hex": post_hex, "item_id": item_id})
+            body = json.dumps({"post_token": post_token, "item_id": item_id})
             headers = self._sign(body)
             headers["Content-Type"] = "application/json"
             resp = await self._http.post("/api/defend/install", content=body, headers=headers)
@@ -151,10 +151,10 @@ class WorkerClient:
             log.warning("Worker salvage_items failed: %s", exc)
             return {"ok": False, "error": str(exc)}
 
-    async def restore_hp(self, post_hex: str, provisions_spent: int) -> dict:
+    async def restore_hp(self, post_token: str, provisions_spent: int) -> dict:
         try:
             import json
-            body = json.dumps({"post_hex": post_hex, "provisions_spent": provisions_spent})
+            body = json.dumps({"post_token": post_token, "provisions_spent": provisions_spent})
             headers = self._sign(body)
             headers["Content-Type"] = "application/json"
             resp = await self._http.post("/api/defend/restore", content=body, headers=headers)
@@ -201,14 +201,14 @@ class WorkerClient:
             log.warning("Worker get_status failed: %s", exc)
             return {"ok": False, "error": str(exc)}
 
-    async def dispatch_raid(self, target_player_id: str, target_post_hex: str,
+    async def dispatch_raid(self, target_player_id: str, target_post_token: str,
                             item_ids: list[str]) -> dict:
         """Dispatch an atomic multi-item raid (travels, resolves at arrival)."""
         try:
             import json
             body = json.dumps({
                 "target_player_id": target_player_id,
-                "target_post_hex": target_post_hex,
+                "target_post_token": target_post_token,
                 "item_ids": item_ids,
             })
             headers = self._sign(body)
@@ -227,11 +227,11 @@ class WorkerClient:
             log.warning("Worker dispatch_raid failed: %s", exc)
             return {"ok": False, "error": str(exc)}
 
-    async def deploy_boost(self, post_hex: str, item_ids: list[str]) -> dict:
+    async def deploy_boost(self, post_token: str, item_ids: list[str]) -> dict:
         """Deploy defense items as temporary flat-HP boosts on a post."""
         try:
             import json
-            body = json.dumps({"post_hex": post_hex, "item_ids": item_ids})
+            body = json.dumps({"post_token": post_token, "item_ids": item_ids})
             headers = self._sign(body)
             headers["Content-Type"] = "application/json"
             resp = await self._http.post("/api/defend/boost", content=body, headers=headers)
@@ -250,7 +250,7 @@ class WorkerClient:
 
     async def get_raid_cooldowns(self) -> dict:
         """Fetch this player's live per-target raid cooldowns: {ok, expires_at}
-        mapping target post_hex -> epoch seconds the cooldown clears."""
+        mapping target post_token -> epoch seconds the cooldown clears."""
         try:
             headers = self._sign("")
             resp = await self._http.get("/api/raid/cooldowns", headers=headers)

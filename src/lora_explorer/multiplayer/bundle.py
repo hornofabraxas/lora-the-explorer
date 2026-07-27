@@ -51,7 +51,7 @@ async def build_bundle(db, since_timestamp: int | None = None, force: bool = Fal
         if name == hex_name(post["hex_id"]):
             name = ""
         post_summaries.append({
-            "post_hex": token,
+            "post_token": token,
             "level": post.get("level", 1),
             "name": name,
             # survey_posts stores the charter time in `created_at`; send that so

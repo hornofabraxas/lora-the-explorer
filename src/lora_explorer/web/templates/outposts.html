@@ -192,7 +192,7 @@
         {% endif %}
 
         {% if pvp_enabled|default(false) and not post.warded %}
-        <div class="post-defense" data-hex="{{ post.mp_token }}" data-name="{{ post.name }}" data-post-id="{{ post.id }}">
+        <div class="post-defense" data-token="{{ post.mp_token }}" data-name="{{ post.name }}" data-post-id="{{ post.id }}">
             <div class="cond-row cond-row-bar">
                 <span class="cond-label">❤️ Health</span>
                 <div class="cond-track cond-track-tall">
@@ -210,7 +210,7 @@
 
     {% if pvp_enabled|default(false) and not post.warded %}
     {# Boost only surfaces here when a raid is actually inbound to this post. #}
-    <div class="post-threat" id="post-threat-{{ post.id }}" data-hex="{{ post.mp_token }}"
+    <div class="post-threat" id="post-threat-{{ post.id }}" data-token="{{ post.mp_token }}"
          data-name="{{ post.name }}" hidden></div>
     {% endif %}
 
@@ -225,7 +225,7 @@
            /lora upkeep, never paid off here. Hidden until JS finds damage. #}
         <form method="post" action="/posts/{{ post.id }}/repair" style="margin:0;" hidden>
             <button type="submit" class="game-btn game-btn-primary game-btn-full confirm-btn repair-btn"
-                data-hex="{{ post.mp_token }}">
+                data-token="{{ post.mp_token }}">
                 🔧 Repair
             </button>
         </form>
@@ -284,14 +284,14 @@
             });
             return;
         }
-        var byHex = {};
-        (data.posts || []).forEach(function(p) { byHex[p.post_hex] = p; });
+        var byToken = {};
+        (data.posts || []).forEach(function(p) { byToken[p.post_token] = p; });
 
         defEls.forEach(function(el) {
-            var hex = el.dataset.hex;
+            var token = el.dataset.token;
             var name = el.dataset.name || 'this outpost';
             var pid = el.dataset.postId;
-            var def = byHex[hex];
+            var def = byToken[token];
             var text = el.querySelector('.def-text');
             var fill = el.querySelector('.def-fill');
             if (!def) {
@@ -321,17 +321,17 @@
                     ? ' <span class="cond-fort-boost" data-tip="Temporary HP boosts active">+' + def.active_boosts + '⬆️</span>' : '';
                 if (def.defense_item) {
                     fort.innerHTML = '<button type="button" class="fort-slot fort-installed install-btn" data-post="'
-                        + hex + '" data-post-name="' + name + '" title="' + drPct + '% damage reduction · tap to replace (current item is consumed)">'
+                        + token + '" data-post-name="' + name + '" title="' + drPct + '% damage reduction · tap to replace (current item is consumed)">'
                         + '🛡️ ' + mpItemName(def.defense_item).full + '</button>' + boost;
                 } else {
                     fort.innerHTML = '<button type="button" class="fort-slot fort-empty install-btn" data-post="'
-                        + hex + '" data-post-name="' + name + '">+ Install defensive item</button>' + boost;
+                        + token + '" data-post-name="' + name + '">+ Install defensive item</button>' + boost;
                 }
             }
 
             // Repair heals battle-damaged Health only (5 HP per provision). The
             // whole form stays hidden until there's actual damage to pay off.
-            var reBtn = document.querySelector('.repair-btn[data-hex="' + hex + '"]');
+            var reBtn = document.querySelector('.repair-btn[data-token="' + token + '"]');
             if (reBtn) {
                 var reForm = reBtn.closest('form');
                 if (def.hp < def.max_hp) {
@@ -358,7 +358,7 @@
                     var eta = Math.max(1, Math.round((incoming[0].eta_seconds || 0) / 60));
                     threat.innerHTML =
                         '<span class="post-threat-text">⚠️ Raid inbound — ETA ' + eta + 'm</span>' +
-                        '<button class="game-btn game-btn-primary game-btn-sm boost-btn" data-post="' + hex +
+                        '<button class="game-btn game-btn-primary game-btn-sm boost-btn" data-post="' + token +
                         '" data-post-name="' + name + '">⬆️ Boost</button>';
                     threat.hidden = false;
                 }
@@ -488,7 +488,7 @@ function renamePost(postId, btn) {
         fortifyConfirm.disabled = true; fortifyConfirm.textContent = '⏳';
         fetch('/api/multiplayer/install-item', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({post_hex: fortifyPost, item_id: fortifyChoice})
+            body: JSON.stringify({post_token: fortifyPost, item_id: fortifyChoice})
         }).then(function(r){ return r.json(); }).then(function(d) {
             if (d.ok) { location.reload(); }
             else { loraAlert('Install failed: ' + (d.error || 'unknown')); fortifyConfirm.disabled = false; fortifyConfirm.textContent = 'Install'; }
@@ -530,7 +530,7 @@ function renamePost(postId, btn) {
         boostDeploy.disabled = true; boostDeploy.textContent = '⏳ Deploying…';
         fetch('/api/multiplayer/defend/boost', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({post_hex: boostPost, item_ids: ids})
+            body: JSON.stringify({post_token: boostPost, item_ids: ids})
         }).then(function(r){ return r.json(); }).then(function(d) {
             boostDeploy.textContent = 'Deploy Boost';
             if (d.ok) { location.reload(); }

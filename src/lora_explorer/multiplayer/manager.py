@@ -157,7 +157,7 @@ class MultiplayerManager:
     async def get_items(self) -> list[dict]:
         try:
             async with self._db._db.execute(
-                "SELECT id, item_type, assigned_at, used, installed_post_hex "
+                "SELECT id, item_type, assigned_at, used, installed_post_token "
                 "FROM multiplayer_items WHERE used = 0 ORDER BY assigned_at DESC"
             ) as cursor:
                 rows = await cursor.fetchall()
@@ -168,7 +168,7 @@ class MultiplayerManager:
     async def get_all_items(self) -> list[dict]:
         try:
             async with self._db._db.execute(
-                "SELECT id, item_type, assigned_at, used, installed_post_hex "
+                "SELECT id, item_type, assigned_at, used, installed_post_token "
                 "FROM multiplayer_items ORDER BY assigned_at DESC"
             ) as cursor:
                 rows = await cursor.fetchall()
@@ -237,14 +237,14 @@ class MultiplayerManager:
         except Exception:
             return {}
 
-    async def install_item(self, post_hex: str, item_id: str) -> dict:
+    async def install_item(self, post_token: str, item_id: str) -> dict:
         if not self.registered:
             return {"ok": False, "error": "Not registered"}
-        result = await self._client.install_item(post_hex, item_id)
+        result = await self._client.install_item(post_token, item_id)
         if result.get("ok"):
             await self._db._db.execute(
-                "UPDATE multiplayer_items SET used = 1, installed_post_hex = ? WHERE id = ?",
-                (post_hex, item_id),
+                "UPDATE multiplayer_items SET used = 1, installed_post_token = ? WHERE id = ?",
+                (post_token, item_id),
             )
             await self._db._db.commit()
         return result
@@ -294,7 +294,7 @@ class MultiplayerManager:
         item = result.get("item", {})
         await self._db._db.execute(
             "INSERT OR IGNORE INTO multiplayer_items "
-            "(id, item_type, assigned_at, used, installed_post_hex) "
+            "(id, item_type, assigned_at, used, installed_post_token) "
             "VALUES (?, ?, ?, 0, NULL)",
             (item.get("id", purchase_id), item_type, int(time.time())),
         )
@@ -338,7 +338,7 @@ class MultiplayerManager:
         for _attempt in range(2):
             async with self._db._db.execute(
                 "SELECT id FROM multiplayer_items WHERE item_type = ? AND used = 0 "
-                "AND installed_post_hex IS NULL ORDER BY assigned_at ASC LIMIT ?",
+                "AND installed_post_token IS NULL ORDER BY assigned_at ASC LIMIT ?",
                 (item_type, count),
             ) as cursor:
                 ids = [row[0] for row in await cursor.fetchall()]
@@ -396,10 +396,10 @@ class MultiplayerManager:
             "currency": spec["currency"],
         }
 
-    async def restore_hp(self, post_hex: str, provisions_spent: int) -> dict:
+    async def restore_hp(self, post_token: str, provisions_spent: int) -> dict:
         if not self.registered:
             return {"ok": False, "error": "Not registered"}
-        return await self._client.restore_hp(post_hex, provisions_spent)
+        return await self._client.restore_hp(post_token, provisions_spent)
 
     async def get_defense(self) -> dict:
         if not self.registered:
@@ -418,13 +418,13 @@ class MultiplayerManager:
         ) as cursor:
             return [dict(r) for r in await cursor.fetchall()]
 
-    def _scouted_post(self, cached_scouts: dict, target_player_id: str, post_hex: str) -> dict | None:
+    def _scouted_post(self, cached_scouts: dict, target_player_id: str, post_token: str) -> dict | None:
         for post in cached_scouts.get(target_player_id, []):
-            if post.get("post_hex") == post_hex:
+            if post.get("post_token") == post_token:
                 return post
         return None
 
-    async def preview_raid(self, target_player_id: str, target_post_hex: str,
+    async def preview_raid(self, target_player_id: str, target_post_token: str,
                            item_ids: list[str]) -> dict:
         """Client-side damage preview from scouted intel + public item powers.
         No Worker round-trip. Projection assumes the target does not reinforce."""
@@ -433,7 +433,7 @@ class MultiplayerManager:
         marks_cost = sum(ATTACK_MARK_COST.get(r["item_type"], 0) for r in rows)
 
         scouts = await self.get_cached_scouts()
-        post = self._scouted_post(scouts, target_player_id, target_post_hex)
+        post = self._scouted_post(scouts, target_player_id, target_post_token)
         preview = {
             "ok": True,
             "item_count": len(rows),
@@ -467,7 +467,7 @@ class MultiplayerManager:
             })
         return preview
 
-    async def dispatch_raid(self, target_player_id: str, target_post_hex: str,
+    async def dispatch_raid(self, target_player_id: str, target_post_token: str,
                             item_ids: list[str]) -> dict:
         """Dispatch an atomic multi-item raid: commit items + marks, send to Worker."""
         if not self.registered:
@@ -491,9 +491,9 @@ class MultiplayerManager:
         # Snapshot the projection the player was just shown in the raid picker.
         # It's derived from local scout intel the Worker never receives, so this
         # is the only record of what they expected when they committed the party.
-        projection = await self.preview_raid(target_player_id, target_post_hex, item_ids)
+        projection = await self.preview_raid(target_player_id, target_post_token, item_ids)
 
-        result = await self._client.dispatch_raid(target_player_id, target_post_hex, item_ids)
+        result = await self._client.dispatch_raid(target_player_id, target_post_token, item_ids)
         if result.get("ok"):
             now = int(time.time())
             placeholders = ",".join("?" for _ in item_ids)
@@ -503,10 +503,10 @@ class MultiplayerManager:
             )
             await self._db._db.execute(
                 "INSERT INTO multiplayer_attacks "
-                "(id, direction, target_player, target_post_hex, status, "
+                "(id, direction, target_player, target_post_token, status, "
                 "travel_end_at, created_at, projection) "
                 "VALUES (?, 'outgoing', ?, ?, 'in_flight', ?, ?, ?)",
-                (result["raid_id"], target_player_id, target_post_hex,
+                (result["raid_id"], target_player_id, target_post_token,
                  result.get("arrives_at", now), now, json.dumps(projection)),
             )
             await self._db._db.commit()
@@ -521,7 +521,7 @@ class MultiplayerManager:
             })
         return result
 
-    async def deploy_boost(self, post_hex: str, item_ids: list[str]) -> dict:
+    async def deploy_boost(self, post_token: str, item_ids: list[str]) -> dict:
         """Deploy defense items as temporary flat-HP boosts on one of your posts."""
         if not self.registered:
             return {"ok": False, "error": "Not registered"}
@@ -534,7 +534,7 @@ class MultiplayerManager:
         if any(not r["item_type"].startswith("defense_") for r in rows):
             return {"ok": False, "error": "Only defense items can be deployed as boosts"}
 
-        result = await self._client.deploy_boost(post_hex, item_ids)
+        result = await self._client.deploy_boost(post_token, item_ids)
         if result.get("ok"):
             placeholders = ",".join("?" for _ in item_ids)
             await self._db._db.execute(
@@ -543,7 +543,7 @@ class MultiplayerManager:
             )
             await self._db._db.commit()
             self._engine._publish_event("multiplayer_boost_deployed", {
-                "post_hex": post_hex, "items": len(item_ids),
+                "post_token": post_token, "items": len(item_ids),
                 "total_boost_hp": result.get("total_boost_hp"),
             })
         return result
@@ -551,7 +551,7 @@ class MultiplayerManager:
     async def get_local_attacks(self) -> list[dict]:
         try:
             async with self._db._db.execute(
-                "SELECT id, direction, target_player, target_post_hex, status, "
+                "SELECT id, direction, target_player, target_post_token, status, "
                 "resolved_at, outcome, created_at "
                 "FROM multiplayer_attacks ORDER BY created_at DESC LIMIT 20"
             ) as cursor:
@@ -885,10 +885,10 @@ class MultiplayerManager:
                 data = note.get("data") or {}
                 ntype = note.get("type", "")
                 if ntype == "raid_razed":
-                    await self._apply_raid_outcome_local(data.get("post_hex"), "razed")
+                    await self._apply_raid_outcome_local(data.get("post_token"), "razed")
                 elif ntype == "raid_damaged":
                     await self._apply_raid_outcome_local(
-                        data.get("post_hex"), "damaged", data.get("level_after"),
+                        data.get("post_token"), "damaged", data.get("level_after"),
                     )
 
             all_items = result.get("all_items")
@@ -927,14 +927,14 @@ class MultiplayerManager:
         for item in worker_items:
             await self._db._db.execute(
                 "INSERT OR IGNORE INTO multiplayer_items "
-                "(id, item_type, assigned_at, used, installed_post_hex) "
+                "(id, item_type, assigned_at, used, installed_post_token) "
                 "VALUES (?, ?, ?, ?, ?)",
                 (
                     item["id"],
                     item["type"],
                     item.get("assigned_at", int(time.time())),
                     1 if item.get("used", False) else 0,
-                    item.get("installed_post_hex") or None,
+                    item.get("installed_post_token") or None,
                 ),
             )
         await self._db._db.commit()
@@ -954,18 +954,18 @@ class MultiplayerManager:
         await self._db._db.commit()
 
     async def _apply_raid_outcome_local(
-        self, post_hex: str | None, outcome: str, level_after: int | None = None,
+        self, post_token: str | None, outcome: str, level_after: int | None = None,
     ) -> None:
         """Reconcile a local Survey Post to a Worker combat outcome. A raze
         permanently destroys the outpost (delete it locally so it stops being
         re-pushed and resurrected); a level-loss knocks it down one level. The
         Worker is authoritative here, so this always follows its verdict.
         Idempotent — a missing/already-reconciled post is a no-op."""
-        if not post_hex:
+        if not post_token:
             return
         # The Worker refers to posts only by their opaque mp_token — resolve it
         # to the local record.
-        post = await self._db.get_post_by_worker_ref(post_hex)
+        post = await self._db.get_post_by_worker_ref(post_token)
         if not post:
             return
         if outcome == "razed":
@@ -976,7 +976,7 @@ class MultiplayerManager:
                 await self._db.set_post_level(post["id"], new_level)
 
     async def _detect_defense_changes(self, new_defense: dict, now: int) -> None:
-        new_posts = {p["post_hex"]: p for p in new_defense.get("posts", [])}
+        new_posts = {p["post_token"]: p for p in new_defense.get("posts", [])}
         old_posts = self._prev_defense_snapshot
         alerts = []
 
