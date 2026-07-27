@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Help — LoRa the Explorer{% endblock %}
+
+{% block content %}
+<div class="doc-page">
+<h2>How to Play</h2>
+<p class="doc-lede">LoRa the Explorer is a location-based exploration game played over LoRa mesh radio. Grab your spyglass (mobile mesh node), head outside, and survey the world around you.</p>
+
+<section class="doc-section">
+    <h3 class="doc-section-title">📡 Commands</h3>
+    <p>Send these as messages to your companion node via the MeshCore app.</p>
+    <dl class="doc-defs">
+        <dt><code>/lora survey</code></dt>
+        <dd>Survey your current location. Earns XP and 📦 provisions. Discovering a new territory earns bonus rewards and 🪙 survey marks. You can survey each territory once per day (resets at 00:00 UTC).</dd>
+        <dt><code>/lora charter</code></dt>
+        <dd>Begin constructing a Survey Post at your current location. Costs 📦{{ charter_prov_cost }} provisions and 🪙{{ charter_mark_cost }} survey marks. Must be at least {{ charter_min_dist }} miles from Base Camp. You'll be prompted to name your outpost.</dd>
+        <dt><code>/lora upkeep</code></dt>
+        <dd>Perform upkeep on a Survey Post at your current location — free, but you must physically be there. Restores the post to full income and resets its ruin timer. Surveying past a post no longer maintains it; only upkeep does.</dd>
+    </dl>
+</section>
+
+<section class="doc-section">
+    <h3 class="doc-section-title">🧭 Core Loop</h3>
+    <ol>
+        <li><strong>Survey</strong> — explore new territories to earn XP and provisions.</li>
+        <li><strong>Upgrade Base Camp</strong> — spend provisions to increase your XP multiplier and Survey Post capacity.</li>
+        <li><strong>Charter Survey Posts</strong> — plant outposts in distant territories for passive provision income.</li>
+        <li><strong>Upkeep</strong> — visit your Survey Posts to keep them out of ruin and earning full income.</li>
+    </ol>
+</section>
+
+<section class="doc-section">
+    <h3 class="doc-section-title">💰 Currencies</h3>
+    <dl class="doc-defs">
+        <dt>📦 Provisions</dt>
+        <dd>Earned from surveys. Spent on Base Camp upgrades, chartering Survey Posts, and upgrading and reinforcing Survey Posts.</dd>
+        <dt>🪙 Survey Marks</dt>
+        <dd>Earned from discovering new territories. Spent on chartering Survey Posts and launching PvP attacks.</dd>
+    </dl>
+</section>
+
+<section class="doc-section">
+    <h3 class="doc-section-title">🚩 Survey Posts</h3>
+    <p>Survey Posts are remote outposts that passively generate 📦 provisions. Higher-level posts and posts further from Base Camp generate more. A post pays full income for 10 days after upkeep, then its income fades to nothing over the next week — falling into ruin.</p>
+    <p>Ruin never destroys a post or costs it levels; a ruined post simply earns nothing until you visit. Restore full income by physically performing <code>/lora upkeep</code> on-site (free). On PvP posts, the web Repair button restores battle-damaged Health for provisions.</p>
+</section>
+
+<section class="doc-section">
+    <h3 class="doc-section-title">🏺 Relics</h3>
+    <p>Surveying has a chance to uncover ancient relics — mysterious artifacts that predate the World's End Society. Relics are found randomly during surveys and can be used from your dashboard.</p>
+    <dl class="doc-defs">
+        {% if 'buried_cache' in discovered_relics %}
+        <dt>📦 Buried Cache</dt>
+        <dd>A sealed supply crate. Open it from your dashboard for an instant +{{ buried_cache_amount }} provisions.</dd>
+        {% else %}
+        <dt class="doc-def-locked">✧ Undiscovered relic</dt>
+        <dd class="doc-def-locked">Find this relic while surveying to reveal its secrets.</dd>
+        {% endif %}
+        {% if 'vigor_tonic' in discovered_relics %}
+        <dt>⚗️ Vigor Tonic</dt>
+        <dd>A potent elixir that clears all survey cooldowns, letting you re-survey every territory immediately.</dd>
+        {% else %}
+        <dt class="doc-def-locked">✧ Undiscovered relic</dt>
+        <dd class="doc-def-locked">Find this relic while surveying to reveal its secrets.</dd>
+        {% endif %}
+        {% if 'wardstone' in discovered_relics %}
+        <dt>🛡️ Wardstone</dt>
+        <dd>An ancient protective stone. Apply it to a Survey Post to freeze its ruin timer for 30 days.</dd>
+        {% else %}
+        <dt class="doc-def-locked">✧ Undiscovered relic</dt>
+        <dd class="doc-def-locked">Find this relic while surveying to reveal its secrets.</dd>
+        {% endif %}
+    </dl>
+</section>
+
+<section class="doc-section">
+    <h3 class="doc-section-title">📜 Expedition Contracts</h3>
+    <p>After completing Field Training, the Society offers weekly Expedition Contracts. Two contracts are available each week, randomly drawn from a pool. Spend provisions to accept a contract, then complete the objective before the week ends to earn survey marks or a rare relic — the priciest contracts can even award a tier-IV combat munition when PvP is enabled. Uncompleted contracts expire — provisions are not refunded.</p>
+</section>
+
+<section class="doc-section">
+    <h3 class="doc-section-title">🛒 Frontier Merchant</h3>
+    <p>At Base Camp Level 5 (Lodge), a travelling merchant sets up shop. Purchase relics you've previously discovered using provisions. All purchases are limited to once per week and reset on Monday UTC. Prices are steep — the merchant deals in convenience, not charity.</p>
+</section>
+
+<section class="doc-section">
+    <h3 class="doc-section-title">🖼️ Postcards</h3>
+    <p>Postcards are achievements earned by reaching milestones — distance surveyed, territories discovered, streaks maintained, posts held, and area covered. Each postcard class has 5 stars with increasing thresholds. Collect them all to prove your mastery of the world's edge.</p>
+</section>
+</div>
+{% endblock %}

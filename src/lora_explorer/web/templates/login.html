@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="LoRa the Explorer">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>Login — LoRa the Explorer</title>
+    <link rel="apple-touch-icon" href="/static/icon-180.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/icon-180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="/static/style.css?v=54">
+</head>
+<body>
+    <main class="container" style="max-width: 420px; margin-top: 10vh;">
+        <article>
+            <header style="text-align: center;">
+                <h2 style="margin: 0;">📻 LoRa the Explorer</h2>
+            </header>
+
+            {% if error %}
+            <div style="padding: 0.5rem 0.75rem; border-radius: 0.4rem; border: 1px solid var(--pico-del-color); color: var(--pico-del-color); font-size: 0.85rem; margin-bottom: 1rem;">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            {% if has_oidc %}
+            <a href="/auth/oidc/start" role="button" style="width: 100%; text-align: center; margin-bottom: 0;">Log in with SSO</a>
+            {% endif %}
+
+            {% if has_oidc and has_password %}
+            <div style="text-align: center; margin: 1rem 0; opacity: 0.5; font-size: 0.85rem;">— or —</div>
+            {% endif %}
+
+            {% if has_password %}
+            <form method="post" action="/login">
+                <label for="password">Password
+                    <input type="password" id="password" name="password" autocomplete="current-password" required {% if not has_oidc %}autofocus{% endif %}>
+                </label>
+                <button type="submit">Log In</button>
+            </form>
+            {% endif %}
+
+            <details style="margin-top: 1rem;">
+                <summary style="cursor: pointer; font-size: 0.85rem; opacity: 0.6;">Locked out?</summary>
+                <div style="font-size: 0.8rem; opacity: 0.7; margin-top: 0.5rem; line-height: 1.5;">
+                    <p style="margin-bottom: 0.5rem;">Run this command on your host machine to reset authentication:</p>
+                    <p><strong>Docker:</strong></p>
+                    <code style="font-size: 0.75rem; display: block; padding: 0.4rem 0.6rem; background: rgba(255,255,255,0.05); border-radius: 0.3rem; margin-bottom: 0.5rem; word-break: break-all;">docker exec lora-the-explorer python -m lora_explorer.reset_password</code>
+                    <p><strong>Bare metal:</strong></p>
+                    <code style="font-size: 0.75rem; display: block; padding: 0.4rem 0.6rem; background: rgba(255,255,255,0.05); border-radius: 0.3rem; margin-bottom: 0.5rem; word-break: break-all;">python -m lora_explorer.reset_password --data-dir /path/to/data</code>
+                    <p style="margin-top: 0.5rem; font-size: 0.75rem;">Use <code>--mode password</code>, <code>--mode oidc</code>, or <code>--mode all</code> (default) to choose what to reset.</p>
+                </div>
+            </details>
+        </article>
+    </main>
+</body>
+</html>

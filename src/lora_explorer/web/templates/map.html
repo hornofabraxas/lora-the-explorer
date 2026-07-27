@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Hex Map — LoRa the Explorer{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+    #map {
+        height: calc(100vh - 12rem);
+        min-height: 400px;
+        border-radius: 0.5rem;
+        border: 1px solid var(--pico-muted-border-color);
+    }
+    .hex-legend {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 1rem;
+        font-size: 0.85rem;
+    }
+    .hex-legend span::before {
+        content: "";
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        margin-right: 0.4rem;
+        vertical-align: middle;
+    }
+    .legend-discovered::before { background: #4CAF50; }
+    .legend-post::before { background: #2196F3; }
+    .legend-home::before { background: #FFD700; }
+    .legend-pin::before { background: #FF5722; border-radius: 50%; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; justify-content: space-between;">
+    <h2 style="margin-bottom: 0.5rem;">Hex Map</h2>
+    <button class="refresh-btn" onclick="this.classList.add('refreshing'); location.reload();" title="Refresh">&#x21bb;</button>
+</div>
+
+<div class="hex-legend">
+    <span class="legend-discovered">Discovered</span>
+    <span class="legend-post">Survey Post</span>
+    <span class="legend-home">Base Camp</span>
+    <span class="legend-pin">Latest Survey</span>
+</div>
+
+<div id="map"></div>
+
+<script>
+(function() {
+    const homeLat = {{ home_lat }};
+    const homeLng = {{ home_lon }};
+
+    const focusHex = {{ focus_hex | tojson }};
+    const map = L.map('map').setView([homeLat, homeLng], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 18,
+    }).addTo(map);
+
+    const colors = {
+        discovered: '#4CAF50',
+        post: '#2196F3',
+        home: '#FFD700',
+    };
+
+    function esc(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    fetch('/api/hexes')
+        .then(r => r.json())
+        .then(hexes => {
+            if (hexes.length === 0) return;
+
+            let focusPolygon = null;
+
+            hexes.forEach(hex => {
+                const latlngs = hex.boundary.map(b => [b[0], b[1]]);
+                const color = colors[hex.type] || colors.discovered;
+
+                const polygon = L.polygon(latlngs, {
+                    color: color,
+                    weight: 2,
+                    fillColor: color,
+                    fillOpacity: 0.25,
+                }).addTo(map);
+
+                let popup = `<strong>${esc(hex.hex_id.substring(0, 12))}…</strong><br>`;
+                popup += `Surveys: ${hex.survey_count}<br>`;
+                const date = new Date(hex.discovered_at * 1000);
+                popup += `Discovered: ${date.toLocaleDateString()}<br>`;
+
+                if (hex.post_name) {
+                    popup += `<br><strong>Post: ${esc(hex.post_name)}</strong><br>`;
+                    popup += `Level: ${'★'.repeat(hex.post_level)}`;
+                }
+
+                if (hex.type === 'home') {
+                    popup += `<br><em>Base Camp</em>`;
+                }
+
+                polygon.bindPopup(popup);
+
+                if (hex.survey_lat != null) {
+                    L.circleMarker([hex.survey_lat, hex.survey_lng], {
+                        radius: 4,
+                        color: '#FF5722',
+                        fillColor: '#FF5722',
+                        fillOpacity: 0.9,
+                        weight: 1,
+                    }).addTo(map).bindPopup(
+                        `<strong>Last survey</strong><br>${hex.survey_lat.toFixed(5)}, ${hex.survey_lng.toFixed(5)}`
+                    );
+                }
+
+                if (focusHex && hex.hex_id === focusHex) {
+                    focusPolygon = polygon;
+                }
+            });
+
+            if (focusPolygon) {
+                map.setView(focusPolygon.getBounds().getCenter(), 16);
+                focusPolygon.openPopup();
+            } else if (hexes.length > 1) {
+                const bounds = hexes.map(h => [h.lat, h.lng]);
+                map.fitBounds(bounds, { padding: [30, 30] });
+            }
+        });
+
+    L.marker([homeLat, homeLng], {
+        title: 'Base Camp',
+    }).addTo(map).bindPopup('<strong>Base Camp</strong>');
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,892 @@
+{% extends "base.html" %}
+{% block title %}Settings — LoRa the Explorer{% endblock %}
+
+{% block head %}
+<script src="/static/qrcode.min.js?v=1"></script>
+<style>
+    .conn-type-tabs {
+        display: flex;
+        gap: 0.25rem;
+        margin-bottom: 1rem;
+        padding: 0.25rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 0.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+    .conn-type-tabs button {
+        flex: 1;
+        margin: 0;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.85rem;
+        background: transparent;
+        border: none;
+        border-radius: 0.35rem;
+        color: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+    }
+    .conn-type-tabs button:hover { color: rgba(255, 255, 255, 0.75); background: rgba(255, 255, 255, 0.07); }
+    .conn-type-tabs button.active { color: #fff; background: var(--pico-primary); font-weight: 600; }
+    .conn-panel { display: none; }
+    .conn-panel.active { display: block; }
+    .ble-devices { margin-top: 0.5rem; }
+    .ble-device {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.4rem 0.6rem; border: 1px solid var(--pico-muted-border-color);
+        border-radius: 0.4rem; margin-bottom: 0.3rem; cursor: pointer;
+        transition: border-color 0.15s;
+    }
+    .ble-device:hover, .ble-device.selected { border-color: var(--pico-primary); }
+    .ble-device.selected { background: color-mix(in srgb, var(--pico-primary) 10%, transparent); }
+    .save-result {
+        margin-top: 0.5rem; padding: 0.4rem 0.6rem; border-radius: 0.4rem;
+        font-size: 0.85rem; display: none;
+    }
+    .save-result.success { display: block; border: 1px solid var(--pico-ins-color); color: var(--pico-ins-color); }
+    .save-result.error { display: block; border: 1px solid var(--pico-del-color); color: var(--pico-del-color); }
+    .save-result.info { display: block; border: 1px solid var(--pico-muted-border-color); color: var(--pico-muted-color); }
+    details summary { list-style: none; }
+    details summary::-webkit-details-marker { display: none; }
+    details summary::marker { display: none; content: ""; }
+    details[open] .details-arrow { transform: rotate(90deg); }
+    /* A whole section that is itself collapsible: its title is the toggle.
+       Settings is a stack of nothing but these, so each one reads as its own
+       panel — a raised, bordered header strip over an inset body — instead of
+       hairline rules that vanish into the page background. */
+    .doc-section-collapse {
+        border: 1px solid var(--pico-muted-border-color);
+        border-radius: 0.5rem;
+        padding: 0;
+        margin-bottom: 0.6rem;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.015);
+    }
+    /* The shared .doc-section:first-of-type rule strips the top border and adds
+       padding for the flat help-page layout; the panel needs both back. */
+    .doc-section-collapse:first-of-type {
+        padding-top: 0;
+        border-top: 1px solid var(--pico-muted-border-color);
+    }
+    .doc-section-collapse > summary {
+        cursor: pointer;
+        margin-bottom: 0;
+        padding: 0.7rem 0.85rem;
+        background: rgba(255, 255, 255, 0.045);
+        transition: background 0.15s, color 0.15s;
+    }
+    .doc-section-collapse > summary:hover { color: #f2e4bd; background: rgba(255, 255, 255, 0.075); }
+    .doc-section-collapse > summary .details-arrow { margin-left: auto; opacity: 0.5; transition: transform 0.2s; }
+    .doc-section-collapse[open] > summary {
+        margin-bottom: 0;
+        border-bottom: 1px solid var(--pico-muted-border-color);
+    }
+    /* Body padding lives on a wrapper-free section, so indent the children. */
+    .doc-section-collapse > *:not(summary) { margin-left: 0.85rem; margin-right: 0.85rem; }
+    .doc-section-collapse > summary + * { margin-top: 0.85rem; }
+    .doc-section-collapse > *:last-child { margin-bottom: 0.85rem; }
+    .mesh-health { margin-top: 0.5rem; border: 1px solid var(--pico-muted-border-color); border-radius: 0.5rem; overflow: hidden; }
+    .health-row {
+        display: flex; align-items: center; gap: 0.6rem;
+        padding: 0.55rem 0.75rem; font-size: 0.9rem;
+        border-top: 1px solid var(--pico-muted-border-color);
+    }
+    .health-row:first-child { border-top: none; }
+    .health-label { flex: 1; }
+    .health-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .health-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; flex: 0 0 auto; background: var(--pico-muted-color); }
+    .health-ok { background: var(--pico-ins-color); }
+    .health-warn { background: #d9a300; }
+    .health-bad { background: var(--pico-del-color); }
+    /* A switch row: label on the left, toggle on the right. */
+    .switch-row { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.6rem; }
+    .switch-row:last-child { margin-bottom: 0; }
+    .switch-row input[type="checkbox"] { margin: 0; flex: 0 0 auto; }
+    .settings-subhead {
+        font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+        letter-spacing: 0.04em; color: #E8D5A3; opacity: 0.85;
+        margin: 1rem 0 0.5rem; padding-top: 0.9rem;
+        border-top: 1px solid var(--pico-muted-border-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="doc-page">
+<h2>Settings</h2>
+
+{# Collapsed like every other section — except when there's no companion, where #}
+{# the connection form is the one thing you came to this page to fill in.       #}
+<details class="doc-section doc-section-collapse" {% if not companion or not companion.connected %}open{% endif %}>
+    <summary class="doc-section-title">📡 Base Camp Companion <span class="details-arrow">▶</span></summary>
+
+    {% if companion and companion.connected %}
+    <div class="info-grid">
+        <div>
+            <small>Status</small><br>
+            <span style="color: var(--pico-ins-color);">● Connected</span>
+        </div>
+        <div>
+            <small>Connection</small><br>
+            {{ config.connection_type | upper }} · {{ companion.connection }}
+        </div>
+        {% if companion.node_name %}
+        <div>
+            <small>Node</small><br>
+            {{ companion.node_name }}
+        </div>
+        {% endif %}
+        {% if 'battery_mv' in companion %}
+        <div>
+            <small>Battery</small><br>
+            {% if companion.battery_mv %}{{ companion.battery_mv }} mV{% else %}Plugged in{% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="info-grid" style="margin-bottom: 1rem;">
+        <div>
+            <small>Status</small><br>
+            <span style="color: var(--pico-del-color);">● Disconnected</span>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Connection setup lives inline now: the whole section is collapsible, so a #}
+    {# second nested toggle just buried the one control you came here to change. #}
+    <div class="settings-subhead">Configure Companion</div>
+    <div>
+            <div class="conn-type-tabs">
+                <button type="button" onclick="switchConnType('wifi')" data-tab="wifi" {% if config.connection_type == 'wifi' %}class="active"{% endif %}>WiFi / TCP</button>
+                <button type="button" onclick="switchConnType('usb')" data-tab="usb" {% if config.connection_type == 'usb' %}class="active"{% endif %}>USB / Serial</button>
+                <button type="button" onclick="switchConnType('ble')" data-tab="ble" {% if config.connection_type == 'ble' %}class="active"{% endif %}>Bluetooth LE</button>
+            </div>
+
+            <div class="conn-panel {% if config.connection_type == 'wifi' %}active{% endif %}" id="panel-wifi">
+                <label for="s-wifi-host">Companion IP Address
+                    <input type="text" id="s-wifi-host" value="{{ config.companion_host or '' }}" placeholder="192.168.1.100" autocomplete="off">
+                </label>
+                <label for="s-wifi-port">Port
+                    <input type="number" id="s-wifi-port" value="{{ config.companion_port or 5000 }}" min="1" max="65535">
+                </label>
+            </div>
+
+            <div class="conn-panel {% if config.connection_type == 'usb' %}active{% endif %}" id="panel-usb">
+                <label for="s-usb-port">Serial Port
+                    <input type="text" id="s-usb-port" value="{{ config.serial_port or '/dev/ttyUSB0' }}" autocomplete="off">
+                </label>
+                <small style="opacity: 0.6;">Common: <code>/dev/ttyUSB0</code>, <code>/dev/ttyACM0</code>, <code>/dev/cu.usbmodem*</code></small>
+            </div>
+
+            <div class="conn-panel {% if config.connection_type == 'ble' %}active{% endif %}" id="panel-ble">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <button type="button" class="game-btn game-btn-secondary" id="s-ble-scan-btn" onclick="settingsScanBle()">Scan for Devices</button>
+                    <span id="s-ble-scan-status" style="font-size: 0.85rem; opacity: 0.6;"></span>
+                </div>
+                <div class="ble-devices" id="s-ble-devices"></div>
+                <label for="s-ble-address">BLE Address
+                    <input type="text" id="s-ble-address" value="{{ config.ble_address or '' }}" placeholder="AA:BB:CC:DD:EE:FF" autocomplete="off">
+                </label>
+                <label for="s-ble-pin">PIN (optional)
+                    <input type="text" id="s-ble-pin" value="{{ config.ble_pin or '' }}" placeholder="Leave blank if none" autocomplete="off">
+                </label>
+                <div style="font-size: 0.8rem; opacity: 0.6; padding: 0.3rem 0.5rem; border: 1px solid var(--pico-muted-border-color); border-radius: 0.3rem; margin-top: 0.3rem;">
+                    ⚠️ BLE from inside Docker requires <code>--privileged</code> mode. Works best on bare-metal installs.
+                </div>
+            </div>
+
+            {# Primary action first, then the read-only check, then the destructive #}
+            {# one — all three sized alike so the row reads as one control group.   #}
+            <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem; flex-wrap: wrap;">
+                <button type="button" onclick="settingsSaveConn()" id="s-save-btn" class="game-btn game-btn-primary">Save & Reconnect</button>
+                <button type="button" onclick="settingsTestConn()" id="s-test-btn" class="game-btn game-btn-secondary">Test Connection</button>
+                {% if companion and companion.connected %}
+                <form method="post" action="/settings/reboot-companion" style="margin: 0;">
+                    <button type="submit" class="game-btn game-btn-danger confirm-btn" data-confirm-text="Reboot companion?">Reboot Companion</button>
+                </form>
+                {% endif %}
+                <span id="s-save-spinner" style="display: none; font-size: 0.85rem; opacity: 0.6;">Working...</span>
+            </div>
+            <div class="save-result" id="s-save-result"></div>
+    </div>
+</details>
+
+<details class="doc-section doc-section-collapse">
+    <summary class="doc-section-title">🔭 Spyglass <span class="details-arrow">▶</span></summary>
+
+    {% if companion and companion.connected and companion.public_key %}
+    <p class="doc-hint" style="margin-top: 0;">
+        {% if not spyglasses %}No spyglasses linked yet. {% endif %}Add the Base Camp companion below as a contact — scan the QR or copy its key — then send <code>/lora survey</code> from the spyglass to link it.
+    </p>
+    <div style="display: flex; gap: 0.75rem; align-items: flex-start; flex-wrap: wrap;">
+        <div style="flex: 1 1 12rem; min-width: 10rem;">
+            <small style="opacity: 0.6;">Base Camp public key</small><br>
+            <code id="companion-pubkey" style="font-size: 0.72rem; word-break: break-all; user-select: all;" title="{{ companion.public_key }}">{{ companion.public_key[:10] }}…{{ companion.public_key[-6:] }}</code>
+            <button type="button" class="game-btn game-btn-secondary game-btn-sm" onclick="navigator.clipboard.writeText('{{ companion.public_key }}').then(function(){var b=event.target;var t=b.textContent;b.textContent='Copied';setTimeout(function(){b.textContent=t;},1500);})" style="display: inline-block; margin: 0.25rem 0 0;">Copy</button>
+        </div>
+        <div id="companion-pubkey-qr" data-key="{{ companion.public_key }}" style="flex: 0 0 auto; background: #fff; padding: 0.4rem; border-radius: 0.4rem; line-height: 0; width: 7rem; height: 7rem;" title="Scan to add Base Camp as a contact"></div>
+    </div>
+    <script>
+    (function() {
+        var box = document.getElementById('companion-pubkey-qr');
+        if (!box || typeof qrcode === 'undefined') return;
+        try {
+            var qr = qrcode(0, 'M');
+            qr.addData(box.dataset.key);
+            qr.make();
+            box.innerHTML = qr.createSvgTag({ cellSize: 3, margin: 0, scalable: true });
+            var svg = box.querySelector('svg');
+            if (svg) { svg.style.width = '100%'; svg.style.height = '100%'; }
+        } catch (e) {
+            box.style.display = 'none';
+        }
+    })();
+    </script>
+    {% elif not companion or not companion.connected %}
+    <p class="doc-hint" style="margin-top: 0;">Connect your Base Camp companion to link a spyglass.</p>
+    {% endif %}
+
+    {% if companion and companion.connected %}
+    <div class="settings-subhead">Test Base Camp &gt; Spyglass connectivity</div>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end;">
+        {% if spyglasses %}
+        {# The button next to it says "Send Test Message", so the picker needs no label. #}
+        <select id="test-target" aria-label="Spyglass to test" style="margin: 0; flex: 1 1 12rem; min-width: 10rem;">
+            {% for s in spyglasses %}
+            <option value="{{ s.key }}" {% if s.key == default_spyglass %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+        <button type="button" id="test-msg-btn" class="game-btn game-btn-secondary" onclick="sendTestMessage()">Send Test Message</button>
+    </div>
+    <div id="test-msg-status" class="save-result"></div>
+    <p style="font-size: 0.8rem; opacity: 0.6; margin: 0.4rem 0 0;">
+        ⚠ Test message sends a flood packet over the mesh — use sparingly.
+    </p>
+    <script>
+    window.sendTestMessage = function() {
+        var btn = document.getElementById('test-msg-btn');
+        var status = document.getElementById('test-msg-status');
+        var targetEl = document.getElementById('test-target');
+        var target = targetEl ? targetEl.value : '';
+        btn.disabled = true;
+        status.className = 'save-result info';
+        status.textContent = '⏳ Sending over the mesh — this can take up to 40s…';
+        fetch('/api/companion/test-message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ target: target }),
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            status.className = 'save-result ' + (data.ok ? 'success' : 'error');
+            status.textContent = (data.ok ? '✓ ' : '✗ ') + (data.message || (data.ok ? 'Test message delivered' : 'Test message failed'));
+        })
+        .catch(function() {
+            btn.disabled = false;
+            status.className = 'save-result error';
+            status.textContent = '✗ Request failed — check your connection to the game server.';
+        });
+    };
+    </script>
+    {% endif %}
+</details>
+
+<details class="doc-section doc-section-collapse">
+    <summary class="doc-section-title">📶 Mesh Health <span class="details-arrow">▶</span></summary>
+    {% if companion and companion.connected and companion.health_metrics %}
+    <p class="doc-hint" style="margin-bottom: 0;">Totals since last companion reboot — tap the ⓘ on any row for details.</p>
+    <div class="mesh-health">
+        {% for m in companion.health_metrics %}
+        <div class="health-row">
+            <span class="health-dot health-{{ m.level }}"></span>
+            <span class="health-label">{{ m.label }}<button type="button" class="cond-info" aria-label="About {{ m.label }}" data-tip="{{ m.detail }}">ⓘ</button></span>
+            <span class="health-value">{{ m.value }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="doc-hint">Connect your Base Camp companion to see mesh health metrics.</p>
+    {% endif %}
+
+    <div class="settings-subhead">Telemetry Diagnostics</div>
+    <div id="telem-stats">
+        <small style="opacity: 0.6;">Loading telemetry data...</small>
+    </div>
+</details>
+
+<details class="doc-section doc-section-collapse">
+    <summary class="doc-section-title">🔔 Notifications <span class="details-arrow">▶</span></summary>
+
+    {# The explanation rides on the toggle itself, like Vibration below, instead of
+       floating above the section as an unattached paragraph. #}
+    <label class="switch-row">
+        <input type="checkbox" role="switch" id="s-sound" checked>
+        <span>Survey sounds <small style="opacity: 0.55;">— a soft rising two-note blip when a survey is logged, and a quieter descending note when one can't be taken (cooldown, too fast, or no GPS fix)</small></span>
+    </label>
+    <label class="switch-row">
+        <input type="checkbox" role="switch" id="s-haptics" checked>
+        <span>Vibration <small style="opacity: 0.55;">— Android only; iPhone/Safari has no web vibration</small></span>
+    </label>
+    <script>
+    (function() {
+        // Self-contained preview blip (this page doesn't load the radio's audio
+        // engine). Toggling sound on plays it, using the tap as the audio gesture.
+        function previewChime() {
+            try {
+                var Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return;
+                var ctx = new Ctx();
+                [880, 1320].forEach(function(freq, i) {
+                    var osc = ctx.createOscillator(), gain = ctx.createGain();
+                    osc.type = 'sine'; osc.frequency.value = freq;
+                    var t0 = ctx.currentTime + i * 0.12;
+                    gain.gain.setValueAtTime(0.0001, t0);
+                    gain.gain.exponentialRampToValueAtTime(0.10, t0 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.11);
+                    osc.connect(gain).connect(ctx.destination);
+                    osc.start(t0); osc.stop(t0 + 0.12);
+                });
+            } catch (e) {}
+        }
+        function bind(id, key, onEnable) {
+            var cb = document.getElementById(id);
+            if (!cb) return;
+            cb.checked = localStorage.getItem(key) !== 'false'; // default on
+            cb.addEventListener('change', function() {
+                localStorage.setItem(key, cb.checked ? 'true' : 'false');
+                if (cb.checked && onEnable) onEnable();
+            });
+        }
+        bind('s-sound', 'lora-sound', previewChime);
+        bind('s-haptics', 'lora-haptics', function() {
+            if (typeof navigator.vibrate === 'function') navigator.vibrate(25);
+        });
+    })();
+    </script>
+
+    {% if mp_registered and pvp_enabled %}
+    <div class="settings-subhead">Multiplayer combat alerts</div>
+    <p class="doc-hint" style="margin-bottom: 0.6rem;">Get notified when your Survey Posts come under attack or a raid resolves.</p>
+    <label class="switch-row">
+        <input type="checkbox" role="switch" id="s-mesh-notify" {% if mesh_notify %}checked{% endif %}>
+        <span>LoRa mesh alerts <small style="opacity: 0.55;">— relayed to your spyglass over the mesh (5-min cooldown)</small></span>
+    </label>
+    <div id="mesh-notify-result" class="save-result"></div>
+    {# Webhook is opt-in via its own switch, matching the mesh-alerts row above; #}
+    {# the URL field only appears once the switch is on.                         #}
+    <label class="switch-row" style="margin-top: 0.75rem;">
+        <input type="checkbox" role="switch" id="s-webhook-enabled" {% if webhook_url %}checked{% endif %}>
+        <span>Discord / Ntfy webhook URL</span>
+    </label>
+    <div id="webhook-fields" style="display: {% if webhook_url %}flex{% else %}none{% endif %}; gap: 0.5rem; align-items: flex-start;">
+        <input type="url" id="webhook-url" placeholder="https://discord.com/api/webhooks/..." value="{{ webhook_url|default('', true) }}" style="margin: 0; font-size: 0.85rem;">
+        <button class="game-btn game-btn-primary" style="white-space: nowrap;" onclick="saveWebhook()">Save</button>
+    </div>
+    <div id="webhook-result" class="save-result"></div>
+    <script>
+    (function() {
+        var cb = document.getElementById('s-mesh-notify');
+        var result = document.getElementById('mesh-notify-result');
+        if (cb) cb.addEventListener('change', function() {
+            fetch('/api/multiplayer/mesh-notify', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: cb.checked})
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                // The switch itself shows the state, so success is silent —
+                // only failures need words.
+                result.className = data.ok ? 'save-result' : 'save-result error';
+                result.textContent = data.ok ? '' : (data.error || 'Failed');
+            })
+            .catch(function() {
+                result.className = 'save-result error';
+                result.textContent = 'Network error';
+            });
+        });
+    })();
+    (function() {
+        // Switching the webhook off clears it server-side straight away; switching
+        // it on just reveals the field (nothing to save until a URL is typed).
+        var cb = document.getElementById('s-webhook-enabled');
+        var fields = document.getElementById('webhook-fields');
+        if (!cb || !fields) return;
+        cb.addEventListener('change', function() {
+            fields.style.display = cb.checked ? 'flex' : 'none';
+            if (!cb.checked) {
+                document.getElementById('webhook-url').value = '';
+                saveWebhook();
+            }
+        });
+    })();
+    async function saveWebhook() {
+        const url = document.getElementById('webhook-url').value;
+        const result = document.getElementById('webhook-result');
+        try {
+            const res = await fetch('/api/multiplayer/webhook', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({url: url})
+            });
+            const data = await res.json();
+            if (data.ok) {
+                // Silent on success — the field holds the saved value.
+                result.className = 'save-result';
+                result.textContent = '';
+            } else {
+                result.className = 'save-result error';
+                result.textContent = data.error || 'Failed';
+            }
+        } catch (e) {
+            result.className = 'save-result error';
+            result.textContent = 'Network error';
+        }
+    }
+    </script>
+    {% else %}
+    <div class="settings-subhead">Multiplayer combat alerts</div>
+    <p class="doc-hint">Enable PvP in the Multiplayer section below to configure combat alerts.</p>
+    {% endif %}
+</details>
+
+<details class="doc-section doc-section-collapse">
+    <summary class="doc-section-title">⚔️ Multiplayer <span class="details-arrow">▶</span></summary>
+    {% if not mp_registered %}
+    <p style="font-size: 0.85rem; opacity: 0.7;">Register on the Multiplayer page to enable PvP.</p>
+    {% else %}
+    <div class="setting-id-row">
+        <span class="setting-id-label">Player ID</span>
+        <code class="setting-id-value" id="player-id-value" title="{{ player_id }}">{{ player_id[:8] }}…{{ player_id[-4:] }}</code>
+        <button type="button" class="game-btn game-btn-secondary game-btn-sm" id="copy-player-id" title="Copy full ID">Copy</button>
+    </div>
+    <script>
+    (function() {
+        var btn = document.getElementById('copy-player-id');
+        if (!btn) return;
+        btn.addEventListener('click', function() {
+            navigator.clipboard.writeText('{{ player_id }}').then(function() {
+                var t = btn.textContent; btn.textContent = 'Copied';
+                setTimeout(function() { btn.textContent = t; }, 1200);
+            });
+        });
+    })();
+    </script>
+    {% endif %}
+    {% if mp_registered and pvp_enabled %}
+    <p style="font-size: 0.85rem;"><span style="color: var(--pico-ins-color);">&#9679;</span> PvP is <strong>enabled</strong>. Your Survey Posts can be attacked by other players, and you can attack theirs.</p>
+    {% elif mp_registered %}
+    <p style="font-size: 0.85rem; opacity: 0.7;">Enable PvP to attack other players' Survey Posts and defend your own. Survey Posts gain HP and can be equipped with defense items.</p>
+    {% if not pvp_ready %}
+    <p style="font-size: 0.8rem; opacity: 0.7;">🔒 <strong>Locked:</strong> {{ pvp_ready_reason }}.</p>
+    <button id="pvp-enable-btn" class="game-btn game-btn-danger" disabled>Enable PvP</button>
+    {% else %}
+    <p style="font-size: 0.8rem; color: var(--pico-del-color);"><strong>Warning:</strong> This cannot be undone.</p>
+    <button id="pvp-enable-btn" class="game-btn game-btn-danger" onclick="enablePvP()">Enable PvP</button>
+    {% endif %}
+    <div id="pvp-result" class="save-result"></div>
+    <script>
+    async function enablePvP() {
+        if (!await loraConfirm('Enable PvP combat? This cannot be undone. Your Survey Posts will become attackable by other players.', { title: 'Enable PvP', confirmText: 'Enable PvP', danger: true })) return;
+        const btn = document.getElementById('pvp-enable-btn');
+        const result = document.getElementById('pvp-result');
+        btn.disabled = true;
+        btn.textContent = 'Enabling...';
+        try {
+            const res = await fetch('/api/multiplayer/pvp/enable', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                result.className = 'save-result success';
+                result.textContent = 'PvP enabled! Reload to see updated status.';
+                btn.style.display = 'none';
+            } else {
+                result.className = 'save-result error';
+                result.textContent = data.error || 'Failed to enable PvP';
+                btn.disabled = false;
+                btn.textContent = 'Enable PvP';
+            }
+        } catch (e) {
+            result.className = 'save-result error';
+            result.textContent = 'Network error';
+            btn.disabled = false;
+            btn.textContent = 'Enable PvP';
+        }
+    }
+    </script>
+    {% endif %}
+
+    {% if mp_registered %}
+    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--pico-muted-border-color);">
+        <form method="post" action="/api/multiplayer/force-sync" style="margin: 0;">
+            <button type="submit" class="game-btn game-btn-secondary" id="sync-btn">🔄 Force Multiplayer Sync</button>
+        </form>
+        <span style="color: var(--pico-muted-color); font-size: 0.85em;">
+            Last sync:
+            {% if last_sync_at %}
+            <time class="last-sync-time" data-ts="{{ last_sync_at }}">{{ last_sync_at }}</time>
+            {% else %}
+            Never
+            {% endif %}
+        </span>
+    </div>
+    <p class="doc-hint" style="margin-top: 0.4rem;">Your posts and rival activity sync automatically as needed — you only need this if something looks stale. It pushes your latest posts and pulls rival activity from the multiplayer server. Only affects multiplayer — your local game runs independently.</p>
+    {% endif %}
+</details>
+
+<details class="doc-section doc-section-collapse">
+    <summary class="doc-section-title">🔒 Security <span class="details-arrow">▶</span></summary>
+            <div class="settings-subhead" style="border-top: none; padding-top: 0; margin-top: 0;">Change Password</div>
+            <form method="post" action="/settings/change-password">
+                <label for="current_password">Current Password
+                    <input type="password" id="current_password" name="current_password" required autocomplete="current-password">
+                </label>
+                <label for="new_password">New Password (minimum 8 characters)
+                    <input type="password" id="new_password" name="new_password" minlength="8" required autocomplete="new-password">
+                </label>
+                <label for="confirm_password">Confirm New Password
+                    <input type="password" id="confirm_password" name="confirm_password" minlength="8" required autocomplete="new-password">
+                </label>
+                <button type="submit" class="game-btn game-btn-primary">Update Password</button>
+            </form>
+
+            <div class="settings-subhead">Single Sign-On (OIDC)</div>
+            {% if oidc_config %}
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                <div>
+                    <div class="doc-hint" style="margin-top: 0;">{{ oidc_config.issuer_url }}</div>
+                </div>
+                {% if has_password %}
+                <form method="post" action="/settings/oidc/remove" style="margin: 0;"
+                      onsubmit="var f=this; loraConfirm('Remove OIDC configuration?', {confirmText:'Remove', danger:true}).then(function(ok){ if(ok) f.submit(); }); return false;">
+                    <button type="submit" class="game-btn game-btn-danger game-btn-sm">Remove</button>
+                </form>
+                {% else %}
+                <button class="game-btn game-btn-danger game-btn-sm" disabled title="Set a password before removing OIDC">Remove</button>
+                {% endif %}
+            </div>
+            <p class="doc-hint" style="margin: 0.5rem 0 0;">
+                Redirect URI / Callback URL: <code id="settings-redirect-uri"></code>
+            </p>
+            {% else %}
+            <form method="post" action="/settings/oidc">
+                <label for="oidc_issuer_url">Issuer URL
+                    <input type="url" id="oidc_issuer_url" name="issuer_url" placeholder="https://id.example.com" required>
+                </label>
+                <label for="oidc_client_id">Client ID
+                    <input type="text" id="oidc_client_id" name="client_id" required autocomplete="off">
+                </label>
+                <label for="oidc_client_secret">Client Secret
+                    <input type="password" id="oidc_client_secret" name="client_secret" autocomplete="off">
+                </label>
+                <p style="font-size: 0.8rem; opacity: 0.6; margin-top: 0.5rem;">
+                    Redirect URI / Callback URL (register this in your provider):<br>
+                    <code id="settings-oidc-redirect-uri"></code>
+                    <br><span style="font-size: 0.7rem;">If accessing via a public domain, use that instead — e.g. <code style="font-size: 0.7rem;">https://lora.example.com/auth/oidc/callback</code></span>
+                </p>
+                <button type="submit" class="game-btn game-btn-primary">Save & Test</button>
+            </form>
+            {% endif %}
+
+            <div class="settings-subhead">Session</div>
+            <form method="post" action="/logout" style="margin: 0;">
+                <button type="submit" class="game-btn game-btn-secondary">Log Out</button>
+            </form>
+</details>
+
+<details class="doc-section doc-section-collapse">
+    <summary class="doc-section-title">💾 Backups <span class="details-arrow">▶</span></summary>
+            <p class="doc-hint" style="margin-bottom: 0.75rem;">Backups are created automatically every 24 hours. The last 3 are kept.</p>
+            {% if pvp_enabled %}
+            <p class="doc-hint" style="margin-bottom: 0.75rem; color: var(--del-color, #b34);">⚠️ Restore is disabled once PvP is enabled. A backup only covers your local expedition data — it can't roll back your multiplayer inventory or renown, which live on the war ledger, so restoring would desync you from it. If your local data is lost or corrupted, reach out on <a href="https://discord.gg/EHXemsA2SS" target="_blank" rel="noopener">Discord</a> for help.</p>
+            {% endif %}
+            <form method="post" action="/settings/backup" style="margin-bottom: 1rem;">
+                <button type="submit" class="game-btn game-btn-secondary">Create Backup Now</button>
+            </form>
+            {% if backups %}
+            <figure>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Backup</th>
+                        <th>Size</th>
+                        <th>Age</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in backups %}
+                    <tr>
+                        <td><code style="font-size: 0.8rem;">{{ b.filename }}</code></td>
+                        <td>{{ b.size_kb }} KB</td>
+                        <td>{{ b.time_ago }}</td>
+                        <td>
+                            <form method="post" action="/settings/restore/{{ b.filename }}" style="margin: 0;">
+                                <button type="submit" class="game-btn game-btn-danger game-btn-sm confirm-btn"{% if pvp_enabled %} disabled title="Disabled while PvP is enabled"{% endif %}>
+                                    Restore
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </figure>
+            {% else %}
+            <small style="opacity: 0.6;">No backups yet. The first automatic backup will be created within 24 hours.</small>
+            {% endif %}
+</details>
+
+<details class="doc-section doc-section-collapse">
+    <summary class="doc-section-title">🔒 Privacy &amp; Your Data <span class="details-arrow">▶</span></summary>
+
+            <div class="settings-subhead">What this server stores</div>
+            <p class="doc-hint" style="margin-bottom: 0.75rem;">
+                This database holds a <strong>detailed history of where you have physically been</strong> —
+                your base camp coordinates, the latitude and longitude of every survey, and every
+                territory you've discovered. It stays on this machine. The game sends no telemetry
+                and no analytics anywhere.
+            </p>
+            <p class="doc-hint" style="margin-bottom: 0.75rem;">
+                ⚠️ Treat <strong>backup files as sensitive</strong> — a backup contains your full location
+                history. Don't expose this dashboard to the public internet without protection.
+            </p>
+
+            <div class="settings-subhead">What leaves this server</div>
+            {% if mp_registered %}
+            <p class="doc-hint" style="margin-bottom: 0.75rem;">
+                You are registered with the war ledger. It receives your display name, your base camp
+                <strong>rounded to about 11&nbsp;km</strong>, and your Survey Posts as <strong>opaque
+                tokens</strong> — never your precise GPS, your survey history, or your real territory IDs.
+            </p>
+            {% else %}
+            <p class="doc-hint" style="margin-bottom: 0.75rem;">
+                Nothing. You are not registered for multiplayer, so no game data leaves this machine.
+            </p>
+            {% endif %}
+            {% if webhook_url %}
+            <p class="doc-hint" style="margin-bottom: 0.75rem;">
+                A <strong>notification webhook</strong> is configured, so PvP alert text is also sent to
+                that URL. Clear it above to stop.
+            </p>
+            {% endif %}
+
+            <div class="settings-subhead">Your rights</div>
+            <p class="doc-hint" style="margin-bottom: 0.75rem;">
+                Data on <em>this</em> machine is yours — delete the database or the container at any time.
+                For data held by the hosted war ledger, you can request a copy or deletion. Ask on
+                <a href="https://discord.gg/EHXemsA2SS" target="_blank" rel="noopener">Discord</a>;
+                requests are handled personally by the maintainer.
+            </p>
+            <p class="doc-hint" style="margin-bottom: 0.75rem;">
+                The war ledger is <strong>18+</strong>.
+            </p>
+
+            <p class="doc-hint" style="margin-bottom: 0;">
+                Full detail:
+                <a href="https://github.com/hornofabraxas/lora-the-explorer/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy Notice</a> ·
+                <a href="https://github.com/hornofabraxas/lora-the-explorer/blob/main/TERMS.md" target="_blank" rel="noopener">Terms</a> ·
+                <a href="https://github.com/hornofabraxas/lora-the-explorer/blob/main/SECURITY.md" target="_blank" rel="noopener">Security</a>
+            </p>
+</details>
+</div>
+
+<script>
+(function() {
+    var syncEl = document.querySelector('.last-sync-time');
+    if (syncEl) {
+        var ts = parseInt(syncEl.dataset.ts, 10);
+        var d = new Date(ts * 1000);
+        var now = Date.now() / 1000;
+        var ago = Math.floor(now - ts);
+        var agoStr;
+        if (ago < 60) agoStr = ago + 's ago';
+        else if (ago < 3600) agoStr = Math.floor(ago / 60) + 'm ago';
+        else agoStr = Math.floor(ago / 3600) + 'h ' + Math.floor((ago % 3600) / 60) + 'm ago';
+        syncEl.textContent = d.toLocaleTimeString() + ' (' + agoStr + ')';
+    }
+
+    var uriEl = document.getElementById('settings-redirect-uri') || document.getElementById('settings-oidc-redirect-uri');
+    if (uriEl) uriEl.textContent = window.location.origin + '/auth/oidc/callback';
+
+    let activeType = '{{ config.connection_type or "wifi" }}';
+
+    window.switchConnType = function(type) {
+        activeType = type;
+        document.querySelectorAll('.conn-type-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === type));
+        document.querySelectorAll('.conn-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel-' + type).classList.add('active');
+        hideResult();
+    };
+
+    function getSettingsConfig() {
+        const cfg = { connection_type: activeType };
+        if (activeType === 'wifi') {
+            cfg.companion_host = document.getElementById('s-wifi-host').value.trim();
+            cfg.companion_port = parseInt(document.getElementById('s-wifi-port').value) || 5000;
+        } else if (activeType === 'usb') {
+            cfg.serial_port = document.getElementById('s-usb-port').value.trim();
+        } else if (activeType === 'ble') {
+            cfg.ble_address = document.getElementById('s-ble-address').value.trim();
+            cfg.ble_pin = document.getElementById('s-ble-pin').value.trim();
+        }
+        return cfg;
+    }
+
+    function showResult(ok, msg) {
+        const el = document.getElementById('s-save-result');
+        el.className = 'save-result ' + (ok ? 'success' : 'error');
+        el.textContent = (ok ? '✓ ' : '✗ ') + msg;
+    }
+
+    function hideResult() {
+        const el = document.getElementById('s-save-result');
+        el.className = 'save-result';
+        el.style.display = 'none';
+    }
+
+    function setWorking(busy) {
+        document.getElementById('s-test-btn').disabled = busy;
+        document.getElementById('s-save-btn').disabled = busy;
+        document.getElementById('s-save-spinner').style.display = busy ? '' : 'none';
+    }
+
+    window.settingsTestConn = function() {
+        setWorking(true);
+        hideResult();
+        fetch('/api/companion/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(getSettingsConfig()),
+        })
+        .then(r => r.json())
+        .then(data => {
+            setWorking(false);
+            if (data.ok) {
+                const name = data.status && data.status.node_name ? ' — ' + data.status.node_name : '';
+                showResult(true, 'Connected successfully' + name);
+            } else {
+                showResult(false, data.error || 'Connection failed');
+            }
+        })
+        .catch(() => { setWorking(false); showResult(false, 'Request failed'); });
+    };
+
+    window.settingsSaveConn = function() {
+        setWorking(true);
+        hideResult();
+        fetch('/api/companion/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(getSettingsConfig()),
+        })
+        .then(r => r.json())
+        .then(data => {
+            setWorking(false);
+            if (data.ok) {
+                showResult(true, data.message || 'Saved and connected');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showResult(false, data.error || 'Save failed');
+            }
+        })
+        .catch(() => { setWorking(false); showResult(false, 'Request failed'); });
+    };
+
+    fetch('/api/telemetry-stats').then(r => r.json()).then(data => {
+        const el = document.getElementById('telem-stats');
+        const s = data.stats || {};
+        if (!s.total) {
+            el.innerHTML = '<small style="opacity: 0.6;">No telemetry attempts recorded yet. Survey data will appear here after your first survey.</small>';
+            return;
+        }
+        let html = '<div class="info-grid">';
+        html += '<div><small>Attempts</small><br>' + s.total + '</div>';
+        html += '<div><small>Response Rate</small><br>' + (s.total > 0 ? Math.round(s.successes / s.total * 100) : 0) + '%</div>';
+        if (s.avg_s != null) {
+            html += '<div><small>Avg / Median</small><br>' + s.avg_s + 's / ' + s.median_s + 's</div>';
+            html += '<div><small>Min / P95 / Max</small><br>' + s.min_s + 's / ' + (s.p95_s != null ? s.p95_s + 's' : '—') + ' / ' + s.max_s + 's</div>';
+        }
+        html += '</div>';
+        if (s.histogram) {
+            const h = s.histogram;
+            const maxVal = Math.max(...h.values, 1);
+            html += '<div style="margin-top: 0.75rem;"><small style="opacity: 0.6;">Response time distribution (flood timeout: 35s)</small>';
+            html += '<div style="display: flex; align-items: flex-end; gap: 0.25rem; height: 80px; margin-top: 0.4rem;">';
+            for (let i = 0; i < h.labels.length; i++) {
+                const pct = Math.max(2, h.values[i] / maxVal * 100);
+                const clr = i < 2 ? 'var(--pico-ins-color)' : i < 4 ? '#c4a020' : 'var(--pico-del-color)';
+                html += '<div style="flex:1; display:flex; flex-direction:column; align-items:center;">';
+                html += '<span style="font-size:0.7rem; opacity:0.7;">' + (h.values[i] || '') + '</span>';
+                html += '<div style="width:100%; height:' + pct + '%; background:' + clr + '; border-radius:2px; min-height:2px;"></div>';
+                html += '<span style="font-size:0.65rem; opacity:0.5; margin-top:2px;">' + h.labels[i] + '</span>';
+                html += '</div>';
+            }
+            html += '</div></div>';
+        }
+        if (s.by_route) {
+            const routeLabel = {last_path: 'Known route (last-path)', flood: 'Mesh scan (flood)'};
+            html += '<div style="margin-top: 0.75rem;"><small style="opacity: 0.6;">Reply rate by routing — any spyglass reply counts, even with GPS off</small>';
+            html += '<div style="margin-top: 0.4rem; font-size: 0.85rem;">';
+            ['last_path', 'flood'].forEach(function(route) {
+                const r = s.by_route[route];
+                if (!r) return;
+                html += '<div style="display:flex; justify-content:space-between; padding:2px 0;">';
+                html += '<span>' + routeLabel[route] + '</span>';
+                html += '<strong>' + (r.rate != null ? r.rate + '%' : '—') + ' <small style="opacity:0.6;">(' + r.successes + '/' + r.attempts + ')</small></strong>';
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+        if (s.routing_model) {
+            const rm = s.routing_model;
+            html += '<div style="margin-top: 0.75rem;"><small style="opacity: 0.6;">Smart routing — learns how far the spyglass can drift before a cached route stops working</small>';
+            html += '<div style="margin-top: 0.4rem; font-size: 0.85rem;">';
+            html += '<div style="display:flex; justify-content:space-between; padding:2px 0;">';
+            html += '<span>Path-reach threshold</span>';
+            html += '<strong>' + rm.learned_d_mi + ' mi' + (rm.using_default ? ' <small style="opacity:0.6;">(default)</small>' : '') + '</strong>';
+            html += '</div>';
+            html += '<div style="display:flex; justify-content:space-between; padding:2px 0;">';
+            html += '<span>Learning progress</span>';
+            html += '<span>' + (rm.using_default
+                ? 'learning… ' + rm.samples + '/' + rm.min_samples + ' samples'
+                : rm.samples + ' samples') + '</span>';
+            html += '</div></div></div>';
+        }
+        el.innerHTML = html;
+    }).catch(() => {
+        document.getElementById('telem-stats').innerHTML = '<small style="opacity: 0.6;">Could not load telemetry data.</small>';
+    });
+
+    window.settingsScanBle = function() {
+        const btn = document.getElementById('s-ble-scan-btn');
+        const status = document.getElementById('s-ble-scan-status');
+        const list = document.getElementById('s-ble-devices');
+        btn.disabled = true;
+        status.textContent = 'Scanning...';
+        list.innerHTML = '';
+
+        fetch('/api/companion/scan-ble')
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            const devices = data.devices || [];
+            if (devices.length === 0) { status.textContent = 'No devices found'; return; }
+            status.textContent = devices.length + ' device(s) found';
+            devices.forEach(d => {
+                const el = document.createElement('div');
+                el.className = 'ble-device';
+                el.innerHTML = '<span><strong>' + (d.name || 'Unknown') + '</strong> <small style="opacity:0.6;">' + d.address + '</small></span>';
+                el.onclick = function() {
+                    document.querySelectorAll('#s-ble-devices .ble-device').forEach(x => x.classList.remove('selected'));
+                    el.classList.add('selected');
+                    document.getElementById('s-ble-address').value = d.address;
+                };
+                list.appendChild(el);
+            });
+        })
+        .catch(() => { btn.disabled = false; status.textContent = 'Scan failed'; });
+    };
+})();
+</script>
+{% endblock %}

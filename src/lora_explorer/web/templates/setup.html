@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+{% block title %}Setup — LoRa the Explorer{% endblock %}
+
+{% block head %}
+<style>
+    .setup-step {
+        display: none;
+    }
+    .setup-step.active {
+        display: block;
+    }
+    .connection-types {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.75rem;
+        margin: 1rem 0;
+    }
+    @media (max-width: 600px) {
+        .connection-types { grid-template-columns: 1fr; }
+    }
+    .conn-card {
+        padding: 1rem;
+        border: 2px solid var(--pico-muted-border-color);
+        border-radius: 0.5rem;
+        cursor: pointer;
+        text-align: center;
+        transition: border-color 0.15s, background 0.15s;
+    }
+    .conn-card:hover {
+        border-color: var(--pico-primary);
+        background: rgba(255, 255, 255, 0.03);
+    }
+    .conn-card.selected {
+        border-color: var(--pico-primary);
+        background: color-mix(in srgb, var(--pico-primary) 10%, transparent);
+    }
+    .conn-card .conn-icon { font-size: 2rem; display: block; margin-bottom: 0.5rem; }
+    .conn-card .conn-label { font-weight: 600; }
+    .conn-card .conn-desc { font-size: 0.8rem; opacity: 0.6; margin-top: 0.3rem; }
+    .conn-fields { margin-top: 1rem; }
+    .conn-fields > div { display: none; }
+    .conn-fields > div.active { display: block; }
+    .ble-devices { margin-top: 0.5rem; }
+    .ble-device {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 0.75rem;
+        border: 1px solid var(--pico-muted-border-color);
+        border-radius: 0.4rem;
+        margin-bottom: 0.4rem;
+        cursor: pointer;
+        transition: border-color 0.15s;
+    }
+    .ble-device:hover, .ble-device.selected {
+        border-color: var(--pico-primary);
+    }
+    .ble-device.selected {
+        background: color-mix(in srgb, var(--pico-primary) 10%, transparent);
+    }
+    .test-result {
+        margin-top: 0.75rem;
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.4rem;
+        font-size: 0.85rem;
+        display: none;
+    }
+    .test-result.success {
+        display: block;
+        border: 1px solid var(--pico-ins-color);
+        color: var(--pico-ins-color);
+    }
+    .test-result.error {
+        display: block;
+        border: 1px solid var(--pico-del-color);
+        color: var(--pico-del-color);
+    }
+    .setup-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--pico-muted-border-color);
+    }
+    .step-dots {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        margin: 1rem 0 0;
+    }
+    .step-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--pico-muted-border-color);
+    }
+    .step-dot.active {
+        background: var(--pico-primary);
+    }
+    .step-dot.done {
+        background: var(--pico-ins-color);
+    }
+    .docker-note {
+        font-size: 0.8rem;
+        opacity: 0.6;
+        margin-top: 0.5rem;
+        padding: 0.4rem 0.6rem;
+        border-radius: 0.3rem;
+        border: 1px solid var(--pico-muted-border-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<article>
+    <header>
+        <h2>Welcome to LoRa the Explorer</h2>
+        <p style="opacity: 0.7; margin: 0;">{% if needs_auth %}Secure your game data, then connect your companion node.{% else %}Connect your base camp companion node to begin your expedition.{% endif %}</p>
+    </header>
+
+    {% if needs_auth %}
+    <!-- Step 0: Authentication -->
+    <div class="setup-step active" data-step="0">
+        <h3>Secure Your Game</h3>
+
+        <div style="padding: 0.6rem 0.8rem; border-radius: 0.4rem; border: 1px solid var(--pico-primary); background: color-mix(in srgb, var(--pico-primary) 10%, transparent); font-size: 0.85rem; margin-bottom: 1rem; line-height: 1.5;">
+            ⚠️ <strong>This game stores your real-world location.</strong> Choose how to protect your data. If you plan to expose this to the internet, SSO with passkey authentication is recommended.
+        </div>
+
+        <div class="connection-types" style="grid-template-columns: repeat(2, 1fr);">
+            <div class="conn-card" data-auth="password" onclick="selectAuth('password')">
+                <span class="conn-icon">🔑</span>
+                <span class="conn-label">Password</span>
+                <span class="conn-desc">Set a local password</span>
+            </div>
+            <div class="conn-card" data-auth="oidc" onclick="selectAuth('oidc')">
+                <span class="conn-icon">🛡️</span>
+                <span class="conn-label">Single Sign-On</span>
+                <span class="conn-desc">PocketID, Authentik, or other OIDC provider</span>
+            </div>
+        </div>
+
+        <div id="auth-password-fields" style="display: none;">
+            <form method="post" action="/setup/password" id="password-form">
+                <label for="setup-password">Password (minimum 8 characters)
+                    <input type="password" id="setup-password" name="password" minlength="8" required autocomplete="new-password">
+                </label>
+                <label for="setup-confirm">Confirm Password
+                    <input type="password" id="setup-confirm" name="confirm" minlength="8" required autocomplete="new-password">
+                </label>
+            </form>
+        </div>
+
+        <div id="auth-oidc-fields" style="display: none;">
+            <form method="post" action="/setup/oidc" id="oidc-form">
+                <label for="setup-issuer">Issuer URL
+                    <input type="url" id="setup-issuer" name="issuer_url" placeholder="https://id.example.com" required autocomplete="url">
+                </label>
+                <label for="setup-client-id">Client ID
+                    <input type="text" id="setup-client-id" name="client_id" required autocomplete="off">
+                </label>
+                <label for="setup-client-secret">Client Secret
+                    <input type="password" id="setup-client-secret" name="client_secret" autocomplete="off">
+                </label>
+                <p style="font-size: 0.8rem; opacity: 0.6; margin-top: 0.5rem;">
+                    Redirect URI / Callback URL (register this in your provider):<br>
+                    <code id="setup-redirect-uri" style="font-size: 0.75rem;"></code>
+                    <br><span style="font-size: 0.7rem;">If accessing via a public domain, use that instead — e.g. <code style="font-size: 0.7rem;">https://lora.example.com/auth/oidc/callback</code></span>
+                </p>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Step 1: Connection Type -->
+    <div class="setup-step {% if not needs_auth %}active{% endif %}" data-step="1">
+        <h3>Choose Connection Type</h3>
+        <p>How is your MeshCore companion node connected?</p>
+
+        <div class="connection-types">
+            <div class="conn-card" data-type="wifi" onclick="selectType('wifi')">
+                <span class="conn-icon">📡</span>
+                <span class="conn-label">WiFi / TCP</span>
+                <span class="conn-desc">Companion on your local network</span>
+            </div>
+            <div class="conn-card" data-type="usb" onclick="selectType('usb')">
+                <span class="conn-icon">🖥️</span>
+                <span class="conn-label">USB / Serial</span>
+                <span class="conn-desc">Companion plugged in via USB</span>
+            </div>
+            <div class="conn-card" data-type="ble" onclick="selectType('ble')">
+                <span class="conn-icon">📶</span>
+                <span class="conn-label">Bluetooth LE</span>
+                <span class="conn-desc">Direct BLE to companion</span>
+            </div>
+        </div>
+
+        <div class="docker-note" id="ble-docker-note" style="display: none;">
+            ⚠️ BLE from inside Docker requires <code>--privileged</code> mode or host D-Bus passthrough. It works best on bare-metal installs.
+        </div>
+    </div>
+
+    <!-- Step 2: Connection Details -->
+    <div class="setup-step" data-step="2">
+        <h3>Connection Details</h3>
+
+        <div class="conn-fields">
+            <!-- WiFi fields -->
+            <div id="fields-wifi">
+                <label for="wifi-host">Companion IP Address
+                    <input type="text" id="wifi-host" placeholder="192.168.1.100" autocomplete="off">
+                </label>
+                <label for="wifi-port">Port
+                    <input type="number" id="wifi-port" value="5000" min="1" max="65535">
+                </label>
+            </div>
+
+            <!-- USB fields -->
+            <div id="fields-usb">
+                <label for="usb-port">Serial Port
+                    <input type="text" id="usb-port" value="/dev/ttyUSB0" autocomplete="off">
+                </label>
+                <small style="opacity: 0.6;">Common ports: <code>/dev/ttyUSB0</code>, <code>/dev/ttyACM0</code>, <code>/dev/cu.usbmodem*</code></small>
+            </div>
+
+            <!-- BLE fields -->
+            <div id="fields-ble">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <button type="button" class="outline" id="ble-scan-btn" onclick="scanBle()" style="margin: 0;">Scan for Devices</button>
+                    <span id="ble-scan-status" style="font-size: 0.85rem; opacity: 0.6;"></span>
+                </div>
+                <div class="ble-devices" id="ble-devices"></div>
+                <label for="ble-address">BLE Address
+                    <input type="text" id="ble-address" placeholder="AA:BB:CC:DD:EE:FF" autocomplete="off">
+                </label>
+                <label for="ble-pin">PIN (optional)
+                    <input type="text" id="ble-pin" placeholder="Leave blank if none" autocomplete="off">
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Step 3: Test & Save -->
+    <div class="setup-step" data-step="3">
+        <h3>Test Connection</h3>
+        <p>Let's verify your companion node is reachable.</p>
+
+        <div id="test-summary" style="margin-bottom: 1rem; font-size: 0.9rem;"></div>
+
+        <button type="button" id="test-btn" onclick="testConnection()" style="margin: 0;">Test Connection</button>
+        <span id="test-spinner" style="display: none; margin-left: 0.5rem; opacity: 0.6;">Testing...</span>
+
+        <div class="test-result" id="test-result"></div>
+    </div>
+
+    <div class="setup-nav">
+        <button type="button" class="secondary outline" id="back-btn" onclick="prevStep()" style="margin: 0; display: none;">Back</button>
+        <div></div>
+        <button type="button" id="next-btn" onclick="nextStep()" style="margin: 0;" {% if not needs_auth %}disabled{% endif %}>{% if needs_auth %}Continue{% else %}Next{% endif %}</button>
+    </div>
+
+    <div class="step-dots">
+        {% if needs_auth %}<span class="step-dot active" data-dot="0"></span>{% endif %}
+        <span class="step-dot {% if not needs_auth %}active{% endif %}" data-dot="1"></span>
+        <span class="step-dot" data-dot="2"></span>
+        <span class="step-dot" data-dot="3"></span>
+    </div>
+</article>
+
+<script>
+(function() {
+    var needsAuth = {{ 'true' if needs_auth else 'false' }};
+    let currentStep = needsAuth ? 0 : 1;
+    let selectedType = null;
+    let selectedAuth = null;
+    let testPassed = false;
+
+    window.selectAuth = function(type) {
+        selectedAuth = type;
+        document.querySelectorAll('.conn-card[data-auth]').forEach(c => c.classList.remove('selected'));
+        document.querySelector(`.conn-card[data-auth="${type}"]`).classList.add('selected');
+        document.getElementById('auth-password-fields').style.display = type === 'password' ? 'block' : 'none';
+        document.getElementById('auth-oidc-fields').style.display = type === 'oidc' ? 'block' : 'none';
+        if (type === 'oidc') {
+            document.getElementById('setup-redirect-uri').textContent = window.location.origin + '/auth/oidc/callback';
+        }
+        document.getElementById('next-btn').disabled = false;
+    };
+
+    window.selectType = function(type) {
+        selectedType = type;
+        document.querySelectorAll('.conn-card[data-type]').forEach(c => c.classList.remove('selected'));
+        document.querySelector(`.conn-card[data-type="${type}"]`).classList.add('selected');
+        document.getElementById('next-btn').disabled = false;
+        document.getElementById('ble-docker-note').style.display = type === 'ble' ? 'block' : 'none';
+    };
+
+    window.nextStep = function() {
+        if (currentStep === 0) {
+            if (selectedAuth === 'password') {
+                var pw = document.getElementById('setup-password').value;
+                var cf = document.getElementById('setup-confirm').value;
+                if (pw.length < 8) { loraAlert('Password must be at least 8 characters.'); return; }
+                if (pw !== cf) { loraAlert('Passwords do not match.'); return; }
+                document.getElementById('password-form').submit();
+                return;
+            } else if (selectedAuth === 'oidc') {
+                var issuer = document.getElementById('setup-issuer').value.trim();
+                var clientId = document.getElementById('setup-client-id').value.trim();
+                if (!issuer || !clientId) { loraAlert('Issuer URL and Client ID are required.'); return; }
+                document.getElementById('oidc-form').submit();
+                return;
+            }
+            return;
+        }
+        if (currentStep === 3) {
+            saveAndContinue();
+            return;
+        }
+        if (currentStep === 1 && !selectedType) return;
+        currentStep++;
+        updateSteps();
+    };
+
+    window.prevStep = function() {
+        if (currentStep <= 1) return;
+        currentStep--;
+        testPassed = false;
+        updateSteps();
+    };
+
+    function updateSteps() {
+        document.querySelectorAll('.setup-step').forEach(s => s.classList.remove('active'));
+        document.querySelector(`.setup-step[data-step="${currentStep}"]`).classList.add('active');
+
+        document.querySelectorAll('.step-dot').forEach(d => {
+            const n = parseInt(d.dataset.dot);
+            d.classList.toggle('active', n === currentStep);
+            d.classList.toggle('done', n < currentStep);
+        });
+
+        var firstStep = needsAuth ? 0 : 1;
+        document.getElementById('back-btn').style.display = currentStep > firstStep ? '' : 'none';
+
+        if (currentStep === 0) {
+            document.getElementById('next-btn').textContent = 'Continue';
+            document.getElementById('next-btn').disabled = !selectedAuth;
+        } else if (currentStep === 2) {
+            document.querySelectorAll('.conn-fields > div').forEach(d => d.classList.remove('active'));
+            document.getElementById('fields-' + selectedType).classList.add('active');
+            document.getElementById('next-btn').textContent = 'Next';
+            document.getElementById('next-btn').disabled = false;
+        } else if (currentStep === 3) {
+            const cfg = getConfig();
+            let summary = '<strong>' + selectedType.toUpperCase() + '</strong> — ';
+            if (selectedType === 'wifi') summary += cfg.companion_host + ':' + cfg.companion_port;
+            else if (selectedType === 'usb') summary += cfg.serial_port;
+            else if (selectedType === 'ble') summary += cfg.ble_address;
+            document.getElementById('test-summary').innerHTML = summary;
+            document.getElementById('next-btn').textContent = 'Save & Connect';
+            document.getElementById('next-btn').disabled = !testPassed;
+            document.getElementById('test-result').className = 'test-result';
+            document.getElementById('test-result').style.removeProperty('display');
+        } else {
+            document.getElementById('next-btn').textContent = 'Next';
+            document.getElementById('next-btn').disabled = !selectedType;
+        }
+    }
+
+    function getConfig() {
+        const cfg = { connection_type: selectedType };
+        if (selectedType === 'wifi') {
+            cfg.companion_host = document.getElementById('wifi-host').value.trim();
+            cfg.companion_port = parseInt(document.getElementById('wifi-port').value) || 5000;
+        } else if (selectedType === 'usb') {
+            cfg.serial_port = document.getElementById('usb-port').value.trim();
+        } else if (selectedType === 'ble') {
+            cfg.ble_address = document.getElementById('ble-address').value.trim();
+            cfg.ble_pin = document.getElementById('ble-pin').value.trim();
+        }
+        return cfg;
+    }
+
+    window.testConnection = function() {
+        const btn = document.getElementById('test-btn');
+        const spinner = document.getElementById('test-spinner');
+        const result = document.getElementById('test-result');
+        btn.disabled = true;
+        spinner.style.display = '';
+        result.className = 'test-result';
+
+        fetch('/api/companion/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(getConfig()),
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            spinner.style.display = 'none';
+            if (data.ok) {
+                result.className = 'test-result success';
+                const name = data.status && data.status.node_name ? ' — ' + data.status.node_name : '';
+                result.textContent = '✓ Connected successfully' + name;
+                testPassed = true;
+                document.getElementById('next-btn').disabled = false;
+            } else {
+                result.className = 'test-result error';
+                result.textContent = '✗ ' + (data.error || 'Connection failed');
+                testPassed = false;
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            spinner.style.display = 'none';
+            result.className = 'test-result error';
+            result.textContent = '✗ Request failed';
+        });
+    };
+
+    window.scanBle = function() {
+        const btn = document.getElementById('ble-scan-btn');
+        const status = document.getElementById('ble-scan-status');
+        const list = document.getElementById('ble-devices');
+        btn.disabled = true;
+        status.textContent = 'Scanning...';
+        list.innerHTML = '';
+
+        fetch('/api/companion/scan-ble')
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            const devices = data.devices || [];
+            if (devices.length === 0) {
+                status.textContent = 'No devices found';
+                return;
+            }
+            status.textContent = devices.length + ' device(s) found';
+            devices.forEach(d => {
+                const el = document.createElement('div');
+                el.className = 'ble-device';
+                el.innerHTML = '<span><strong>' + (d.name || 'Unknown') + '</strong><br><small style="opacity:0.6;">' + d.address + '</small></span>';
+                el.onclick = function() {
+                    document.querySelectorAll('.ble-device').forEach(x => x.classList.remove('selected'));
+                    el.classList.add('selected');
+                    document.getElementById('ble-address').value = d.address;
+                };
+                list.appendChild(el);
+            });
+        })
+        .catch(() => {
+            btn.disabled = false;
+            status.textContent = 'Scan failed';
+        });
+    };
+
+    function saveAndContinue() {
+        const btn = document.getElementById('next-btn');
+        btn.disabled = true;
+        btn.textContent = 'Connecting...';
+
+        fetch('/api/companion/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(getConfig()),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                window.location.href = '/?flash_msg=Companion+connected!+Welcome+to+the+World%27s+End+Society.&flash_type=success';
+            } else {
+                window.location.href = '/?flash_msg=' + encodeURIComponent(data.error || 'Saved but connection failed') + '&flash_type=error';
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.textContent = 'Save & Connect';
+        });
+    }
+})();
+</script>
+{% endblock %}

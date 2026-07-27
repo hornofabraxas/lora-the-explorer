@@ -1,0 +1,588 @@
+{% extends "base.html" %}
+{% block title %}Outposts — LoRa the Explorer{% endblock %}
+
+{% block content %}
+{% if not player %}
+<article>
+    <header><h2>No Explorer Found</h2></header>
+    <p>Complete your first survey to begin.</p>
+</article>
+{% else %}
+
+<div class="camp-cards">
+<article class="basecamp-card">
+    <div class="basecamp-header">
+        <div class="basecamp-emblem">
+            <span class="basecamp-icon">🏕️</span>
+        </div>
+        <div class="basecamp-info">
+            <div class="basecamp-name">{{ camp_name }}</div>
+            <div class="basecamp-subtitle">Level {{ player.base_camp_level }} Base Camp</div>
+        </div>
+    </div>
+
+    {# At-a-glance economy: multiplier, capacity, and total post income. #}
+    <div class="basecamp-stats basecamp-summary">
+        <div class="basecamp-stat">
+            <div class="basecamp-stat-value">{{ camp_info.mult }}×</div>
+            <div class="basecamp-stat-label">XP Multiplier</div>
+        </div>
+        <div class="basecamp-stat">
+            <div class="basecamp-stat-value">{{ posts|length }}/{{ post_limit }}</div>
+            <div class="basecamp-stat-label">Post Slots</div>
+        </div>
+        <div class="basecamp-stat">
+            <div class="basecamp-stat-value">{{ total_prov_per_day }} 📦</div>
+            <div class="basecamp-stat-label">Income / Day</div>
+        </div>
+    </div>
+
+    {% if next_camp_info %}
+    <div class="basecamp-upgrade">
+        {% set xp_gain = ((next_camp_info.mult - camp_info.mult) * 100) | round(0, 'common') | int %}
+        <div class="basecamp-next">
+            Next Level: {{ next_camp_name }} (+{{ xp_gain }}% XP){% if next_camp_info.perk is defined %} · 🎁 {{ camp_perk_descriptions.get(next_camp_info.perk, next_camp_info.perk) }}{% endif %}
+        </div>
+        <form method="post" action="/basecamp/upgrade" style="margin: 0;">
+            <button type="submit" class="game-btn game-btn-primary game-btn-full confirm-btn"
+                {% if player.provisions < next_camp_info.prov %}disabled{% endif %}>
+                ⬆ Upgrade to {{ next_camp_name }} · 📦{{ next_camp_info.prov }}
+            </button>
+        </form>
+    </div>
+    {% else %}
+    <div class="basecamp-upgrade" style="text-align: center;">
+        <span class="basecamp-upgrade-label">Maximum Level</span>
+    </div>
+    {% endif %}
+</article>
+
+{% if mp_registered %}
+<article class="basecamp-card supplydrop-card">
+    <div class="basecamp-header">
+        <div class="basecamp-emblem"><span class="basecamp-icon">🪂</span></div>
+        <div class="basecamp-info">
+            <div class="basecamp-name">Supply Drops</div>
+            <div class="basecamp-subtitle">
+                {% if supply_interval_min == 60 %}Hourly airdrop{% else %}Airdrop every {{ supply_interval_min }} min{% endif %}
+                <button type="button" class="mp-title-info" aria-label="About Supply Drops"
+                        data-tip="Survey reports are radioed to Society headquarters hourly; commendable performance is rewarded.">ⓘ</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="basecamp-stats basecamp-summary">
+        <div class="basecamp-stat">
+            <div class="basecamp-stat-value">{{ supply_pending }}</div>
+            <div class="basecamp-stat-label">Surveys Queued</div>
+        </div>
+        <div class="basecamp-stat">
+            <div class="basecamp-stat-value">
+                {% if supply_next_at %}<span data-restock="{{ supply_next_at }}" data-restock-label="">—</span>{% else %}Any time{% endif %}
+            </div>
+            <div class="basecamp-stat-label">Next Check</div>
+        </div>
+    </div>
+
+    <div class="supplydrop-log">
+        {% for run in supply_runs %}
+        <div class="supplydrop-run">
+            <span class="supplydrop-run-time" data-ago="{{ run.ran_at }}">—</span>
+            <span class="supplydrop-run-surveys">{{ run.survey_count }} survey{{ '' if run.survey_count == 1 else 's' }}</span>
+            {% if run.drop_count %}
+            <button type="button" class="supplydrop-run-drops has-drops" data-tip="{{ run.summary }}">
+                📦 {{ run.drop_count }} item{{ '' if run.drop_count == 1 else 's' }}
+            </button>
+            {% else %}
+            <span class="supplydrop-run-drops">no items</span>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="supplydrop-empty">No drops yet — your logged surveys go out on the next run.</div>
+        {% endfor %}
+    </div>
+</article>
+{% endif %}
+</div>
+
+<div class="posts-header">
+    <h2>Survey Posts</h2>
+    <p>{{ posts|length }} / {{ post_limit }} slots used (upgrade Base Camp for more)</p>
+</div>
+
+
+{% if posts %}
+<div class="posts-grid">
+{% for post in posts %}
+<article class="post-card">
+    <div class="post-header">
+        <div class="post-header-left">
+            <a href="/radio?focus={{ post.hex_id }}" class="post-title" id="post-name-{{ post.id }}"
+               title="Show {{ post.hex_name }} on the map">{{ post.name }}</a>
+            <button onclick="renamePost({{ post.id }}, this)" class="post-rename-btn" title="Rename">✏️</button>
+        </div>
+        <div class="post-header-right">
+            <span class="post-level" data-tip="Level {{ post.level }} of 5"
+                  aria-label="Level {{ post.level }} of 5">
+                {%- for i in range(1, 6) %}<span class="post-star{% if i > post.level %} post-star-empty{% endif %}">{% if i <= post.level %}★{% else %}☆{% endif %}</span>{% endfor -%}
+            </span>
+            <span class="post-status-chip
+                {%- if post.warded %} status-ward
+                {%- elif post.ruin_status == 'ruined' %} status-bad
+                {%- elif post.ruin_status == 'fading' %} status-warn
+                {%- else %} status-good{% endif %}"
+                id="post-chip-{{ post.id }}">
+                {%- if post.warded %}Warded {{ post.warded_days_left | round(0, 'ceil') | int }}d
+                {%- elif post.ruin_status == 'ruined' %}In ruin
+                {%- elif post.ruin_status == 'fading' %}Fading
+                {%- else %}Stable{% endif %}
+            </span>
+        </div>
+    </div>
+
+    {# Income: what this outpost earns you — provisions (spendable, fades with
+       ruin) and renown (permanent standing). Mirrors the Base Camp summary. #}
+    <div class="post-income">
+        <div class="post-income-stat">
+            <div class="post-income-value">
+                {%- if post.warded %}<span class="post-income-dim">Dormant</span>
+                {%- else %}{{ post.prov_per_day }} 📦{% if post.prov_per_day < post.prov_per_day_full %} <span class="post-income-full">/ {{ post.prov_per_day_full }}</span>{% endif %}{% endif %}
+            </div>
+            <div class="post-income-label">Provisions / day</div>
+        </div>
+        <div class="post-income-stat">
+            <div class="post-income-value">
+                {%- if post.warded %}<span class="post-income-dim">Dormant</span>
+                {%- else %}+{{ post.renown_per_day }} ✨{% if post.renown_per_day < post.renown_per_day_full %} <span class="post-income-full">/ {{ post.renown_per_day_full }}</span>{% endif %}{% endif %}
+            </div>
+            <div class="post-income-label">Renown / day
+                <button type="button" class="cond-info" aria-label="How renown is generated"
+                        data-tip="base {{ post.renown_base }} · age +{{ post.renown_age_bonus }} — level × {{ renown_per_level }}, plus +{{ renown_age_rate }} per day survived. Fades to 0 in ruin or while dormant; earned renown is kept.">ⓘ</button>
+            </div>
+        </div>
+    </div>
+
+    {# Condition: a slim upkeep runway (the timer) — and, in PvP, one Health bar
+       plus a labelled Defenses slot (both hydrated client-side). #}
+    <div class="post-condition">
+        {% if post.warded %}
+        <div class="cond-row cond-ward-row">
+            <span>🛡️ Dormant — protected from ruin &amp; raids for {{ post.warded_days_left | round(0, 'ceil') | int }}d</span>
+        </div>
+        {% else %}
+        {% set total = post.upkeep_total_days or 1 %}
+        {% set green_pct = ([post.full_days_left / total * 100, 0] | max) %}
+        {% set ruin_pct = ([(post.days_until_ruined - post.full_days_left) / total * 100, 0] | max) %}
+        {# Slim runway: green grace segment + red ruin window, draining right-to-
+           left as time passes. Kept thin so it never reads as a second Health bar. #}
+        <div class="upkeep-runway">
+            <span class="upkeep-runway-icon" aria-hidden="true">🕒</span>
+            <div class="cond-track upkeep-track">
+                <div class="upkeep-seg upkeep-ruin" style="width: {{ ruin_pct }}%;"></div>
+                <div class="upkeep-seg upkeep-safe" style="width: {{ green_pct }}%;"></div>
+            </div>
+            <span class="upkeep-runway-text
+                {%- if post.ruin_status == 'ruined' %} is-bad{% elif post.ruin_status == 'fading' %} is-warn{% endif %}">
+                {%- if post.ruin_status == 'ruined' %}In ruin
+                {%- else %}{{ post.days_until_ruined | round(0, 'floor') | int }}d runway{% endif %}
+            </span>
+            <button type="button" class="cond-info" aria-label="How upkeep &amp; ruin work"
+                    data-tip="Income stays full while the green runway lasts, then fades through the red ruin window until the outpost sits idle — provisions and renown both. Visit the outpost in person and send /lora upkeep to refill it.">ⓘ</button>
+        </div>
+        {% endif %}
+
+        {% if pvp_enabled|default(false) and not post.warded %}
+        <div class="post-defense" data-hex="{{ post.mp_token or post.hex_id }}" data-name="{{ post.name }}" data-post-id="{{ post.id }}">
+            <div class="cond-row cond-row-bar">
+                <span class="cond-label">❤️ Health</span>
+                <div class="cond-track cond-track-tall">
+                    <div class="cond-fill def-fill" style="width: 0%;"></div>
+                    <span class="cond-inbar def-text" style="opacity:0.5;">…</span>
+                </div>
+            </div>
+            <div class="cond-row cond-defense-row">
+                <span class="cond-label">Defenses</span>
+                <div class="cond-fort"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if pvp_enabled|default(false) and not post.warded %}
+    {# Boost only surfaces here when a raid is actually inbound to this post. #}
+    <div class="post-threat" id="post-threat-{{ post.id }}" data-hex="{{ post.mp_token or post.hex_id }}"
+         data-name="{{ post.name }}" hidden></div>
+    {% endif %}
+
+    <div class="post-actions">
+        {% if post.warded %}
+        <button disabled class="game-btn game-btn-full">
+            🛡️ Warded — dormant {{ post.warded_days_left | round(0, 'ceil') | int }}d
+        </button>
+        {% else %}
+        {% if pvp_enabled|default(false) %}
+        {# Repair heals battle damage to Health only — ruin is cleared on-site via
+           /lora upkeep, never paid off here. Hidden until JS finds damage. #}
+        <form method="post" action="/posts/{{ post.id }}/repair" style="margin:0;" hidden>
+            <button type="submit" class="game-btn game-btn-primary game-btn-full confirm-btn repair-btn"
+                data-hex="{{ post.mp_token or post.hex_id }}">
+                🔧 Repair
+            </button>
+        </form>
+        {% else %}
+        <button disabled class="game-btn game-btn-full post-upkeep-hint"
+            title="Visit the post's territory and send /lora upkeep to restore full income">
+            🔧 Upkeep on-site: /lora upkeep
+        </button>
+        {% endif %}
+
+        {% if wardstone_relic and raid_in_flight %}
+        <button type="button" disabled class="game-btn game-btn-secondary game-btn-full"
+            title="Resolve your raiding party before warding an outpost">
+            🛡️ Ward — raid in flight
+        </button>
+        {% elif wardstone_relic %}
+        <button type="button" class="game-btn game-btn-secondary game-btn-full ward-btn"
+            data-relic="{{ wardstone_relic.id }}" data-post="{{ post.id }}" data-post-name="{{ post.name }}"
+            data-count="{{ wardstone_count }}">
+            🛡️ Use Wardstone
+        </button>
+        {% endif %}
+
+        {% if post.upgrade_cost %}
+        <form method="post" action="/posts/{{ post.id }}/upgrade" style="margin:0;">
+            <button type="submit" class="game-btn game-btn-secondary game-btn-full confirm-btn"
+                {% if player.provisions < post.upgrade_cost %}disabled{% endif %}>
+                ⬆ Upgrade to Lv {{ post.level + 1 }} (📦{{ post.upgrade_cost }})
+            </button>
+        </form>
+        {% endif %}{# maxed posts show the full star rating instead of a dead button #}
+        {% endif %}
+    </div>
+</article>
+{% endfor %}
+</div>
+{% else %}
+<article class="posts-info">
+    <p>No Survey Posts yet. Use <code>/lora charter</code> at a discovered territory to plant your flag.</p>
+</article>
+{% endif %}
+
+{% endif %}
+
+<script>
+(function() {
+    var defEls = document.querySelectorAll('.post-defense');
+    if (!defEls.length) return;
+
+    function condClass(pct) { return pct > 60 ? 'good' : pct > 25 ? 'warn' : 'bad'; }
+
+    fetch('/api/multiplayer/defense').then(function(r){ return r.json(); }).then(function(data) {
+        if (!data.ok) {
+            defEls.forEach(function(el) {
+                el.querySelector('.def-text').textContent = '—';
+            });
+            return;
+        }
+        var byHex = {};
+        (data.posts || []).forEach(function(p) { byHex[p.post_hex] = p; });
+
+        defEls.forEach(function(el) {
+            var hex = el.dataset.hex;
+            var name = el.dataset.name || 'this outpost';
+            var pid = el.dataset.postId;
+            var def = byHex[hex];
+            var text = el.querySelector('.def-text');
+            var fill = el.querySelector('.def-fill');
+            if (!def) {
+                text.textContent = 'unsynced';
+                text.title = 'Not synced — use Force Sync in Settings';
+                return;
+            }
+            // Bar fill tracks the raw pool (how battered); the number is total
+            // effective Health (pool scaled up by the item's damage reduction + boosts).
+            var pct = def.max_hp ? Math.round((def.hp / def.max_hp) * 100) : 0;
+            var effHp = def.effective_hp != null ? def.effective_hp : def.hp;
+            var effMax = def.effective_max_hp != null ? def.effective_max_hp : def.max_hp;
+            var drPct = Math.round((def.defense_pct || 0) * 100);
+            fill.style.width = pct + '%';
+            fill.className = 'cond-fill def-fill ' + condClass(pct);
+            text.style.opacity = '';
+            text.textContent = effHp + ' / ' + effMax;
+            text.title = def.hp + '/' + def.max_hp + ' base'
+                + (drPct ? ' · ' + drPct + '% dmg reduction' : '')
+                + (def.boost_hp ? ' · +' + def.boost_hp + ' boost HP' : '');
+
+            // Installed-item slot doubles as the install control: tap to install
+            // (empty) or replace (installed — old item is consumed).
+            var fort = el.querySelector('.cond-fort');
+            if (fort) {
+                var boost = def.active_boosts
+                    ? ' <span class="cond-fort-boost" data-tip="Temporary HP boosts active">+' + def.active_boosts + '⬆️</span>' : '';
+                if (def.defense_item) {
+                    fort.innerHTML = '<button type="button" class="fort-slot fort-installed install-btn" data-post="'
+                        + hex + '" data-post-name="' + name + '" title="' + drPct + '% damage reduction · tap to replace (current item is consumed)">'
+                        + '🛡️ ' + mpItemName(def.defense_item).full + '</button>' + boost;
+                } else {
+                    fort.innerHTML = '<button type="button" class="fort-slot fort-empty install-btn" data-post="'
+                        + hex + '" data-post-name="' + name + '">+ Install defensive item</button>' + boost;
+                }
+            }
+
+            // Repair heals battle-damaged Health only (5 HP per provision). The
+            // whole form stays hidden until there's actual damage to pay off.
+            var reBtn = document.querySelector('.repair-btn[data-hex="' + hex + '"]');
+            if (reBtn) {
+                var reForm = reBtn.closest('form');
+                if (def.hp < def.max_hp) {
+                    var repair = Math.ceil((def.max_hp - def.hp) / 5);
+                    if (reForm) reForm.hidden = false;
+                    reBtn.disabled = false;
+                    reBtn.textContent = '🔧 Repair Health (📦' + repair + ')';
+                    reBtn.title = 'Repair battle damage to full (📦' + repair + ')';
+                } else {
+                    if (reForm) reForm.hidden = true;
+                }
+            }
+
+            // Under-attack state: bump the header chip and surface the Boost action.
+            var incoming = def.incoming_raids || [];
+            if (incoming.length) {
+                var chip = document.getElementById('post-chip-' + pid);
+                if (chip) {
+                    chip.className = 'post-status-chip status-bad';
+                    chip.textContent = '⚔ Under attack';
+                }
+                var threat = document.getElementById('post-threat-' + pid);
+                if (threat) {
+                    var eta = Math.max(1, Math.round((incoming[0].eta_seconds || 0) / 60));
+                    threat.innerHTML =
+                        '<span class="post-threat-text">⚠️ Raid inbound — ETA ' + eta + 'm</span>' +
+                        '<button class="game-btn game-btn-primary game-btn-sm boost-btn" data-post="' + hex +
+                        '" data-post-name="' + name + '">⬆️ Boost</button>';
+                    threat.hidden = false;
+                }
+            }
+        });
+    }).catch(function() {
+        defEls.forEach(function(el) {
+            var t = el.querySelector('.def-text');
+            if (t) t.textContent = 'unavailable';
+        });
+    });
+})();
+</script>
+<script>
+function renamePost(postId, btn) {
+    var nameEl = document.getElementById('post-name-' + postId);
+    var current = nameEl.textContent;
+    var newName = prompt('Rename outpost:', current);
+    if (!newName || newName.trim() === current) return;
+    btn.disabled = true;
+    fetch('/api/posts/' + postId + '/rename', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name: newName.trim()}),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+        if (data.ok) {
+            nameEl.textContent = data.name;
+        } else {
+            loraAlert(data.error || 'Rename failed');
+        }
+    })
+    .catch(function() {
+        btn.disabled = false;
+        loraAlert('Rename failed');
+    });
+}
+</script>
+
+{% if pvp_enabled|default(false) %}
+<dialog id="fortify-modal">
+  <article class="mp-dialog">
+    <header>
+      <button aria-label="Close" rel="prev" data-close="fortify-modal"></button>
+      <strong id="fortify-title">Install Defensive Item</strong>
+    </header>
+    <p class="mp-dialog-hint">Choose a single defensive item to install for a permanent % damage reduction on this outpost's Health. Replaces any current item (the old one is consumed).</p>
+    <div id="fortify-items" class="mp-choice-list"></div>
+    <footer>
+      <button class="game-btn game-btn-secondary" data-close="fortify-modal">Cancel</button>
+      <button class="game-btn game-btn-primary" id="fortify-confirm" disabled>Install</button>
+    </footer>
+  </article>
+</dialog>
+
+<dialog id="boost-modal">
+  <article class="mp-dialog">
+    <header>
+      <button aria-label="Close" rel="prev" data-close="boost-modal"></button>
+      <strong id="boost-title">Deploy HP Boost</strong>
+    </header>
+    <p class="mp-dialog-hint">Deploy defense items as temporary flat-HP boosts (~12h, diminishing returns). Boost HP is soaked before your base HP.</p>
+    <div id="boost-items" class="mp-choice-list"></div>
+    <footer>
+      <button class="game-btn game-btn-secondary" data-close="boost-modal">Cancel</button>
+      <button class="game-btn game-btn-primary" id="boost-deploy" disabled>Deploy Boost</button>
+    </footer>
+  </article>
+</dialog>
+
+<script>
+(function() {
+    // Shared close wiring for all defense dialogs.
+    document.querySelectorAll('[data-close]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var d = document.getElementById(btn.dataset.close);
+            if (d) d.close();
+        });
+    });
+
+    // "Bulwark IV" etc. — shared thematic naming (base.html mpItemName).
+    function rarity(t) { return mpItemName(t).full; }
+    // Mirror of the Worker's ITEM_DEFENSE_PCT / ITEM_BOOST_HP (display only).
+    var DR_PCT = {defense_common: 8, defense_uncommon: 15, defense_rare: 25, defense_epic: 40};
+    var BOOST_HP = {defense_common: 40, defense_uncommon: 80, defense_rare: 150, defense_epic: 300};
+    function fetchDefenseItems() {
+        return fetch('/api/multiplayer/items').then(function(r){ return r.json(); }).then(function(d){
+            return (d.items || []).filter(function(i){ return !i.used && i.item_type.indexOf('defense_') === 0; });
+        });
+    }
+
+    // --- Fortify (install) -------------------------------------------------
+    var fortifyModal = document.getElementById('fortify-modal');
+    var fortifyPost = null, fortifyChoice = null;
+    var fortifyConfirm = document.getElementById('fortify-confirm');
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.install-btn');
+        if (!btn) return;
+        fortifyPost = btn.dataset.post; fortifyChoice = null;
+        fortifyConfirm.disabled = true;
+        document.getElementById('fortify-title').textContent = 'Install on "' + (btn.dataset.postName || 'Outpost') + '"';
+        var list = document.getElementById('fortify-items');
+        list.innerHTML = '<p class="mp-dialog-hint">Loading…</p>';
+        fetchDefenseItems().then(function(items) {
+            if (!items.length) { list.innerHTML = '<p class="mp-dialog-hint">No defense items available. Buy some from the Frontier Merchant.</p>'; return; }
+            // Collapse the inventory to one row per rarity; installing consumes a
+            // single item, so any id from the group works as the value.
+            var groups = {};
+            items.forEach(function(i) { (groups[i.item_type] = groups[i.item_type] || []).push(i); });
+            list.innerHTML = Object.keys(groups).map(function(t) {
+                var g = groups[t];
+                return '<label class="mp-choice"><input type="radio" name="fortify-item" value="' + g[0].id + '">' +
+                    '<span>🛡️ ' + rarity(t) + ' (' + (DR_PCT[t] || 0) + '% damage reduction) ×' + g.length + '</span></label>';
+            }).join('');
+            list.querySelectorAll('input').forEach(function(inp) {
+                inp.addEventListener('change', function() { fortifyChoice = inp.value; fortifyConfirm.disabled = false; });
+            });
+        });
+        fortifyModal.showModal();
+    });
+
+    fortifyConfirm.addEventListener('click', function() {
+        if (!fortifyChoice) return;
+        fortifyConfirm.disabled = true; fortifyConfirm.textContent = '⏳';
+        fetch('/api/multiplayer/install-item', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({post_hex: fortifyPost, item_id: fortifyChoice})
+        }).then(function(r){ return r.json(); }).then(function(d) {
+            if (d.ok) { location.reload(); }
+            else { loraAlert('Install failed: ' + (d.error || 'unknown')); fortifyConfirm.disabled = false; fortifyConfirm.textContent = 'Install'; }
+        });
+    });
+
+    // --- Boost -------------------------------------------------------------
+    var boostModal = document.getElementById('boost-modal');
+    var boostPost = null;
+    var boostDeploy = document.getElementById('boost-deploy');
+    function boostSelected() {
+        return Array.from(boostModal.querySelectorAll('#boost-items input:checked')).map(function(c){ return c.value; });
+    }
+
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.boost-btn');
+        if (!btn) return;
+        boostPost = btn.dataset.post;
+        boostDeploy.disabled = true;
+        document.getElementById('boost-title').textContent = 'Boost "' + (btn.dataset.postName || 'Outpost') + '"';
+        var list = document.getElementById('boost-items');
+        list.innerHTML = '<p class="mp-dialog-hint">Loading…</p>';
+        fetchDefenseItems().then(function(items) {
+            if (!items.length) { list.innerHTML = '<p class="mp-dialog-hint">No defense items available.</p>'; return; }
+            list.innerHTML = items.map(function(i) {
+                return '<label class="mp-choice"><input type="checkbox" value="' + i.id + '">' +
+                    '<span>🛡️ ' + rarity(i.item_type) + ' · +' + (BOOST_HP[i.item_type] || 0) + ' HP boost</span></label>';
+            }).join('');
+            list.querySelectorAll('input').forEach(function(inp) {
+                inp.addEventListener('change', function() { boostDeploy.disabled = boostSelected().length === 0; });
+            });
+        });
+        boostModal.showModal();
+    });
+
+    boostDeploy.addEventListener('click', function() {
+        var ids = boostSelected();
+        if (!ids.length) return;
+        boostDeploy.disabled = true; boostDeploy.textContent = '⏳ Deploying…';
+        fetch('/api/multiplayer/defend/boost', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({post_hex: boostPost, item_ids: ids})
+        }).then(function(r){ return r.json(); }).then(function(d) {
+            boostDeploy.textContent = 'Deploy Boost';
+            if (d.ok) { location.reload(); }
+            else { loraAlert('Boost failed: ' + (d.error || 'unknown')); boostDeploy.disabled = false; }
+        });
+    });
+
+    // HP repair is the standalone Repair button (posts/{id}/repair); ruin is
+    // cleared only on-site via /lora upkeep, never paid off from the web.
+})();
+</script>
+{% endif %}
+
+{% if player and wardstone_relic %}
+<dialog id="ward-modal">
+  <article class="mp-dialog">
+    <header>
+      <button aria-label="Close" rel="prev" id="ward-close"></button>
+      <strong id="ward-title">Ward Outpost</strong>
+    </header>
+    <p class="mp-dialog-hint">A warded outpost goes dormant while you're away: it earns no income, won't fall to ruin, and cannot be raided. Costs <strong>1 wardstone</strong>. Auto-wakes when the ward expires.</p>
+    <form method="post" id="ward-form">
+      <label for="ward-days" style="font-size:0.85rem;">Dormant for <strong id="ward-days-out">7</strong> day<span id="ward-days-s">s</span></label>
+      <input type="range" id="ward-days" name="days" min="1" max="30" value="7" style="margin-bottom:0.25rem;">
+      <div class="ward-range-scale"><span>1d</span><span>30d</span></div>
+      <footer>
+        <button type="button" class="game-btn game-btn-secondary" id="ward-cancel">Cancel</button>
+        <button type="submit" class="game-btn game-btn-primary">🛡️ Ward</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+<script>
+(function() {
+    var modal = document.getElementById('ward-modal');
+    var form = document.getElementById('ward-form');
+    var slider = document.getElementById('ward-days');
+    var out = document.getElementById('ward-days-out');
+    var plural = document.getElementById('ward-days-s');
+    function sync() { out.textContent = slider.value; plural.style.display = slider.value === '1' ? 'none' : ''; }
+    slider.addEventListener('input', sync);
+    document.querySelectorAll('.ward-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            form.action = '/relics/' + btn.dataset.relic + '/ward/' + btn.dataset.post;
+            document.getElementById('ward-title').textContent = 'Ward "' + (btn.dataset.postName || 'Outpost') + '"';
+            slider.value = 7; sync();
+            modal.showModal();
+        });
+    });
+    document.getElementById('ward-cancel').addEventListener('click', function() { modal.close(); });
+    document.getElementById('ward-close').addEventListener('click', function() { modal.close(); });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,22 @@
+services:
+  lora-explorer:
+    build: .
+    ports:
+      - "1492:1492"
+    volumes:
+      - game-data:/app/data
+    environment:
+      # Companion config is optional here — configure via the web UI instead
+      # - CONNECTION_TYPE=wifi
+      # - COMPANION_HOST=192.168.1.x
+      # - COMPANION_PORT=4000
+      # - BLE_ADDRESS=
+      # - BLE_PIN=
+      - HOME_LAT=0
+      - HOME_LON=0
+      - DB_PATH=/app/data/explorer.db
+      - UTC_OFFSET=-7
+    restart: unless-stopped
+
+volumes:
+  game-data:

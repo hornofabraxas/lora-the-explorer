@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Rank — LoRa the Explorer{% endblock %}
+
+{% block content %}
+{% if not player %}
+<article>
+    <header><h2>No Explorer Found</h2></header>
+    <p>Complete your first survey to begin.</p>
+</article>
+{% else %}
+
+<hgroup>
+    <h2>{{ rank_name }}</h2>
+    <p>Rank {{ player.rank_level }} — {{ player.xp | int }} XP</p>
+</hgroup>
+
+{% if next_rank %}
+<label>XP toward {{ next_rank.name }} (Rank {{ next_rank.level }})</label>
+<progress value="{{ xp_progress }}" max="100"></progress>
+<small>{{ player.xp | int }} / {{ next_rank.xp }} XP — Reward: +{{ next_rank.reward_prov }} provisions</small>
+{% else %}
+<article>
+    <p><mark>Grand Cartographer — Maximum rank achieved</mark></p>
+</article>
+{% endif %}
+
+<h3>Rank Ladder</h3>
+<figure>
+<table>
+    <thead>
+        <tr>
+            <th>Rank</th>
+            <th>Title</th>
+            <th>XP</th>
+            <th>Reward</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for level, info in rank_thresholds.items() %}
+        {% set show = (level == 1 or info.name != rank_thresholds[level - 1].name if level > 1 else true) or level == player.rank_level or level == player.rank_level + 1 %}
+        {% if show or level <= 10 %}
+        <tr {% if level == player.rank_level %}style="font-weight: bold;"{% endif %}>
+            <td>
+                {{ level }}
+                {% if level == player.rank_level %} ←{% endif %}
+            </td>
+            <td>{{ info.name }}</td>
+            <td>{{ info.xp if info.xp > 0 else "—" }}</td>
+            <td>+{{ info.reward_prov }}📦</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+<small style="color: var(--pico-muted-color);">Ranks are earned automatically when you reach the XP threshold. Each rank-up rewards provisions.</small>
+</figure>
+
+{% endif %}
+{% endblock %}

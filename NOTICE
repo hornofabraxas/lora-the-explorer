@@ -1,0 +1,55 @@
+LoRa the Explorer
+Copyright (c) 2026 Justin Walls
+
+This product is licensed under the MIT License. See the LICENSE file.
+
+================================================================================
+THIRD-PARTY COMPONENTS
+================================================================================
+
+This software depends on the following third-party packages. All are used under
+permissive licenses compatible with the MIT License. Each remains the property of
+its respective copyright holders and is governed by its own license terms.
+
+Runtime dependencies (Python)
+-----------------------------
+meshcore            MIT             Copyright (c) 2025 Florent de Lamotte
+h3                  Apache-2.0      Uber Technologies, Inc.
+fastapi             MIT             Copyright (c) 2018 Sebastian Ramirez
+starlette           BSD-3-Clause    Copyright (c) 2018 Encode OSS Ltd
+uvicorn             BSD-3-Clause    Copyright (c) 2017-present Encode OSS Ltd
+pydantic            MIT             Copyright (c) 2017-present Pydantic Services Inc.
+jinja2              BSD-3-Clause    Copyright (c) 2007 Pallets
+aiosqlite           MIT             Copyright (c) Amethyst Reese
+httpx               BSD-3-Clause    Copyright (c) 2019 Encode OSS Ltd
+python-multipart    Apache-2.0      Copyright (c) Andrew Dunham
+itsdangerous        BSD-3-Clause    Copyright (c) 2011 Pallets
+authlib             BSD-3-Clause    Copyright (c) Hsiaoming Yang
+joserfc             BSD-3-Clause    Copyright (c) Hsiaoming Yang
+
+Frontend
+--------
+Leaflet             BSD-2-Clause    Copyright (c) 2010-2024 Volodymyr Agafonkin,
+                                    Copyright (c) 2010-2011 CloudMade
+
+Multiplayer service (see the lora-worker repository)
+----------------------------------------------------
+hono                MIT             Copyright (c) 2021-present Yusuke Wada
+
+Development only
+----------------
+pytest              MIT             Copyright (c) 2004 Holger Krekel and others
+pytest-asyncio      Apache-2.0      Copyright (c) 2015 Tin Tvrtkovic
+
+================================================================================
+TRADEMARKS
+================================================================================
+
+LoRa(R) is a registered trademark of Semtech Corporation.
+
+This project is an independent hobby project. It is not endorsed by, sponsored
+by, affiliated with, or associated with Semtech Corporation, the LoRa Alliance,
+the MeshCore project, Cloudflare, Inc., or any other company or project named in
+this software or its documentation. All trademarks are the property of their
+respective owners and are used only descriptively, to identify the technologies
+this software interoperates with.

@@ -1,0 +1,370 @@
+# Multiplayer Design Document
+
+> **2026-07-22 — Federation removed.** The Layer-3 federated peer-consensus system
+> (per-server ledger auditing + vote bundles) was removed. It never activated
+> below its 8-server threshold, its only enforcement was a notification, and its
+> checks were sybil-vulnerable and strictly weaker than the Worker's own write-time
+> validation. Anti-cheat now lives entirely in the Worker: hard invariants enforced
+> at write time (see **Layer 1/2** below) plus an operator review layer
+> (`GET /api/admin/flags`, `POST /api/admin/freeze/:id`). The "Federation Layer" and
+> "Layer 3" sections below are retained for historical context only and no longer
+> describe shipped behavior. See `lora-federation-review.md` for the full rationale.
+
+## Overview
+
+Federated PvP multiplayer for LoRa the Explorer. Players run independent game servers that communicate through a Cloudflare Worker acting as a public ledger and combat resolution engine. No player server requires inbound ports, public domains, or additional infrastructure — all communication is outbound HTTPS to the Worker.
+
+## Privacy & Trust
+
+The Worker is open source. Players can audit the code to verify privacy claims and anti-cheat fairness.
+
+### Location Privacy
+
+**No precise GPS coordinates are ever transmitted to the Worker.** Player servers handle all fine-grained location logic (H3 resolution 8 hexes, velocity checks, distance calculations) locally. The Worker receives only:
+
+- **Coarse region cells** — H3 resolution 3 or 4 (~50-500 sq km per cell). Used for travel time estimation and leaderboard distance bands. Precise enough for "same city" vs "same country" vs "cross-continent" but reveals nothing more specific than a metropolitan area.
+- **Survey counts and timestamps** — how many surveys per bundle, not where they occurred.
+- **Resource totals** — provisions, XP, field notes earned. Derived from surveys but stripped of location.
+
+The Worker never stores, processes, or has access to exact latitude/longitude coordinates. The open-source code proves this — any player can verify that the API accepts only coarse cell IDs.
+
+### Anti-Cheat Without Location Data
+
+GPS velocity checks (preventing impossible travel speeds between surveys) run exclusively on the local server. A player who controls their own server could theoretically disable these checks and GPS-spoof surveys. However, the Worker constrains the damage:
+
+- Survey frequency is rate-limited (max bundles per hour, max surveys per bundle)
+- Resource generation is bounds-checked against post count, levels, and survey rates
+- Item drops are assigned deterministically by the Worker, not the local server
+- Influence balance is tracked server-side
+
+A cheater gains slightly inflated survey counts at best, not infinite resources or items. The cost-benefit of GPS spoofing is low compared to the overhead of maintaining a modified server.
+
+---
+
+## Architecture
+
+### Three-Tier Model
+
+**Player Game Servers (Local)**
+- Run independently on player hardware (Raspberry Pi, etc.)
+- Outbound-only communication to Worker
+- Handle all computationally intensive validation
+- Push signed action bundles to Worker
+- Poll Worker for ledger updates, leaderboard, incoming attacks
+- Validate peers by auditing the public ledger
+
+**Cloudflare Worker + KV (Global)**
+- Central public ledger and combat resolution engine
+- Receives action bundles from player servers
+- Stores game state in KV
+- Resolves combat when timers expire
+- Performs sanity checks (rate limits, bounds, dedup)
+- Computes leaderboard on read (no writes)
+- Assigns item drops deterministically
+- Maintains private defense values (not exposed via public API)
+
+**Federation Layer**
+- Player servers periodically pull the public ledger
+- Each server validates peer actions against game rules
+- Flags submitted to Worker as vote bundles
+- Majority consensus invalidates cheating players
+
+### KV Write Budget (Free Tier: 1,000/day)
+
+| Write Type | Frequency | Writes/Player/Day |
+|---|---|---|
+| Action bundle (surveys, discoveries) | Hourly batch | ~24 max (skipped if idle) |
+| Attack declaration | Real-time | ~0.5 |
+| Scout (Probe) | Real-time | ~0.5 |
+| HP restoration | Real-time | ~1 |
+| Consensus vote bundle | Every 6 hours | 4 |
+| Siege resolution | Lazy on poll or scheduled cron | ~0.2 |
+| Leaderboard | Computed on read | 0 |
+
+**Estimated capacity:** ~30 writes/active player/day = ~33 concurrent active players on free tier. Upgrade to paid ($5/mo) removes the constraint entirely.
+
+**Optimization:** Hourly bundles are skipped when no actions occurred. Most players aren't active 24/7, so realistic capacity is higher than the theoretical maximum.
+
+---
+
+## Economy
+
+### Currencies
+
+**Influence**
+- Generated passively by Survey Posts over time
+- Spent to launch attacks on other players' posts
+- Primary offensive currency
+
+**Provisions**
+- Generated by discovering hexes (already exists)
+- Spent to upgrade posts, repair post HP, and craft items
+- Primary defensive/construction currency
+
+### Survey Posts
+
+- Players can have up to 3 Survey Posts
+- Posts have levels (existing upkeep mechanic), with a minimum of 7 days at each level before upgrading
+- Higher level = more influence generation per tick, more base defense, more leaderboard points per tick
+- Upgrading requires provisions and physical presence (survey through the post)
+- Points generation increases over time as posts survive, following a logarithmic curve (Day 1 = 1x, Day 7 ≈ 2.5x, Day 14 ≈ 3.2x, Day 30 ≈ 4.2x, Day 60 ≈ 5x)
+
+### Leaderboard
+
+- Displayed locally in each player's game UI
+- Computed on read by the Worker — scans ledger KV, aggregates active post points, returns sorted list
+- Zero KV writes for leaderboard updates
+- Shows: player name, total points, approximate distance band (nearby / regional / distant) derived from coarse region cells
+- Posts currently under siege are flagged
+- Serves as the attack target browser — players pick targets from the leaderboard
+
+### Scouting
+
+Before attacking, players can use a **Probe** item to scout a target post, revealing additional intel:
+- Post level
+- Post age
+- Post count
+
+Scouting costs one Probe (common drop) and is an immediate KV write. The scouted player is notified on their next poll: "One of your Survey Posts was surveyed by an unknown party." This creates tension and a reason to shore up defenses even without a declared attack.
+
+**Open-source visibility concern:** Since the game is open source and the Worker API is documented, a technically inclined player could attempt to query defense data directly or read the resolution logic to reverse-engineer values. Mitigation:
+- Defense values are stored in a separate KV namespace with no public API endpoint — the Worker code reads them internally during resolution but never exposes them in any response
+- The `/api/player/:id/defense` endpoint is authenticated and only returns data for the requesting player's own posts
+- Scouted intel (level, age) is returned only to the scouting player via their ledger poll, not added to the public leaderboard
+- The defense formula is intentionally public (players should be able to estimate ranges), but the specific inputs (survey consistency, installed items, current HP) for any given post remain private to the Worker's internal state
+- A player reading the source code learns HOW defense is calculated, but not WHAT any specific post's values are — the uncertainty is in the data, not the algorithm
+
+---
+
+## Combat
+
+### Attack Flow
+
+1. **Declaration:** Attacker selects a target post from the leaderboard. Commits influence to the attack. Amount is attacker's choice — more influence = more damage. This is an immediate KV write.
+
+2. **Travel Time:** Attack has a travel period before it lands. Travel time scales with distance between attacker's and target's coarse region cells (H3 resolution 3-4). The Worker computes travel time from cell centroid distances — precise enough for the three travel bands without requiring exact GPS.
+   - Nearby target (~same city): ~4-6 hours
+   - Regional (~same country): ~12 hours  
+   - Distant (~cross-continent): ~24-48 hours
+   - Distance doesn't reduce attack power — it gives the defender more time to prepare defenses (survey through the post, install defensive items)
+   - Geography as recruitment incentive: with low player counts, players are likely spread across the globe. Shorter travel times for nearby targets incentivize recruiting local players into the game, creating natural community growth
+
+3. **Defender Notification:** On next poll, defender's server sees the incoming attack. UI shows: attack strength, time until impact, attacker identity.
+
+4. **Resolution:** After travel time expires, the next server poll triggers the Worker to resolve the attack. Attack damage is applied against the post's total defense value.
+
+### Defense Model
+
+Defense is primarily passive — built through ongoing gameplay, not reactive spending during combat.
+
+**Defense Components (Hidden from attackers):**
+- **Base defense:** Determined by post level (public info)
+- **Survey defense bonus:** Permanent incremental defense added each day the player surveys through the post. Accumulates over time. Rewards consistent daily play.
+- **Installed rare items:** Defensive rare items installed on the post (e.g., Citadel). Provide fixed defense bonuses.
+- **Post HP:** Total health pool, scales with post level
+
+**What attackers can see (from leaderboard):**
+- Player name
+- Total points
+- Approximate distance band (nearby / regional / distant)
+
+**What attackers can see (after scouting with a Probe):**
+- Post level
+- Post age
+- Post count
+
+**What attackers cannot see:**
+- Accumulated survey defense bonus
+- Installed defensive items
+- Current HP (if previously damaged)
+- Total effective defense value
+
+This asymmetry creates genuine uncertainty for attackers. The defense formula is public (open source), but the inputs for any specific post are private. An attacker can estimate a range ("a level 3 post that's 45 days old has defense between X and Y depending on survey consistency") but not the exact number. Scouting with a Probe narrows this range but never eliminates the uncertainty.
+
+Private defense values are stored in a Worker KV namespace with no public API endpoint. Only the resolution logic reads them.
+
+### Damage and Outcomes
+
+- **Successful attack (damage > defense):** Post is razed. Attacker receives points proportional to the post's actual defense strength (stronger posts = better rewards) plus ~25-30% of the defender's stored provisions. Post loses all levels, survey defense bonus, and installed items. Hex is retained; defender can rebuild after 48-hour cooldown at level 1.
+- **Failed attack (defense > damage):** Post survives but takes permanent HP damage equal to the difference shortfall. Attacker loses all committed influence.
+- **HP restoration:** Defenders can spend provisions to restore post HP at any time (immediate KV write). Daily surveys through a post also restore a small amount of HP in addition to building the survey defense bonus.
+
+### Multi-Attacker Rules
+
+Multiple players can attack the same post simultaneously. Each additional attacker suffers diminishing returns:
+
+| Attackers | Per-Attacker Effectiveness |
+|---|---|
+| 1 | 100% |
+| 2 | 75% each |
+| 3 | 63% each |
+| 4 | 53% each |
+| 5 | 47% each |
+
+This discourages pile-ons — each additional attacker's resources are worth less. Coordinated attacks are still possible but increasingly inefficient, making it strategically better to spread attacks across multiple posts.
+
+### Rare Items
+
+Drops are assigned by the Worker deterministically when processing action bundles. Drop rate is applied based on survey count in the bundle, seeded from a hash of player ID + timestamp + survey count. This prevents local servers from manipulating drop rates.
+
+Every peer can verify: "Player A did 4 surveys this hour, the drop algorithm says they should have received 1 common and 0 rares." Inventory mismatches are flagged.
+
+**Scouting Items:**
+- **Probe:** Common. Consumed to scout a target post, revealing post level, age, and count. Target is notified anonymously.
+
+**Offensive Items:**
+- **Strike:** Uncommon. Moderate damage bonus.
+- **Siege Engine:** Rare. Large damage multiplier. One use.
+
+**Defensive Items:**
+- **Reinforce:** Common. Small permanent defense boost when installed on a post.
+- **Fortify:** Uncommon. Moderate permanent defense boost.
+- **Citadel:** Rare. Major permanent defense boost. One per post.
+
+Items are consumed on use (offensive) or installed permanently (defensive). Players choose which items to install on which posts and which to save for attacks.
+
+---
+
+## Design Decisions
+
+### Alliances
+No in-game alliance mechanics. Players can coordinate outside the game (Discord, etc.) but the game provides no mechanical support for teams, shared defense, or formal pacts. This avoids the balancing problem of large alliances steamrolling solo players and keeps the system simple. Betrayal is always mechanically possible, which makes informal alliances self-limiting through social dynamics.
+
+### Defense During Incoming Attacks
+Defense is calculated at the moment of resolution (snapshot at resolution). The travel time window is the defender's opportunity to prepare — survey through the post for defense bonuses, install defensive items. This makes the travel time window genuinely meaningful for both sides: attackers accepted this uncertainty when they committed influence, and defenders are rewarded for active play during the countdown.
+
+Post level-ups are restricted by a **minimum time at each level**: a post must remain at its current level for at least 7 days before upgrading. This prevents a defender from rushing a level 1 post to level 5 overnight when an attack is declared, while also serving as a universal pacing mechanic that makes post level an honest signal of investment.
+
+### Attack Cooldowns
+- Maximum 2 active attacks per player at any time
+- 24-hour cooldown between attack declarations
+- This bounds KV write budget impact and forces target selection to be deliberate
+
+### Post Destruction and Rebuilding
+- Post is razed: level, accumulated survey defense bonus, installed defensive items, and generated points are all lost
+- Hex is retained: the player keeps the charter and can rebuild at the same location
+- 48-hour cooldown before rebuilding on a razed hex (cooldown applies to the hex, not the player — they can charter a new post elsewhere immediately if they have a slot)
+- Rebuilt post starts at level 1 with zero survey defense bonus
+- Chartering (including rebuilding) requires physical presence at the location
+
+### Influence Cap
+Stored influence is capped at 14 days of generation. Influence earned beyond the cap is lost. This prevents inactive players from accumulating a massive war chest while offline and ensures the influence economy stays proportional to active play.
+
+### Survey Post Limit
+Players can have up to 3 Survey Posts (reduced from 5). Fewer posts means each one is more valuable and losing one is more impactful. This also simplifies economy balancing — fewer influence-generating assets to tune.
+
+### Economy Balancing
+Specific values need playtesting, but the following design constraints bound the balancing space:
+- **Offense is expensive:** 5-7 days of passive influence generation from all posts should fund one serious attack on a mid-level post. Attacks are commitments, not casual actions.
+- **Defense outpaces offense by default:** A post actively maintained with daily surveys for 30 days should survive a single attacker who spent 7 days of influence. Siege Engines (rare) are the key to breaking well-defended posts.
+- **HP repair is meaningful but not crushing:** Repairing HP damage from a failed attack costs roughly 2-3 days of active surveying provisions.
+- **Plunder on successful raze: ~25-30%** of the defender's stored provisions. Rewarding but not devastating.
+- **Points curve (logarithmic):** Day 1 = 1x, Day 7 ≈ 2.5x, Day 14 ≈ 3.2x, Day 30 ≈ 4.2x, Day 60 ≈ 5x. Big gains in the first two weeks, then slow plateau. Mid-age posts are the strategic sweet spot — worth attacking but not soul-crushing to lose.
+- **Drop rates:** Probes ~1 per 3-4 survey bundles (scouting should be routine). Strikes ~1 per 15-20 bundles. Siege Engines ~1 per 80-100 bundles (genuinely exciting, roughly one every few weeks of active play).
+
+### Distance Bonus Abuse Prevention
+Survey distance bonuses (XP/provisions) are calculated and frozen at charter time based on the distance from the player's home location to the post hex. This means the bonus reflects a genuine one-time journey rather than being recalculated on every survey. A player who fakes their home location to inflate distance bonuses would need to physically travel to a distant location to charter the post (GPS required at charter time). The local server validates charter GPS; the Worker only sees the resulting coarse region cell and frozen distance multiplier.
+
+### Attack Auto-Resolution
+Attacks are resolved by the Worker after travel time expires, regardless of whether any player polls. The Worker runs resolution on a scheduled cron (e.g., every 6 hours) in addition to lazy resolution on poll requests. This prevents attacks from hanging indefinitely against inactive defenders.
+
+---
+
+## Anti-Cheat
+
+### Layer 1: Local Server (Private — Exact GPS)
+
+All fine-grained location validation happens locally and is never transmitted. A cheating player who controls their own server could bypass these checks, but the Worker's bounds checking limits the benefit (see Privacy & Trust section).
+
+**GPS Velocity Checks (existing)**
+- If a player claims hex A at time T1 and hex B at time T2, and the implied speed exceeds a threshold, the action is rejected before it reaches the Worker.
+- Exact coordinates never leave the local server.
+
+**Resource Accumulation Rate**
+- A player's influence and provision generation must be consistent with their number of posts, post levels, and survey frequency.
+- Local server validates its own player's rates before including them in action bundles.
+
+### Layer 2: Worker (Primary Anti-Cheat Authority)
+
+The Worker is the authoritative anti-cheat system at all player counts. It performs validation on every write and rejects invalid data before it enters the ledger.
+
+**Rate Limiting**
+- No player can push more than N action bundles per hour.
+- Maximum surveys per bundle capped at reasonable limits.
+
+**Bounds Checking**
+- Influence spent cannot exceed influence earned (derived from ledger history).
+- Post levels cannot exceed maximum without corresponding provision expenditure.
+- Item inventory must match Worker-assigned drops.
+
+**Deduplication**
+- Reject bundles with action timestamps overlapping previously written bundles.
+
+**Deterministic Item Assignment**
+- Drop rates applied by the Worker, not the local server.
+- Every peer can independently verify expected drops vs. actual inventory.
+
+### Layer 3: Federated Peer Consensus (Threshold-Activated)
+
+Peer consensus is disabled below a minimum active server threshold (e.g., 8 servers). At low player counts, consensus is too easily gamed by sybil attacks (one player running multiple servers to control the majority vote). Above the threshold, consensus activates as an additional validation layer on top of the Worker's authority.
+
+**Ledger Auditing**
+- Each player server periodically pulls the public ledger.
+- Runs validation against game rules: resource rates, survey frequency, statistical anomalies.
+- Velocity checks are NOT available to peers — exact GPS stays local. Peers validate based on resource/survey rate consistency only.
+- Individual nodes cannot hear other players' radio traffic — validation is purely ledger-based.
+
+**Dispute Resolution**
+- Flags are submitted as part of vote bundles (batched every 6 hours).
+- When a dispute receives votes from a majority of active servers, the Worker marks those actions as invalidated.
+- Invalidated influence/resources are zeroed out, affected sieges are recalculated.
+
+**Why This Works**
+- The Worker catches most cheating through bounds checking and deterministic item assignment regardless of player count.
+- A cheater controlling their own server can fake local validation, but they cannot manipulate the public ledger retroactively.
+- They cannot fake item drops — the Worker assigns them deterministically.
+- At scale, they cannot stuff the ballot box — each server gets one vote in consensus.
+- Statistical anomalies (impossibly fast surveying, excessive resource generation) are visible to all peers on the ledger.
+
+---
+
+## Technical Implementation
+
+### Worker API Routes
+
+**Public (reads — unlimited):**
+- `GET /api/ledger/since?t=<timestamp>` — Poll for new ledger entries
+- `GET /api/leaderboard` — Computed on read, returns sorted player standings
+- `GET /api/attacks/active` — List active sieges (public info only)
+- `GET /api/player/:id/public` — Public player profile (post count, coarse region cells)
+
+**Authenticated (writes — budget-constrained):**
+- `POST /api/bundle` — Push hourly action bundle (surveys, discoveries, resources). Worker assigns item drops and writes combined entry.
+- `POST /api/attack` — Declare an attack (immediate write)
+- `POST /api/scout` — Scout a target post with a Probe (immediate write). Returns post level, age, count to the scouting player only. Notifies the target player on their next poll.
+- `POST /api/defend/restore` — Restore a post's HP with provisions (immediate write)
+- `POST /api/votes` — Submit consensus vote bundle (batched)
+
+**Private (server-to-own-player only):**
+- `GET /api/player/:id/defense` — Own post defense values (authenticated, only returns data for the requesting player's own posts)
+
+### KV Schema
+
+```
+ledger:{player_id}:{timestamp}     → Action bundle + assigned drops
+attack:{attack_id}                 → Attack state (attacker, target, strength, travel time, status)
+scout:{scout_id}                   → Scout result (scouter, target post, revealed stats, notification status)
+defense:{player_id}:{post_id}      → Private defense values (survey bonus, installed items, HP)
+votes:{epoch}                      → Consensus votes for current period
+players:{player_id}                → Player profile, server URL, public stats
+```
+
+### Resolution Logic
+
+Resolution is triggered by any poll request, or by a scheduled Worker cron (e.g., every 6 hours) for attacks against inactive defenders. The Worker checks for attacks past their travel time deadline:
+1. Read attack state from KV
+2. Read target post's private defense values (snapshot at resolution — includes all defensive actions taken during travel time)
+3. Calculate: attack damage (with multi-attacker diminishing returns) vs. total defense
+4. If damage > defense: raze post, award points/plunder to attacker, mark hex with 48-hour rebuild cooldown, write result
+5. If defense > damage: post survives, reduce HP by residual damage, write result
+6. Notify both parties via their next ledger poll

@@ -1,0 +1,972 @@
+{% extends "base.html" %}
+{% block title %}Multiplayer — LoRa the Explorer{% endblock %}
+
+{% block content %}
+{% if not registered %}
+<article>
+    <header><h2>Join the Network</h2></header>
+    <p>Register to compete on the global leaderboard, scout rival outposts, and wage PvP warfare.</p>
+    <form method="post" action="/api/multiplayer/register">
+        <label for="display_name">Explorer Name</label>
+        <input type="text" id="display_name" name="display_name" maxlength="32" required placeholder="Your display name">
+        <small>Visible to every other explorer. Don't use your real name or anything identifying.</small>
+        <label for="invite_code">Invite Code</label>
+        <input type="text" id="invite_code" name="invite_code" maxlength="64" placeholder="Required during closed alpha">
+        <small>Leave blank if the network isn't invite-only.</small>
+
+        <p class="doc-hint" style="margin: 1rem 0 0.5rem;">
+            Joining shares a <strong>coarse location</strong> (your base camp rounded to about 11&nbsp;km)
+            so raids can be given a travel time, plus your Survey Posts as <strong>opaque tokens</strong>.
+            Your precise GPS, survey history, and real territory IDs are never sent.
+        </p>
+        <label for="age_confirm" style="display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.75rem;">
+            <input type="checkbox" id="age_confirm" name="age_confirm" value="1" required style="margin: 0.2rem 0 0;">
+            <span>I am <strong>18 or over</strong> and I accept the
+                <a href="https://github.com/hornofabraxas/lora-the-explorer/blob/main/TERMS.md" target="_blank" rel="noopener">Terms</a>
+                and <a href="https://github.com/hornofabraxas/lora-the-explorer/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy Notice</a>.</span>
+        </label>
+        <button type="submit">Register</button>
+    </form>
+</article>
+
+{% else %}
+
+<div class="mp-page">
+
+{# --- War Room: your standing pinned up top so higher player counts never   #}
+{# --- force you to scroll the Warfront to find your own numbers.            #}
+{% set war = namespace(rank=none, entry=none) %}
+{% for p in leaderboard %}
+    {% if p.player_id == player_id and war.rank is none %}
+        {% set war.rank = loop.index %}
+        {% set war.entry = p %}
+    {% endif %}
+{% endfor %}
+<article class="mp-card mp-warroom">
+    <div class="mp-warroom-head">
+        <div class="mp-warroom-emblem">⚔️</div>
+        <div class="mp-warroom-id">
+            <div class="mp-warroom-name">{{ war.entry.display_name if war.entry else 'Commander' }}</div>
+            <div class="mp-warroom-sub">
+                {% if available_titles %}
+                <form method="post" action="/api/multiplayer/title" class="mp-title-picker">
+                    <select name="title" onchange="this.form.submit()" aria-label="Choose your title">
+                        <option value="" {% if not active_title %}selected{% endif %}>— No title —</option>
+                        {% for t in available_titles %}
+                        <option value="{{ t }}" {% if active_title == t %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                {% else %}
+                <span class="mp-no-title">No title yet</span>
+                {% endif %}
+                <button type="button" class="mp-title-info" title="What are titles?"
+                        onclick="mpTitleInfo()" aria-label="About titles">ⓘ</button>
+            </div>
+        </div>
+        {% if war.rank %}
+        <div class="mp-warroom-rank" data-tip="Your leaderboard rank"><span class="mp-rank-hash">#</span>{{ war.rank }}</div>
+        {% endif %}
+    </div>
+    <div class="mp-warroom-stats">
+        <div class="mp-stat">
+            <div class="mp-stat-value">{{ war.entry.total_renown if war.entry else 0 }} ✨</div>
+            <div class="mp-stat-label">Renown</div>
+        </div>
+        <div class="mp-stat">
+            <div class="mp-stat-value">+{{ war.entry.renown_per_day if war.entry else 0 }}</div>
+            <div class="mp-stat-label">Renown / day</div>
+        </div>
+        <div class="mp-stat">
+            <div class="mp-stat-value">{{ war.entry.post_count if war.entry else 0 }}</div>
+            <div class="mp-stat-label">Posts</div>
+        </div>
+    </div>
+</article>
+
+{# --- Your Frontlines + Frontier Merchant: paired half-width cards. A lone     #}
+{# --- card grows to full width; they stack on narrow screens.                 #}
+<div class="mp-split">
+{% if pvp_enabled %}
+{# --- Your Frontlines: the single home for inbound threats AND your outbound   #}
+{# --- raid. Defence HP/fortification is managed on the Outposts page.          #}
+{% set threatened_posts = [] %}
+{% for hex_id, def in defense_posts.items() %}
+    {% set besieged = def.besieged_until and now_ts and def.besieged_until > now_ts %}
+    {% if (def.incoming_raids and def.incoming_raids|length > 0) or besieged %}
+        {% set _ = threatened_posts.append((hex_id, def, besieged)) %}
+    {% endif %}
+{% endfor %}
+<article class="mp-card mp-frontlines">
+    <div class="mp-card-head">
+        <h2>🛡️ Your Frontlines</h2>
+        <a href="/outposts" class="game-btn game-btn-secondary game-btn-sm">Manage defenses →</a>
+    </div>
+
+    {# Incoming — threats against your Survey Posts. #}
+    <div class="mp-front-section">
+        <div class="mp-front-label">⚠️ Incoming</div>
+        {% if not defense_posts %}
+        <p class="mp-muted">No Survey Posts synced yet. Use <a href="/settings">Force Sync</a> in Settings.</p>
+        {% elif threatened_posts %}
+        <div class="mp-front-grid">
+            {% for hex_id, def, besieged in threatened_posts %}
+            <div class="mp-front-post mp-front-threatened">
+                <div class="mp-front-top">
+                    <span class="mp-front-name">{{ (own_post_names|default({})).get(hex_id) or hex_name(hex_id) }}</span>
+                    {% if besieged %}<span class="mp-siege-chip" data-tip="Besieged — HP regen is paused while raids keep landing.">🔥 Besieged</span>{% endif %}
+                </div>
+                {# One compact row per inbound party: how long you have, and what #}
+                {# it's projected to do. No loadout — you can't see theirs anyway. #}
+                {% for r in def.incoming_raids or [] %}
+                <div class="mp-raid-row mp-raid-{{ r.threat or 'hold' }}">
+                    <span class="mp-raid-eta">⏱ {{ [1, (r.eta_seconds / 60) | round | int] | max }}m</span>
+                    <span class="mp-raid-verdict">
+                        {% if r.threat == 'raze' %}Projected to raze
+                        {% elif r.threat == 'heavy' %}Heavy damage
+                        {% else %}Should hold{% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="mp-muted">🕊️ No inbound raids. Your {{ defense_posts|length }} outpost{{ 's' if defense_posts|length != 1 }} stand quiet.</p>
+        {% endif %}
+    </div>
+
+    {# Outgoing — your active raiding party + result (shown/hidden by JS below). #}
+    <div class="mp-front-section" id="active-raid-card" style="display:none;">
+        <div class="mp-front-subhead">
+            <div class="mp-front-label">⚔️ Outgoing</div>
+            <button id="raid-dismiss" class="game-btn game-btn-secondary game-btn-sm" style="display:none;">Dismiss</button>
+        </div>
+        <div id="active-raid-body"></div>
+        <p class="mp-card-foot">🔒 Only one raiding party can be deployed at a time.</p>
+    </div>
+</article>
+{% endif %}
+
+{% if war_chest %}
+<article class="mp-card">
+    <div class="mp-card-head shelf-title">
+        <h2>{% if merchant_unlocked %}🛒 Frontier Merchant{% else %}🎒 War Chest{% endif %}</h2>
+        {% if merchant_unlocked %}
+        <span class="shelf-restock-group">
+            <span class="shelf-restock" data-restock="{{ merchant_reset_ts }}"></span>
+            <button type="button" class="cond-info" data-tip="The merchant carries a small, randomly drawn selection of stock each week — one of each item shown. Whatever isn't here restocks when the caravan turns over.">ⓘ</button>
+        </span>
+        {% endif %}
+    </div>
+    <div class="item-shelf">
+        {% for it in war_chest %}
+        <div class="item-row">
+            {# Munitions are used elsewhere (attacks from the Warfront, defense on
+               Outposts), so the left chip is a display; the ⓘ says where. #}
+            <div class="item-mid">
+                <span class="item-main mp-rarity-{{ it.rarity }}{% if it.count == 0 %} item-empty{% endif %}">
+                    <span class="item-name">{{ it.label }}</span>
+                </span>
+                <button type="button" class="cond-info" data-tip="{% if it.kind == 'attack' %}Attack item — launch raids from the Warfront below.{% elif it.kind == 'defense' %}Defensive item — install or boost it on a Survey Post (Outposts page).{% elif it.type == 'probe' %}Scout a rival's outpost before you raid it.{% else %}Multiplayer item.{% endif %}">ⓘ</button>
+            </div>
+
+            <div class="item-actions">
+                {# Buy — only when stocked this week and not already bought. Rows that
+                   can't be bought at all drop the button rather than show it disabled
+                   (matches the relic shelf on Briefing); disabled means "affordable
+                   later", i.e. you're just short on currency. #}
+                {% if it.buy and not it.buy.purchased %}
+                <form method="post" action="/merchant/buy-item">
+                    <input type="hidden" name="item_type" value="{{ it.type }}">
+                    <button type="submit" class="game-btn game-btn-primary game-btn-sm confirm-btn item-buy"
+                        data-confirm-text="Buy · {{ it.buy.price }} {{ it.buy.symbol }}?"
+                        {% if not it.buy.affordable %}disabled{% endif %}
+                        data-tip="{% if not it.buy.affordable %}Need {{ it.buy.price }} {{ it.buy.symbol }}{% else %}Buy for {{ it.buy.price }} {{ it.buy.symbol }}{% endif %}">Buy</button>
+                </form>
+                {% endif %}
+
+                {# Salvage frees unused items back for currency (batched: one Worker
+                   write per submit). Only free items are sellable. #}
+                {% if it.salvage and it.count > 0 %}
+                <button type="button" class="game-btn game-btn-secondary game-btn-sm item-sell salvage-btn"
+                    data-type="{{ it.type }}" data-label="{{ it.label }}" data-count="{{ it.count }}"
+                    data-value="{{ it.salvage.value }}" data-symbol="{{ it.salvage.symbol }}"
+                    data-tip="Salvage for {{ it.salvage.value }} {{ it.salvage.symbol }} each">Sell</button>
+                {% else %}
+                <button class="game-btn game-btn-secondary game-btn-sm item-sell" disabled
+                    data-tip="{% if not it.salvage %}Not salvageable{% else %}None to salvage{% endif %}">Sell</button>
+                {% endif %}
+
+                <span class="item-qty{% if it.count == 0 %} item-qty-zero{% endif %}">×{{ it.count }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</article>
+{% endif %}
+</div>{# /.mp-split #}
+{% if active_raid %}
+<script id="active-raid-data" type="application/json">{{ active_raid | tojson }}</script>
+{% endif %}
+
+<article class="mp-card">
+    <div class="mp-card-head"><h2>🗺️ Warfront</h2></div>
+
+    {% if pvp_enabled and not can_attack %}
+    <p class="mp-attack-locked">⚓ All your outposts are warded — keep at least one active to launch raids.</p>
+    {% endif %}
+
+    {# Your own standing lives in the War Room card above; the Warfront lists rivals only. #}
+    {% set rivals = leaderboard | rejectattr('player_id', 'equalto', player_id) | list %}
+    {% if rivals %}
+
+    {% if rivals|length > 3 %}
+    <div class="mp-warfront-controls" id="warfront-controls">
+        <input type="search" id="warfront-search" class="mp-warfront-search" placeholder="🔍 Search explorers…" autocomplete="off">
+        <div class="mp-warfront-bands" role="group" aria-label="Filter by scouted distance">
+            <button type="button" class="mp-band-chip active" data-band="all">All</button>
+            <button type="button" class="mp-band-chip" data-band="nearby">🟢 ≤100 mi</button>
+            <button type="button" class="mp-band-chip" data-band="regional">🟡 ≤500 mi</button>
+            <button type="button" class="mp-band-chip" data-band="distant">🔴 500+ mi</button>
+            <button type="button" class="mp-band-chip" data-band="unknown">🔭 Unscouted</button>
+        </div>
+        <select id="warfront-sort" class="mp-warfront-sort" aria-label="Sort targets">
+            <option value="proximity">Nearest first</option>
+            <option value="renown">Most renown</option>
+            <option value="posts">Most posts</option>
+            <option value="rank">Rank</option>
+        </select>
+    </div>
+    {% endif %}
+
+    <div id="warfront-list">
+    {% for p in leaderboard %}
+    {% if p.player_id != player_id %}
+    {% set dinfo = distance_info.get(p.player_id) or {'display': '?', 'band': 'unknown', 'band_ord': 3} %}
+    {% set band = dinfo.band %}
+    {% set band_ord = dinfo.band_ord %}
+    <div class="mp-player-row" data-player-id="{{ p.player_id }}"
+         data-name="{{ p.display_name | lower }}"
+         data-band="{{ band }}" data-band-ord="{{ band_ord }}"
+         data-miles="{{ dinfo.miles if dinfo.miles is defined else 999999 }}"
+         data-renown="{{ p.total_renown }}" data-posts="{{ p.post_count }}"
+         data-rank="{{ loop.index }}">
+        <div class="mp-player-header" onclick="togglePlayer('{{ p.player_id }}')">
+            <div class="mp-player-emblem">⚔️</div>
+            <div class="mp-player-id">
+                <div class="mp-player-name-row">
+                    <span class="mp-rank">#{{ loop.index }}</span>
+                    <span class="mp-name">{{ p.display_name }}</span>
+                </div>
+                {% if p.active_title %}
+                <div class="mp-player-title" data-title="{{ p.active_title }}"
+                     title="{{ title_meanings.get(p.active_title, 'Earned title') }}"
+                     onclick="event.stopPropagation(); mpTitleInfo(this.dataset.title)">{{ p.active_title }}</div>
+                {% endif %}
+            </div>
+            <div class="mp-player-metrics">
+                <span class="mp-metric"><strong>{{ p.total_renown }}</strong> rnw</span>
+                <span class="mp-metric"><strong>{{ p.post_count }}</strong> post{{ 's' if p.post_count != 1 }}</span>
+                <span class="mp-metric mp-band mp-band-{{ band }}"
+                      data-tip="{% if dinfo.scouted %}Scouted distance (± 50 mi).{% else %}Distance is hidden until you scout this rival.{% endif %}">
+                    {% if band == 'nearby' %}🟢
+                    {% elif band == 'regional' %}🟡
+                    {% elif band == 'distant' %}🔴
+                    {% elif dinfo.scouted %}📍{% else %}🔭{% endif %}
+                    {{ dinfo.display }}
+                </span>
+            </div>
+            <span class="mp-expand-icon" id="icon-{{ p.player_id }}">▶</span>
+        </div>
+        <div class="mp-player-detail" id="detail-{{ p.player_id }}" style="display: none;">
+            {% set scouted = cached_scouts.get(p.player_id) %}
+            {# Scouted and unscouted rivals share one table so the card keeps its
+               shape either way — unscouted rows just carry '?' where the scouted
+               numbers would be. Scouted rows come from the cached snapshot;
+               otherwise prefer the richer `posts` (hex + custom name) and fall
+               back to bare hexes for legacy leaderboard payloads. #}
+            {% set ns = namespace(rows=[]) %}
+            {% if scouted %}
+                {% set ns.rows = scouted %}
+            {% else %}
+                {% set ns.rows = p.get('posts') or [] %}
+                {% if not ns.rows %}
+                    {% for hex_id in p.get('post_hexes', []) %}
+                    {% set ns.rows = ns.rows + [{'post_hex': hex_id}] %}
+                    {% endfor %}
+                {% endif %}
+            {% endif %}
+            {% if p.post_count > 0 %}
+            <div class="mp-scout-stale">
+                {% if scouted %}🔭 Scouted snapshot · <span class="mp-muted">{{ scout_ages.get(p.player_id, 'unknown') }}</span>
+                {% else %}🔭 Unscouted · <span class="mp-muted">levels &amp; ages hidden</span>{% endif %}
+            </div>
+            {% if ns.rows %}
+            <table role="grid" class="mp-posts-table">
+                <thead><tr><th>Survey Post</th><th>Level</th><th>Age</th>{% if pvp_enabled and can_attack %}<th>Actions</th>{% endif %}</tr></thead>
+                <tbody>
+                {% for post in ns.rows %}
+                {% set post_label = post.name or hex_name(post.post_hex) %}
+                <tr>
+                    <td>{{ post_label }}</td>
+                    <td>{% if scouted %}Lv.{{ post.level }}{% else %}<span class="mp-muted">?</span>{% endif %}</td>
+                    <td>{% if scouted %}{{ post.age_days }}d{% else %}<span class="mp-muted">?</span>{% endif %}</td>
+                    {% if pvp_enabled and can_attack %}
+                    {% set cooldown_until = raid_cooldowns.get(post.post_hex) %}
+                    <td>
+                        {% if cooldown_until and cooldown_until > now_ts %}
+                        <span class="mp-cooldown-badge" data-cooldown-until="{{ cooldown_until }}"
+                              title="This post was raided recently — on cooldown">⏳ …</span>
+                        {% else %}
+                        <button class="game-btn game-btn-secondary game-btn-sm attack-btn"
+                            data-target-player="{{ p.player_id }}"
+                            data-target-post="{{ post.post_hex }}"
+                            data-target-name="{{ p.display_name }}"
+                            data-post-name="{{ post_label }}"
+                            title="{% if scouted %}Attack this post{% else %}Attack blind{% endif %}">⚔️ Raid</button>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+            <button class="game-btn game-btn-secondary game-btn-sm scout-btn" data-target="{{ p.player_id }}" style="margin-top: 0.5rem;">
+                {% if scouted %}🔭 Re-scout (refresh snapshot){% else %}🔭 Scout (reveal levels &amp; ages){% endif %}
+            </button>
+            {% else %}
+            <p class="mp-muted" style="font-size: 0.85em;">No Survey Posts.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    </div>{# /#warfront-list #}
+    <p class="mp-warfront-empty mp-muted" id="warfront-noresults" style="display:none;">No explorers match your filters.</p>
+    <button type="button" class="game-btn game-btn-secondary game-btn-sm mp-warfront-more" id="warfront-more" style="display:none;"></button>
+    <p class="mp-warfront-count mp-muted" id="warfront-count" style="display:none;"></p>
+    {% else %}
+    <p class="mp-muted">No rivals on the Warfront yet — you're the frontier's first explorer.</p>
+    {% endif %}
+</article>
+
+</div>{# /.mp-page #}
+{% endif %}
+
+{% if registered %}
+
+<dialog id="raid-modal">
+  <article style="max-width: 30rem;">
+    <header>
+      <button aria-label="Close" rel="prev" id="raid-close"></button>
+      <strong id="raid-title">Raid</strong>
+    </header>
+    <div id="raid-recon" class="mp-recon"></div>
+    <p style="margin-bottom: 0.3rem; font-size: 0.85em; color: var(--pico-muted-color);">
+      Choose attack items to send as one raiding party:
+    </p>
+    <div id="raid-items" class="mp-raid-items"></div>
+    <div id="raid-preview" class="mp-preview">Select items to see the projected outcome.</div>
+    <footer>
+      <button class="game-btn game-btn-secondary" id="raid-cancel">Cancel</button>
+      <button class="game-btn game-btn-primary" id="raid-dispatch" disabled>Dispatch Raid</button>
+    </footer>
+  </article>
+</dialog>
+
+<dialog id="salvage-modal">
+  <article class="mp-dialog">
+    <header>
+      <button aria-label="Close" rel="prev" id="salvage-close"></button>
+      <strong id="salvage-title">Salvage</strong>
+    </header>
+    <p class="mp-dialog-hint">Salvage frees unused items back for currency in one batch. Rarer items are worth more — install or deploy the good ones first.</p>
+    <form method="post" action="/merchant/salvage-item" id="salvage-form">
+      <input type="hidden" name="item_type" id="salvage-type">
+      <label for="salvage-qty" style="font-size:0.85rem;">Salvage <strong id="salvage-qty-out">1</strong> × <span id="salvage-label">item</span></label>
+      <input type="range" id="salvage-qty" name="count" min="1" max="1" value="1" style="margin-bottom:0.25rem;">
+      <div class="ward-range-scale"><span>1</span><span id="salvage-max">1</span></div>
+      <div class="mp-preview" id="salvage-preview">+0</div>
+      <footer>
+        <button type="button" class="game-btn game-btn-secondary" id="salvage-cancel">Cancel</button>
+        <button type="submit" class="game-btn game-btn-primary">♻️ Salvage</button>
+      </footer>
+    </form>
+  </article>
+</dialog>
+
+<script>
+(function() {
+    var modal = document.getElementById('salvage-modal');
+    if (!modal) return;
+    var qty = document.getElementById('salvage-qty');
+    var out = document.getElementById('salvage-qty-out');
+    var maxOut = document.getElementById('salvage-max');
+    var typeIn = document.getElementById('salvage-type');
+    var labelOut = document.getElementById('salvage-label');
+    var preview = document.getElementById('salvage-preview');
+    var titleOut = document.getElementById('salvage-title');
+    var per = 0, symbol = '🪙';
+    function sync() { out.textContent = qty.value; preview.textContent = '+' + (qty.value * per) + ' ' + symbol; }
+    qty.addEventListener('input', sync);
+    document.querySelectorAll('.salvage-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var count = parseInt(btn.dataset.count, 10);
+            per = parseInt(btn.dataset.value, 10);
+            symbol = btn.dataset.symbol;
+            typeIn.value = btn.dataset.type;
+            labelOut.textContent = btn.dataset.label;
+            titleOut.textContent = 'Salvage ' + btn.dataset.label;
+            qty.min = 1; qty.max = count; qty.value = count; maxOut.textContent = count;
+            sync();
+            modal.showModal();
+        });
+    });
+    document.getElementById('salvage-cancel').addEventListener('click', function() { modal.close(); });
+    document.getElementById('salvage-close').addEventListener('click', function() { modal.close(); });
+})();
+</script>
+
+<script>
+function togglePlayer(id) {
+    const detail = document.getElementById('detail-' + id);
+    const icon = document.getElementById('icon-' + id);
+    if (detail.style.display === 'none') {
+        detail.style.display = 'block';
+        icon.classList.add('open');
+    } else {
+        detail.style.display = 'none';
+        icon.classList.remove('open');
+    }
+}
+
+document.querySelectorAll('.scout-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const target = this.dataset.target;
+        const originalLabel = this.innerHTML;
+        const items = await fetch('/api/multiplayer/items').then(r => r.json());
+        const probes = (items.items || []).filter(i => i.item_type === 'probe' && !i.used);
+        if (!probes.length) {
+            await loraAlert('No Scouts available. Earn more by surveying!');
+            return;
+        }
+        if (!await loraConfirm('Use a Scout to reveal this player\'s posts?', { confirmText: 'Scout' })) return;
+        this.disabled = true;
+        this.textContent = '⏳';
+        const res = await fetch('/api/multiplayer/scout', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({target_player_id: target, probe_item_id: probes[0].id})
+        });
+        const data = await res.json();
+        if (data.ok) {
+            // The page is about to fully reload — stash where we were so we can
+            // scroll back to this rival, re-expand their row, and restore the
+            // search/filter/sort state instead of dumping the user at the top.
+            const searchEl = document.getElementById('warfront-search');
+            const activeChip = document.querySelector('.mp-band-chip.active');
+            const sortSel = document.getElementById('warfront-sort');
+            sessionStorage.setItem('mp-scout-restore', JSON.stringify({
+                target: target,
+                query: searchEl ? searchEl.value : '',
+                band: activeChip ? activeChip.dataset.band : 'all',
+                sort: sortSel ? sortSel.value : 'proximity'
+            }));
+            location.reload();
+        } else {
+            await loraAlert('Scout failed: ' + (data.error || 'unknown'));
+            this.disabled = false;
+            this.innerHTML = originalLabel;
+        }
+    });
+});
+
+const raidModal = document.getElementById('raid-modal');
+let raidCtx = {};
+let raidGroups = {};  // item_type -> [item, ...], set when the picker opens
+
+// Expand the per-rarity quantity steppers back into concrete item ids to send.
+function raidSelected() {
+    const ids = [];
+    raidModal.querySelectorAll('.mp-raid-item').forEach(row => {
+        const g = raidGroups[row.dataset.type] || [];
+        const n = parseInt(row.querySelector('.mp-qty-val').textContent, 10) || 0;
+        for (let i = 0; i < n && i < g.length; i++) ids.push(g[i].id);
+    });
+    return ids;
+}
+
+function raidLabel(type) {
+    return mpItemName(type).full;  // "Blasting Powder IV"
+}
+
+// Clamp a rarity row's send-count to [0, owned] and refresh the outcome preview.
+function adjustRaidQty(row, delta) {
+    const valEl = row.querySelector('.mp-qty-val');
+    const max = parseInt(valEl.dataset.max, 10) || 0;
+    let v = (parseInt(valEl.textContent, 10) || 0) + delta;
+    v = Math.max(0, Math.min(max, v));
+    valEl.textContent = v;
+    row.querySelector('[data-delta="-1"]').disabled = v <= 0;
+    row.querySelector('[data-delta="1"]').disabled = v >= max;
+    updateRaidPreview();
+}
+
+async function updateRaidPreview() {
+    const ids = raidSelected();
+    const box = document.getElementById('raid-preview');
+    document.getElementById('raid-dispatch').disabled = ids.length === 0;
+    if (!ids.length) {
+        box.className = 'mp-preview';
+        box.textContent = 'Select items to see the projected outcome.';
+        return;
+    }
+    const res = await fetch('/api/multiplayer/raid/preview', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({target_player_id: raidCtx.player, target_post_hex: raidCtx.post, item_ids: ids})
+    });
+    const d = await res.json();
+    let line = `Party: ${d.item_count} item(s) · Power ${d.raw_power} · Cost ${d.marks_cost}🪙`;
+    let cls = 'mp-preview';
+    if (!d.scouted) {
+        line += `\nUnknown defenses — scout this target for a damage projection.`;
+    } else if (d.projected === 'raze') {
+        cls += ' raze';
+        line += `\n💥 Projected to RAZE (${d.effective_damage} dmg vs ${d.target_hp} HP)`;
+    } else if (d.projected === 'uncertain') {
+        cls += ' damage';
+        line += `\n💥 Enough to raze the base HP (${d.effective_damage} dmg vs ${d.target_hp} HP),`
+              + `\n⚠️ but ${d.target_active_boosts} active boost(s) add hidden HP — outcome uncertain.`;
+    } else if (d.projected === 'damage') {
+        cls += ' damage';
+        line += `\n⚠️ Will damage but not raze (${d.effective_damage} dmg vs ${d.target_hp} HP)`;
+    } else {
+        line += `\n🛡️ No effect against ${d.target_hp} HP (${d.target_defense_pct}% dmg reduction)`;
+    }
+    if (d.scouted && d.target_active_boosts > 0 && d.projected !== 'uncertain') {
+        line += `\n⬆️ ${d.target_active_boosts} active boost(s) — hidden HP not shown.`;
+    }
+    if (d.scouted && d.scouted_at) {
+        const mins = Math.floor((Date.now() / 1000 - d.scouted_at) / 60);
+        const age = mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h`;
+        line += `\n🔭 Intel is ${age} old — re-scout for current defenses.`;
+    }
+    box.className = cls;
+    box.textContent = line;
+}
+
+// --- Per-target raid cooldown badges: tick down, then unlock on reload -----
+// (matches this page's reload-to-refresh pattern elsewhere, e.g. scouting) —
+// a fresh Attack button needs the row re-rendered without the cooldown, which
+// only the server can decide, so we just reload once it clears.
+(function () {
+    const badges = document.querySelectorAll('.mp-cooldown-badge');
+    if (!badges.length) return;
+    function fmtCooldown(secs) {
+        const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+        if (h > 0) return `⏳ ${h}h ${m}m`;
+        if (m > 0) return `⏳ ${m}m`;
+        return '⏳ <1m';
+    }
+    let reloaded = false;
+    function update() {
+        const now = Math.floor(Date.now() / 1000);
+        badges.forEach(b => {
+            const remaining = parseInt(b.dataset.cooldownUntil, 10) - now;
+            if (remaining <= 0) {
+                if (!reloaded) { reloaded = true; location.reload(); }
+                return;
+            }
+            b.textContent = fmtCooldown(remaining);
+        });
+    }
+    update();
+    setInterval(update, 60000);
+})();
+
+document.querySelectorAll('.attack-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        raidCtx = { player: this.dataset.targetPlayer, post: this.dataset.targetPost };
+        document.getElementById('raid-title').textContent =
+            `Raid ${this.dataset.targetName}'s "${this.dataset.postName}"`;
+        const box = document.getElementById('raid-preview');
+        box.className = 'mp-preview';
+        box.textContent = 'Select items to see the projected outcome.';
+        document.getElementById('raid-dispatch').disabled = true;
+
+        const items = await fetch('/api/multiplayer/items').then(r => r.json());
+        const attackItems = (items.items || []).filter(i => !i.used && i.item_type.startsWith('attack_'));
+        const list = document.getElementById('raid-items');
+        // Collapse to one row per rarity with a quantity stepper (mirrors the
+        // Outposts defensive-item picker) instead of one checkbox per item.
+        raidGroups = {};
+        attackItems.forEach(i => { (raidGroups[i.item_type] = raidGroups[i.item_type] || []).push(i); });
+        const types = Object.keys(raidGroups).sort();
+        if (!types.length) {
+            list.innerHTML = '<p style="color:var(--pico-muted-color);">No attack items. Earn more by surveying!</p>';
+        } else {
+            list.innerHTML = types.map(t =>
+                `<div class="mp-raid-item" data-type="${t}">` +
+                `<label>⚔️ ${raidLabel(t)} <span class="mp-raid-have">×${raidGroups[t].length}</span></label>` +
+                `<div class="mp-qty">` +
+                `<button type="button" class="mp-qty-btn" data-delta="-1" aria-label="Fewer" disabled>−</button>` +
+                `<span class="mp-qty-val" data-max="${raidGroups[t].length}">0</span>` +
+                `<button type="button" class="mp-qty-btn" data-delta="1" aria-label="More">+</button>` +
+                `</div></div>`
+            ).join('');
+            list.querySelectorAll('.mp-qty-btn').forEach(b => b.addEventListener('click', function() {
+                adjustRaidQty(this.closest('.mp-raid-item'), parseInt(this.dataset.delta, 10));
+            }));
+        }
+        raidModal.showModal();
+    });
+});
+
+document.getElementById('raid-cancel').addEventListener('click', () => raidModal.close());
+document.getElementById('raid-close').addEventListener('click', () => raidModal.close());
+
+document.getElementById('raid-dispatch').addEventListener('click', async function() {
+    const ids = raidSelected();
+    if (!ids.length) return;
+    this.disabled = true;
+    this.textContent = '⏳ Dispatching…';
+    const res = await fetch('/api/multiplayer/raid/dispatch', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({target_player_id: raidCtx.player, target_post_hex: raidCtx.post, item_ids: ids})
+    });
+    const d = await res.json();
+    this.textContent = 'Dispatch Raid';
+    if (d.ok) {
+        // Close the raid picker first: it's a native <dialog> in the top layer,
+        // so the loraAlert overlay would otherwise open *behind* it and leave the
+        // picker sitting there looking un-cleared.
+        raidModal.close();
+        const hrs = d.eta_seconds ? (d.eta_seconds / 3600).toFixed(1) : '?';
+        await loraAlert(`Raiding party dispatched! ETA ~${hrs}h — it resolves on arrival.`, { title: '⚔️ Raid Dispatched' });
+        location.reload();
+    } else {
+        await loraAlert('Dispatch failed: ' + (d.error || 'unknown'));
+        this.disabled = false;
+    }
+});
+
+// --- Active Raid card: live ETA countdown + landing result ------------------
+(function () {
+    const card = document.getElementById('active-raid-card');
+    if (!card) return;
+    const body = document.getElementById('active-raid-body');
+    const dismissBtn = document.getElementById('raid-dismiss');
+    let tick = null, poll = null;
+
+    function fmtEta(secs) {
+        if (secs <= 0) return 'arriving…';
+        const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+        if (h > 0) return `${h}h ${m}m`;
+        if (m > 0) return `${m}m ${s}s`;
+        return `${s}s`;
+    }
+    // The projection the player was shown when they committed the party, kept
+    // locally at dispatch (see manager.dispatch_raid). Absent for raids launched
+    // from another install — the tile is simply omitted rather than guessed at.
+    function projTile(p) {
+        if (!p || !p.scouted) return '';
+        const label = {
+            raze: ['Raze', 'raze'],
+            uncertain: ['Likely raze', 'damage'],
+            damage: ['Damage', 'damage'],
+            none: ['No effect', 'none'],
+        }[p.projected];
+        if (!label) return '';
+        return `<div class="mp-stat">` +
+            `<div class="mp-stat-value mp-proj mp-proj-${label[1]}">${label[0]}</div>` +
+            `<div class="mp-stat-label">Projected</div></div>`;
+    }
+
+    function render(raid, nowTs) {
+        if (!raid) { card.style.display = 'none'; return; }
+        // Dismissed resolved raids stay hidden across reloads.
+        if (raid.status === 'resolved' &&
+            localStorage.getItem('raid-dismissed') === raid.raid_id) {
+            card.style.display = 'none';
+            return;
+        }
+        card.style.display = '';
+        const esc = function(s) {
+            return String(s == null ? '' : s).replace(/[&<>"]/g, function(ch) {
+                return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch];
+            });
+        };
+        const target = esc(raid.target_player_name || 'target');
+        // Name the struck post when the Worker supplied one; older raids fall back
+        // to the generic "outpost" wording.
+        const postName = esc(raid.target_post_name || '');
+        const postLabel = postName ? `"${postName}"` : 'outpost';
+        const count = (raid.item_types || []).length;
+
+        // Target line is shared by both states so the card doesn't reflow on landing.
+        // The post gets the emphasis; the rival is the quieter qualifier.
+        const targetLine =
+            `<div class="mp-sortie-target"><strong>${postName || 'Unnamed outpost'}</strong>` +
+            `<span class="mp-sortie-rival">${target}</span></div>`;
+
+        if (raid.status === 'in_flight') {
+            dismissBtn.style.display = 'none';
+            const remaining = Math.max(0, raid.arrives_at - nowTs);
+            // Travel bar: how far the party has walked, dispatch → arrival.
+            const total = Math.max(1, raid.arrives_at - raid.dispatched_at);
+            const pct = Math.min(100, Math.max(0, (1 - remaining / total) * 100));
+            body.innerHTML =
+                `<div class="mp-sortie">` + targetLine +
+                `<div class="mp-sortie-stats">` +
+                `<div class="mp-stat"><div class="mp-stat-value">${raid.raw_power}</div>` +
+                `<div class="mp-stat-label">Power</div></div>` +
+                `<div class="mp-stat"><div class="mp-stat-value">${count}</div>` +
+                `<div class="mp-stat-label">Item${count === 1 ? '' : 's'}</div></div>` +
+                projTile(raid.projection) +
+                `</div>` +
+                `<div class="mp-travel">` +
+                `<div class="mp-travel-bar"><span id="raid-progress" style="width:${pct}%"></span></div>` +
+                `<div class="mp-travel-legend"><span>Dispatched</span>` +
+                `<span>🚶 Arrives in <strong id="raid-eta">${fmtEta(remaining)}</strong></span></div>` +
+                `</div></div>`;
+            startCountdown(raid);
+        } else {
+            stopTimers();
+            dismissBtn.style.display = '';
+            const info = {
+                razed:    ['💥', 'Razed', 'razed', `You wiped out ${target}'s ${postLabel}.`],
+                damaged:  ['⚠️', 'Level lost', 'damaged', `You knocked ${target}'s ${postLabel} down a level.`],
+                defended: ['🛡️', 'Held', 'defended', `${target}'s ${postLabel} held — its defenses turned your party back.`],
+            }[raid.outcome] || ['↩️', raid.outcome || 'Returned', 'defended', ''];
+            const dmg = (raid.damage_dealt != null)
+                ? `<div class="mp-stat"><div class="mp-stat-value">${raid.damage_dealt}</div>` +
+                  `<div class="mp-stat-label">Damage</div></div>` : '';
+            body.innerHTML =
+                `<div class="mp-sortie">` + targetLine +
+                `<div class="mp-outcome mp-outcome-${info[2]}">` +
+                `<span class="mp-outcome-icon">${info[0]}</span>` +
+                `<span class="mp-outcome-text"><strong>${info[1]}</strong>` +
+                (info[3] ? `<small>${info[3]}</small>` : '') + `</span></div>` +
+                `<div class="mp-sortie-stats">` +
+                `<div class="mp-stat"><div class="mp-stat-value">${raid.raw_power}</div>` +
+                `<div class="mp-stat-label">Power</div></div>` + dmg +
+                projTile(raid.projection) +
+                `</div></div>`;
+        }
+    }
+
+    function startCountdown(raid) {
+        stopTimers();
+        tick = setInterval(() => {
+            const now = Math.floor(Date.now() / 1000);
+            const remaining = Math.max(0, raid.arrives_at - now);
+            const el = document.getElementById('raid-eta');
+            if (el) el.textContent = fmtEta(remaining);
+            const bar = document.getElementById('raid-progress');
+            if (bar) {
+                const total = Math.max(1, raid.arrives_at - raid.dispatched_at);
+                bar.style.width = Math.min(100, Math.max(0, (1 - remaining / total) * 100)) + '%';
+            }
+            if (remaining <= 0) { clearInterval(tick); tick = null; startPolling(); }
+        }, 1000);
+    }
+
+    function startPolling() {
+        const el = document.getElementById('raid-eta');
+        if (el) el.textContent = 'resolving…';
+        stopPoll();
+        poll = setInterval(async () => {
+            try {
+                const r = await fetch('/api/multiplayer/raid/mine').then(x => x.json());
+                if (r.ok && r.raid && r.raid.status === 'resolved') {
+                    stopPoll();
+                    render(r.raid, r.now_ts);
+                }
+            } catch (e) { /* transient — keep polling */ }
+        }, 8000);
+    }
+
+    function stopTimers() { if (tick) { clearInterval(tick); tick = null; } stopPoll(); }
+    function stopPoll() { if (poll) { clearInterval(poll); poll = null; } }
+
+    dismissBtn.addEventListener('click', () => {
+        const el = document.getElementById('active-raid-data');
+        try {
+            const raid = el && JSON.parse(el.textContent);
+            if (raid && raid.raid_id) localStorage.setItem('raid-dismissed', raid.raid_id);
+        } catch (e) { /* ignore */ }
+        card.style.display = 'none';
+    });
+
+    // Defer the initial render until the document is fully parsed so every
+    // dependency (e.g. window.mpItemName, defined in base.html) is available.
+    // Running it inline would fire mid-parse, before later scripts exist, and
+    // an in-flight raid — which formats its loadout via mpItemName — would throw
+    // and leave the card hidden.
+    function renderInitial() {
+        const dataEl = document.getElementById('active-raid-data');
+        if (!dataEl) return;
+        try {
+            render(JSON.parse(dataEl.textContent), {{ now_ts }});
+        } catch (e) {
+            console.error('Failed to render active raid card:', e);
+            card.style.display = 'none';
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', renderInitial);
+    } else {
+        renderInitial();
+    }
+})();
+</script>
+
+<div class="mp-title-popup" id="titlePopup" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="mp-title-popup-inner">
+        <div class="mp-title-popup-head">
+            <strong>Titles</strong>
+            <button type="button" class="mp-title-popup-close" onclick="document.getElementById('titlePopup').classList.remove('open')" aria-label="Close">&times;</button>
+        </div>
+        <p class="mp-title-popup-intro">Honorifics earned through exploration and warfare. Choose one to display beneath your name; a ✓ marks the ones you've earned.</p>
+        <ul class="mp-title-list">
+            {% for label, meaning in title_meanings.items() %}
+            <li class="mp-title-item{% if label in available_titles %} earned{% endif %}" data-title="{{ label }}">
+                <span class="mp-title-item-name">{{ label }}{% if label in available_titles %} <span class="mp-title-check">✓</span>{% endif %}</span>
+                <span class="mp-title-item-desc">{{ meaning }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<script>
+// --- Titles: open the reference popup, optionally spotlighting one title -----
+function mpTitleInfo(label) {
+    const pop = document.getElementById('titlePopup');
+    if (!pop) return;
+    pop.querySelectorAll('.mp-title-item').forEach(el => {
+        el.classList.toggle('highlight', !!label && el.dataset.title === label);
+    });
+    pop.classList.add('open');
+}
+</script>
+
+<script>
+// --- Warfront: client-side search / distance filter / sort / paging --------
+(function () {
+    const list = document.getElementById('warfront-list');
+    if (!list) return;
+    const rows = Array.from(list.querySelectorAll('.mp-player-row'));
+    const search = document.getElementById('warfront-search');
+    const chips = Array.from(document.querySelectorAll('.mp-band-chip'));
+    const sortSel = document.getElementById('warfront-sort');
+    const moreBtn = document.getElementById('warfront-more');
+    const countEl = document.getElementById('warfront-count');
+    const noResults = document.getElementById('warfront-noresults');
+    const PAGE = 15;
+
+    let band = 'all';
+    let query = '';
+    let sort = sortSel ? sortSel.value : 'proximity';
+    let shown = PAGE;
+
+    const num = (el, attr) => parseInt(el.dataset[attr] || '0', 10);
+
+    function comparator(a, b) {
+        if (sort === 'renown') return num(b, 'renown') - num(a, 'renown');
+        if (sort === 'posts') return num(b, 'posts') - num(a, 'posts');
+        if (sort === 'rank') return num(a, 'rank') - num(b, 'rank');
+        // proximity: scouted-and-nearest first (unscouted rivals have no known
+        // distance, so they sort last), then finer by revealed miles, then renown.
+        const d = num(a, 'bandOrd') - num(b, 'bandOrd');
+        if (d !== 0) return d;
+        const m = num(a, 'miles') - num(b, 'miles');
+        return m !== 0 ? m : num(b, 'renown') - num(a, 'renown');
+    }
+
+    function apply() {
+        // Filter first so paging counts only matches.
+        const matches = rows.filter(r => {
+            const bandOk = band === 'all' || r.dataset.band === band;
+            const nameOk = !query || (r.dataset.name || '').indexOf(query) !== -1;
+            return bandOk && nameOk;
+        });
+        matches.sort(comparator);
+
+        // Reorder in the DOM so sort sticks; non-matches are hidden.
+        matches.forEach(r => list.appendChild(r));
+        rows.forEach(r => { if (matches.indexOf(r) === -1) r.style.display = 'none'; });
+        matches.forEach((r, i) => { r.style.display = i < shown ? '' : 'none'; });
+
+        const total = rows.length;
+        if (noResults) noResults.style.display = matches.length ? 'none' : '';
+        if (moreBtn) {
+            if (matches.length > shown) {
+                moreBtn.style.display = '';
+                moreBtn.textContent = 'Show ' + Math.min(PAGE, matches.length - shown) + ' more';
+            } else {
+                moreBtn.style.display = 'none';
+            }
+        }
+        if (countEl) {
+            countEl.style.display = matches.length ? '' : 'none';
+            const vis = Math.min(shown, matches.length);
+            countEl.textContent = matches.length < total
+                ? 'Showing ' + vis + ' of ' + matches.length + ' matches (' + total + ' rivals)'
+                : 'Showing ' + vis + ' of ' + total + ' rivals';
+        }
+    }
+
+    if (search) search.addEventListener('input', () => {
+        query = search.value.trim().toLowerCase();
+        shown = PAGE;
+        apply();
+    });
+    chips.forEach(chip => chip.addEventListener('click', () => {
+        chips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        band = chip.dataset.band;
+        shown = PAGE;
+        apply();
+    }));
+    if (sortSel) sortSel.addEventListener('change', () => { sort = sortSel.value; apply(); });
+    if (moreBtn) moreBtn.addEventListener('click', () => { shown += PAGE; apply(); });
+
+    // Restore search/filter/sort state after a scout-triggered reload, so the
+    // rival you just scouted doesn't get re-sorted out of view or hidden.
+    let restore = null;
+    try { restore = JSON.parse(sessionStorage.getItem('mp-scout-restore') || 'null'); } catch (e) {}
+    if (restore) {
+        sessionStorage.removeItem('mp-scout-restore');
+        if (restore.query && search) { search.value = restore.query; query = restore.query.toLowerCase(); }
+        if (restore.band && restore.band !== 'all') {
+            const chip = chips.find(c => c.dataset.band === restore.band);
+            if (chip) { chips.forEach(c => c.classList.remove('active')); chip.classList.add('active'); band = restore.band; }
+        }
+        if (restore.sort && sortSel) { sortSel.value = restore.sort; sort = restore.sort; }
+        // Make sure the scouted row is within the current page before scrolling to it.
+        const targetRow = restore.target ? list.querySelector('[data-player-id="' + CSS.escape(restore.target) + '"]') : null;
+        if (targetRow) {
+            const idx = rows.filter(r => (band === 'all' || r.dataset.band === band) && (!query || (r.dataset.name || '').indexOf(query) !== -1))
+                             .sort(comparator).indexOf(targetRow);
+            if (idx >= shown) shown = idx + 1;
+        }
+    }
+
+    apply();
+
+    if (restore && restore.target) {
+        const targetRow = list.querySelector('[data-player-id="' + CSS.escape(restore.target) + '"]');
+        if (targetRow && typeof togglePlayer === 'function') {
+            togglePlayer(restore.target);
+            // Defer a tick so layout (web fonts, the just-expanded detail panel)
+            // has settled before we measure where to scroll.
+            requestAnimationFrame(() => targetRow.scrollIntoView({ block: 'center' }));
+        }
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}Ledger — LoRa the Explorer{% endblock %}
+
+{% block head %}
+<style>
+    .stat-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .stat-item {
+        text-align: center;
+        min-width: 5rem;
+    }
+    .stat-item .val {
+        font-size: 1.5rem;
+        font-weight: bold;
+        display: block;
+    }
+    .stat-item .lbl {
+        font-size: 0.75rem;
+        opacity: 0.7;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+    @media (max-width: 768px) {
+        .stat-row {
+            justify-content: center;
+        }
+    }
+    .survey-row.expandable { cursor: pointer; }
+    .survey-rewards { white-space: nowrap; }
+    .survey-caret {
+        display: inline-block; opacity: 0.5; font-size: 0.75rem;
+        transition: transform 0.15s;
+    }
+    .survey-row.open .survey-caret { transform: rotate(90deg); }
+    mark.first-tag { background: #c4a020; color: #1a1a2e; }
+    .survey-detail > td { padding: 0 0.5rem 0.6rem; }
+    .survey-math {
+        font-size: 0.78rem; line-height: 1.6; opacity: 0.85;
+        padding: 0.5rem 0.7rem;
+        border-left: 2px solid rgba(220, 201, 163, 0.4);
+        background: rgba(139, 115, 85, 0.06);
+        border-radius: 0 0.3rem 0.3rem 0;
+    }
+    .survey-math strong { color: #dcc9a3; font-weight: 600; }
+    .survey-map-link {
+        display: inline-block; margin-top: 0.35rem;
+        font-size: 0.78rem; opacity: 0.7;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if not player %}
+<article>
+    <header><h2>No Explorer Found</h2></header>
+    <p>Complete your first survey to begin.</p>
+</article>
+{% else %}
+
+<article class="expedition-log">
+    <strong class="log-label">📋 Expedition Log</strong>
+    <p>
+        Have filed {{ player.scan_count }} survey report{{ "s" if player.scan_count != 1 else "" }} with Society headquarters. Mapped {{ hex_count }} territor{{ "ies" if hex_count != 1 else "y" }} ({{ "%.1f" | format(area_sq_mi) }} square miles) so far.
+        {% if max_distance > 0 %}Longest range contact — {{ "%.1f" | format(max_distance) }} miles.{% endif %}
+        {% if streak > 1 %}{{ streak }} consecutive days in the field{% if streak >= 10 %} — the work continues{% endif %}.{% endif %}
+        {% if post_count > 0 %}Maintaining {{ post_count }} Survey Post{{ "s" if post_count != 1 else "" }} across the territory.{% endif %}
+    </p>
+</article>
+
+<h3 class="postcards-header">Postcards <small>({{ postcards_earned }} / {{ postcards_total }})</small></h3>
+<p style="font-size: 0.8rem; opacity: 0.5; margin-top: -0.5rem;">Completing level 5 unlocks a Title</p>
+
+<div class="postcard-list">
+    {% for pc in postcard_cards %}
+    <div class="postcard-card {% if pc.complete %}complete{% elif pc.earned_stars > 0 %}has-progress{% endif %}">
+        <div class="pc-info">
+            <div class="pc-class">
+                {{ pc.class }}
+                <button type="button" class="pc-tip" data-tip="{{ pc.tooltip }}" aria-label="{{ pc.class }} tier details">ⓘ</button>
+            </div>
+            <div class="pc-achieved">
+                {% if pc.earned_stars > 0 %}{{ pc.earned_desc }}{% else %}<span class="pc-unearned">Locked — reach: {{ pc.next_desc }}</span>{% endif %}
+            </div>
+            {% if pc.complete %}
+            <div class="pc-title-line">
+                {% if active_title == pc.class %}
+                <span class="pc-title-active">✦ Active Title</span>
+                {% else %}
+                <form method="post" action="/title/set" style="margin:0; display:inline;">
+                    <input type="hidden" name="title" value="{{ pc.class }}">
+                    <button type="submit" class="game-btn game-btn-secondary game-btn-sm">Set as Title</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="pc-stars"><span class="pc-stars-earned">{% for i in range(pc.earned_stars) %}★{% endfor %}</span><span class="pc-stars-empty">{% for i in range(5 - pc.earned_stars) %}☆{% endfor %}</span></div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if recent_surveys %}
+<h3 class="surveys-header">Recent Surveys</h3>
+<p style="font-size: 0.8rem; opacity: 0.6; margin: -0.4rem 0 0.6rem;">Tap a survey to see how its rewards were calculated.</p>
+<figure class="surveys-table">
+<table>
+    <thead>
+        <tr>
+            <th>Territory</th>
+            <th>Dist</th>
+            <th>Rewards</th>
+            <th>When</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in recent_surveys %}
+        <tr class="survey-row{% if s.breakdown %} expandable{% endif %}"{% if s.breakdown %} onclick="toggleSurvey(this)"{% endif %}>
+            <td>
+                {{ s.hex_name }}
+                {% if s.is_discovery %}<mark>NEW</mark>{% endif %}
+                {% if s.breakdown and s.breakdown.marks.first_survey %}<mark class="first-tag" data-tip="First survey of the day">1ST</mark>{% endif %}
+            </td>
+            <td>{{ "%.1f" | format(s.distance_miles) }}mi</td>
+            <td class="survey-rewards">+{{ s.xp_earned }}xp +{{ s.provisions_earned }}prov{% if s.marks_earned %} +{{ s.marks_earned }}🪙{% endif %}{% if s.breakdown %} <span class="survey-caret">▸</span>{% endif %}</td>
+            <td>{{ s.time_ago }}</td>
+        </tr>
+        {% if s.breakdown %}
+        {% set b = s.breakdown %}
+        <tr class="survey-detail" hidden>
+            <td colspan="4">
+                <div class="survey-math">
+                    <div><strong>XP</strong> {{ b.xp.base }} × {{ "%.2f" | format(b.xp.distance_mult) }} dist × {{ "%.2f" | format(b.xp.camp_mult) }} camp × {{ "%.2f" | format(b.xp.post_mult) }} post × {{ "%.2f" | format(b.xp.momentum_mult) }} mom = {{ b.xp.subtotal }}{% if b.xp.event_bonus %} {{ '+' if b.xp.event_bonus > 0 else '' }}{{ b.xp.event_bonus }} event{% endif %}{% if b.xp.discovery_bonus %} +{{ b.xp.discovery_bonus }} discovery{% endif %} = <strong>{{ b.xp.total }}</strong></div>
+                    <div><strong>Prov</strong> ({{ b.provisions.base }} + {{ b.provisions.distance_bonus }} dist) × {{ "%.2f" | format(b.provisions.post_mult) }} post = {{ b.provisions.subtotal }}{% if b.provisions.event_bonus %} {{ '+' if b.provisions.event_bonus > 0 else '' }}{{ b.provisions.event_bonus }} event{% endif %}{% if b.provisions.discovery_bonus %} +{{ b.provisions.discovery_bonus }} discovery{% endif %} = <strong>{{ b.provisions.total }}</strong></div>
+                    <div><strong>Marks</strong> {% if b.marks.discovery %}+{{ b.marks.discovery }} discovery {% endif %}{% if b.marks.event_bonus %}+{{ b.marks.event_bonus }} event {% endif %}{% if b.marks.first_survey %}+{{ b.marks.first_survey }} first survey of the day {% endif %}{% if not b.marks.total %}none {% endif %}= <strong>{{ b.marks.total }}</strong></div>
+                    <a href="/radio?focus={{ s.hex_id }}" class="survey-map-link">View on map →</a>
+                </div>
+            </td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+</figure>
+<script>
+function toggleSurvey(row) {
+    var detail = row.nextElementSibling;
+    if (!detail || !detail.classList.contains('survey-detail')) return;
+    var isOpen = !detail.hidden;
+    detail.hidden = isOpen;
+    row.classList.toggle('open', !isOpen);
+}
+</script>
+{% endif %}
+
+{% endif %}
+{% endblock %}

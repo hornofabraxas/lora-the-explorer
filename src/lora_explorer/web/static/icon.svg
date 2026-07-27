@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1a1a2e"/>
+  <!-- Compass rose / signal waves mashup -->
+  <!-- Outer ring -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="#FFD700" stroke-width="8" opacity="0.3"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#FFD700" stroke-width="4" opacity="0.2"/>
+  <!-- Compass points -->
+  <polygon points="256,80 270,230 256,210 242,230" fill="#FFD700"/>
+  <polygon points="256,432 270,282 256,302 242,282" fill="#FFD700" opacity="0.5"/>
+  <polygon points="80,256 230,242 210,256 230,270" fill="#FFD700" opacity="0.5"/>
+  <polygon points="432,256 282,242 302,256 282,270" fill="#FFD700" opacity="0.5"/>
+  <!-- Center dot -->
+  <circle cx="256" cy="256" r="16" fill="#FFD700"/>
+  <!-- Signal arcs (LoRa) -->
+  <path d="M 340 180 A 120 120 0 0 1 340 332" fill="none" stroke="#4CAF50" stroke-width="6" stroke-linecap="round" opacity="0.7"/>
+  <path d="M 370 160 A 150 150 0 0 1 370 352" fill="none" stroke="#4CAF50" stroke-width="5" stroke-linecap="round" opacity="0.5"/>
+  <path d="M 400 140 A 180 180 0 0 1 400 372" fill="none" stroke="#4CAF50" stroke-width="4" stroke-linecap="round" opacity="0.3"/>
+</svg>

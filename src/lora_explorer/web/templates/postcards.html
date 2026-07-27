@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Postcards — LoRa the Explorer{% endblock %}
+
+{% block head %}
+<style>
+    .postcard-grid {
+        display: grid;
+        grid-template-columns: auto repeat(5, 1fr);
+        gap: 0.5rem;
+        margin: 1rem 0;
+    }
+    .postcard-grid .header {
+        font-weight: bold;
+        text-align: center;
+        font-size: 0.85rem;
+        opacity: 0.8;
+        padding: 0.5rem;
+    }
+    .postcard-grid .class-label {
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+    .postcard-cell {
+        border: 2px solid var(--pico-muted-border-color);
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        text-align: center;
+        min-height: 4rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: default;
+        transition: border-color 0.2s;
+    }
+    .postcard-cell.earned {
+        border-color: var(--pico-primary);
+        background: var(--pico-primary-focus);
+    }
+    .postcard-cell.locked {
+        opacity: 0.3;
+    }
+    .postcard-detail {
+        display: none;
+        margin-top: 1rem;
+    }
+    .postcard-cell.earned:hover + .postcard-detail,
+    .postcard-detail:hover {
+        display: block;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if not player %}
+<article>
+    <header><h2>No Explorer Found</h2></header>
+    <p>Complete your first survey to begin.</p>
+</article>
+{% else %}
+
+<hgroup>
+    <h2>Postcard Collection</h2>
+    <p>{{ earned }} / {{ total }} — {% if earned == total %}Complete Cartographer!{% else %}Progress: {{ (earned / total * 100) | int }}%{% endif %}</p>
+</hgroup>
+
+<progress value="{{ earned }}" max="{{ total }}"></progress>
+
+<div class="postcard-grid">
+    <div></div>
+    {% for stars in range(1, 6) %}
+    <div class="header">{% for i in range(stars) %}★{% endfor %}</div>
+    {% endfor %}
+
+    {% for pc_class in classes %}
+    <div class="class-label">{{ pc_class }}</div>
+    {% for stars in range(1, 6) %}
+    {% set card = grid[pc_class][stars] %}
+    <div class="postcard-cell {% if card %}earned{% else %}locked{% endif %}"
+         {% if card %}data-tip="{{ card.description }}"{% endif %}>
+        {% if card %}
+        {% for i in range(card.stars) %}★{% endfor %}
+        {% else %}
+        ?
+        {% endif %}
+    </div>
+    {% endfor %}
+    {% endfor %}
+</div>
+
+{% set earned_cards = [] %}
+{% for pc_class in classes %}
+{% for stars in range(1, 6) %}
+{% if grid[pc_class][stars] %}
+{% set _ = earned_cards.append(grid[pc_class][stars]) %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+{% if earned_cards %}
+<h3>Earned Postcards</h3>
+{% for pc_class in classes %}
+{% for stars in range(1, 6) %}
+{% set card = grid[pc_class][stars] %}
+{% if card %}
+<article>
+    <header>
+        <div style="display: flex; justify-content: space-between;">
+            <strong>{{ card.class }}</strong>
+            <span>{% for i in range(card.stars) %}★{% endfor %}</span>
+        </div>
+    </header>
+    <p>{{ card.description }}</p>
+    <div class="grid">
+        {% if card.distance_miles %}
+        <div><small>Distance</small><br>{{ "%.1f" | format(card.distance_miles) }} mi</div>
+        {% endif %}
+    </div>
+</article>
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+{% endif %}
+{% endblock %}

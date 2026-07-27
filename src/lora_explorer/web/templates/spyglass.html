@@ -1,0 +1,1826 @@
+{% extends "base.html" %}
+{% block title %}Radio — LoRa the Explorer{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&display=swap" />
+<style>
+    #map {
+        height: calc(100vh - 150px);
+        min-height: 400px;
+        border-radius: 0.5rem;
+        border: 1px solid var(--pico-muted-border-color);
+        position: relative;
+        z-index: 0;
+    }
+    @media (max-width: 768px) {
+        #map {
+            height: 50vh;
+            min-height: 300px;
+        }
+    }
+    .leaflet-control-zoom a {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        line-height: 1 !important;
+    }
+    .hex-legend {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.75rem;
+        flex-wrap: wrap;
+    }
+    .hex-legend span::before {
+        content: "";
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        margin-right: 0.3rem;
+        vertical-align: middle;
+    }
+    .legend-discovered::before { background: #4CAF50; }
+    .legend-post::before { background: #FF9800; }
+    .legend-cooldown::before { background: #5C6BC0; }
+    .legend-you::before { background: #29b6f6; border-radius: 50%; }
+    .live-fix-icon { background: none !important; border: none !important; }
+    .live-fix-dot {
+        display: block;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #29b6f6;
+        border: 2px solid #fff;
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+        animation: livePulse 2s infinite;
+    }
+    @keyframes livePulse {
+        0%   { box-shadow: 0 0 4px rgba(0,0,0,0.6), 0 0 0 0 rgba(41,182,246,0.5); }
+        70%  { box-shadow: 0 0 4px rgba(0,0,0,0.6), 0 0 0 12px rgba(41,182,246,0); }
+        100% { box-shadow: 0 0 4px rgba(0,0,0,0.6), 0 0 0 0 rgba(41,182,246,0); }
+    }
+    /* Leaflet tags interactive markers with role="button"/tabindex, so Pico's
+       button padding leaks onto them; with border-box that inflates the icon box
+       and shifts its visual center off the true coordinate — a fixed pixel error
+       that's invisible zoomed in but hundreds of metres out at low zoom. Reset it
+       so every marker sits exactly on its lat/lng at any zoom. */
+    .leaflet-marker-icon { padding: 0 !important; border: 0 !important; box-sizing: border-box; }
+    .emoji-marker {
+        background: none !important;
+        border: none !important;
+        font-size: 1.6rem;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
+    }
+    .hex-label-icon {
+        background: none !important;
+        border: none !important;
+    }
+    .hex-label {
+        font-family: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+        font-size: 20px;
+        font-weight: 600;
+        color: rgba(232, 213, 163, 0.85);
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.7);
+        white-space: nowrap;
+        text-align: center;
+        display: block;
+        letter-spacing: 0.04em;
+        pointer-events: none;
+    }
+    /* Grid, not flex — the toggles must be centred on the *row*, not on
+       whatever space happens to be left after the legend. With flex +
+       justify-content:center, the legend's width (which changes: the "You"
+       chip appears once a GPS fix lands) shifts where "centered" lands, so
+       the toggle group visibly jumped sideways whenever it appeared/
+       disappeared. A 1fr/auto/1fr
+       grid centers the middle column on the row unconditionally — the two
+       outer tracks absorb whatever the legend's width does, so the toggles
+       hold their position regardless of legend content. */
+    .map-legend-bar {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+    .map-legend-bar .hex-legend { grid-column: 1; }
+    .map-legend-bar .map-controls { grid-column: 2; }
+    .map-controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        font-size: 0.75rem;
+    }
+    /* On narrow screens the legend + 4 toggles can't share one row without the
+       right-hand toggles running off-screen. Stack them and let each group wrap. */
+    @media (max-width: 768px) {
+        .map-legend-bar {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .map-controls {
+            flex-wrap: wrap;
+            gap: 0.55rem 1.1rem;
+            justify-content: center;
+        }
+        .hex-legend {
+            gap: 0.5rem 1rem;
+        }
+    }
+    .map-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        cursor: pointer;
+        user-select: none;
+        opacity: 0.8;
+        white-space: nowrap;
+        /* These are <label>s: drop Pico's default margin-bottom, which otherwise
+           makes align-items:center centre the margin-box and float the toggles
+           ~10px above the dark-mode button. */
+        margin: 0;
+    }
+    .map-toggle:hover { opacity: 1; }
+    .map-toggle input[type="checkbox"] {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 28px;
+        height: 16px;
+        border-radius: 8px;
+        background: rgba(139, 115, 85, 0.25);
+        border: 1px solid rgba(139, 115, 85, 0.4);
+        position: relative;
+        cursor: pointer;
+        transition: background 0.2s;
+        margin: 0;
+        padding: 0;
+        flex-shrink: 0;
+        box-sizing: border-box;
+    }
+    .map-toggle input[type="checkbox"]::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #8B7355;
+        transition: transform 0.2s;
+    }
+    .map-toggle input[type="checkbox"]:checked {
+        background: rgba(212, 160, 23, 0.3);
+        border-color: #D4A017;
+    }
+    .map-toggle input[type="checkbox"]:checked::after {
+        transform: translateX(12px);
+        background: #D4A017;
+    }
+    /* Dark/light map theme toggle — single icon button (moon/sun). */
+    .map-mode-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        padding: 0;
+        border-radius: 50%;
+        background: rgba(139, 115, 85, 0.25);
+        border: 1px solid rgba(139, 115, 85, 0.4);
+        color: #D4A017;
+        cursor: pointer;
+        opacity: 0.8;
+        flex-shrink: 0;
+        transition: opacity 0.2s, border-color 0.2s;
+    }
+    .map-mode-btn:hover { opacity: 1; border-color: #D4A017; }
+    .map-mode-btn i { font-size: 0.95rem; line-height: 1; }
+    /* --- Auto-Survey control on the radio face: a switch with a pilot lamp
+       that shows live state the way a real handheld's indicator LED would. --- */
+    .auto-survey-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin: 5px 15px 7px;
+        cursor: pointer;
+        user-select: none;
+    }
+    .auto-survey-label {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 16px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #8b7355;
+        transition: color 0.2s;
+    }
+    .auto-survey-bar input[type="checkbox"] { display: none; }
+    .auto-survey-track {
+        position: relative;
+        width: 34px;
+        height: 16px;
+        border-radius: 8px;
+        background: rgba(30, 27, 22, 0.9);
+        border: 1px solid #8b7355;
+        transition: border-color 0.2s, background 0.2s;
+        flex-shrink: 0;
+    }
+    .auto-survey-knob {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #8b7355;
+        transition: left 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    /* Armed styling only when the switch is actually usable (enabled). */
+    .auto-survey-bar input:checked:not(:disabled) ~ .auto-survey-track {
+        border-color: #d4a017;
+        background: rgba(212, 160, 23, 0.18);
+    }
+    .auto-survey-bar input:checked ~ .auto-survey-track .auto-survey-knob {
+        left: 20px;
+    }
+    .auto-survey-bar input:checked:not(:disabled) ~ .auto-survey-track .auto-survey-knob {
+        background: #d4a017;
+        box-shadow: 0 0 5px rgba(212, 160, 23, 0.7);
+    }
+    .auto-survey-bar:has(input:checked:not(:disabled)) .auto-survey-label { color: #d4a017; }
+    .auto-survey-bar:has(input:disabled) { cursor: not-allowed; }
+    .auto-survey-bar:has(input:disabled) .auto-survey-track { opacity: 0.45; }
+    /* Pilot lamp: dark when off/unavailable, amber when armed & listening,
+       green (pulsing) while surveying. */
+    .auto-survey-lamp {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: #2a2620;
+        border: 1px solid #4a4136;
+        box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.8);
+        transition: background 0.2s, box-shadow 0.2s, border-color 0.2s;
+    }
+    .auto-survey-lamp.lamp-armed {
+        background: #d4a017;
+        border-color: #d4a017;
+        box-shadow: 0 0 6px rgba(212, 160, 23, 0.85);
+    }
+    .auto-survey-lamp.lamp-surveying {
+        background: #4CAF50;
+        border-color: #4CAF50;
+        box-shadow: 0 0 6px rgba(76, 175, 80, 0.85);
+        animation: autosurvey-lamp-breathe 1.6s ease-in-out infinite;
+    }
+    .auto-survey-lamp.flash {
+        animation: autosurvey-lamp-flash 0.5s ease-out;
+    }
+    @keyframes autosurvey-lamp-breathe {
+        0%, 100% { box-shadow: 0 0 4px rgba(76, 175, 80, 0.55); }
+        50%      { box-shadow: 0 0 8px rgba(76, 175, 80, 1); }
+    }
+    @keyframes autosurvey-lamp-flash {
+        0%   { background: #b6ffae; box-shadow: 0 0 12px rgba(120, 255, 110, 1); }
+        100% { background: #4CAF50; box-shadow: 0 0 6px rgba(76, 175, 80, 0.85); }
+    }
+
+    /* Contextual command cues — the button itself signals what the hex you're
+       standing in affords, so no separate status readout line is needed.
+       Green = a hex you've surveyed before (survey again); indigo = that hex is
+       on cooldown today (advisory — the tap still goes through, server decides);
+       gold pulse = you're at a post that's fading toward ruin and wants upkeep. */
+    .radio-device .radio-btn.ctx-survey-known {
+        border-color: #4CAF50 !important;
+        box-shadow: 0 0 0 2px rgba(76,175,80,0.65), 0 0 12px rgba(76,175,80,0.4),
+                    inset 0 1px 0 rgba(139,115,85,0.2) !important;
+    }
+    .radio-device .radio-btn.ctx-survey-known i { color: #6fd47a !important; }
+
+    .radio-device .radio-btn.ctx-survey-cooldown {
+        border-color: #5C6BC0 !important;
+        box-shadow: 0 0 0 2px rgba(92,107,192,0.65), 0 0 12px rgba(92,107,192,0.4),
+                    inset 0 1px 0 rgba(139,115,85,0.2) !important;
+    }
+    .radio-device .radio-btn.ctx-survey-cooldown i { color: #9aa6e8 !important; }
+
+    .radio-device .radio-btn.ctx-upkeep-due {
+        border-color: #e8c547 !important;
+        box-shadow: 0 0 0 2px #d4a017, 0 0 12px rgba(212, 160, 23, 0.5),
+                    inset 0 1px 0 rgba(139, 115, 85, 0.2) !important;
+        animation: recommendPulse 2s ease-in-out infinite;
+    }
+    @keyframes recommendPulse {
+        0%, 100% { box-shadow: 0 0 0 2px #d4a017, 0 0 6px rgba(212,160,23,0.35), inset 0 1px 0 rgba(139,115,85,0.2); }
+        50%      { box-shadow: 0 0 0 2px #d4a017, 0 0 14px rgba(212,160,23,0.6), inset 0 1px 0 rgba(139,115,85,0.2); }
+    }
+
+    /* --- Recenter control (GPS follow-mode) --- */
+    .recenter-btn {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        z-index: 500;
+        display: inline-flex;
+        align-items: center;
+        /* Pico defaults buttons to width:100% — pin it to content width so it
+           stays a compact chip instead of stretching across the map. */
+        width: auto;
+        gap: 0.25rem;
+        padding: 0.25rem 0.45rem;
+        font-size: 0.68rem;
+        line-height: 1;
+        border-radius: 0.35rem;
+        background: rgba(30, 27, 22, 0.9);
+        color: #e8c547;
+        border: 1px solid #8b7355;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+    .recenter-btn i { font-size: 0.85rem; }
+    .recenter-btn:hover { background: rgba(45, 40, 32, 0.95); }
+    .recenter-btn[hidden] { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="spyglass-layout">
+    <div class="map-col">
+        <div class="map-legend-bar">
+            <div class="hex-legend" style="margin-bottom: 0;">
+                <span class="legend-discovered">Discovered</span>
+                <span class="legend-post">Survey Post</span>
+                <span class="legend-cooldown">Cooldown</span>
+            </div>
+            <div class="map-controls">
+                <label class="map-toggle">
+                    <input type="checkbox" id="toggle-locate" checked>
+                    <span>Locate</span>
+                </label>
+                <label class="map-toggle">
+                    <input type="checkbox" id="toggle-awake" checked>
+                    <span>Screen On</span>
+                </label>
+                <label class="map-toggle">
+                    <input type="checkbox" id="toggle-repeaters" checked>
+                    <span>Repeaters</span>
+                </label>
+                <button class="map-mode-btn" id="toggle-dark" type="button" aria-label="Toggle map theme">
+                    <i class="ti ti-moon"></i>
+                </button>
+            </div>
+        </div>
+        <div class="map-wrapper">
+        <div id="map"></div>
+        <button id="recenter-btn" class="recenter-btn" hidden aria-label="Recenter on your position">
+            <i class="ti ti-current-location"></i> Recenter
+        </button>
+        <div class="radio-col">
+        <div class="radio-device">
+            <div class="radio-screen">
+                <div id="live-feed">
+                    <div class="feed-entry feed-placeholder">Monitoring radio transmissions...</div>
+                </div>
+            </div>
+
+            <!-- Auto-Survey: hands-free surveying as you travel. Sits where the
+                 old Walking/Driving toggle was — it's a radio operating mode. -->
+            <label class="auto-survey-bar" id="autosurvey-toggle-wrap">
+                <input type="checkbox" id="toggle-autosurvey">
+                <span class="auto-survey-track"><span class="auto-survey-knob"></span></span>
+                <span class="auto-survey-label">AUTO-SURVEY</span>
+                <span class="auto-survey-lamp lamp-off" id="autosurvey-lamp" aria-hidden="true"></span>
+            </label>
+
+            <div class="radio-buttons">
+                <div class="radio-btn-group">
+                    <button onclick="runCommand('survey', this)" class="radio-btn" title="Survey" data-cmd="survey"
+                        {% if not companion_connected or not selected_node %}disabled{% endif %}>
+                        <i class="ti ti-telescope"></i>
+                    </button>
+                    <div class="radio-btn-label">Survey</div>
+                </div>
+                <div class="radio-btn-group">
+                    <button onclick="runCommand('charter', this)" class="radio-btn" title="Charter" data-cmd="charter"
+                        {% if not companion_connected or not selected_node %}disabled{% endif %}>
+                        <i class="ti ti-flag"></i>
+                    </button>
+                    <div class="radio-btn-label">Charter</div>
+                </div>
+                <div class="radio-btn-group">
+                    <button onclick="runCommand('upkeep', this)" class="radio-btn" title="Upkeep" data-cmd="upkeep"
+                        {% if not companion_connected or not selected_node or post_count == 0 %}disabled{% endif %}>
+                        <i class="ti ti-hammer"></i>
+                    </button>
+                    <div class="radio-btn-label">Upkeep</div>
+                </div>
+            </div>
+
+            <div class="radio-tuner">
+                <div class="radio-tuner-label">◈ Spyglass</div>
+                <div class="spyglass-selector">
+                    <button class="spyglass-nav" onclick="cycleNode(-1)" aria-label="Previous spyglass"><i class="ti ti-chevron-left"></i></button>
+                    <div class="spyglass-display" id="spyglass-display">
+                        {% if nodes and selected_node %}
+                            {% for node in nodes %}{% if node.key == selected_node %}{{ node.name }}{% endif %}{% endfor %}
+                        {% elif nodes %}
+                            — none —
+                        {% else %}
+                            No signal
+                        {% endif %}
+                    </div>
+                    <button class="spyglass-nav" onclick="cycleNode(1)" aria-label="Next spyglass"><i class="ti ti-chevron-right"></i></button>
+                </div>
+                <select id="node-select" style="display:none;">
+                    {% if not nodes %}
+                    <option value="">No nodes detected</option>
+                    {% else %}
+                    <option value="">— Select node —</option>
+                    {% for node in nodes %}
+                    <option value="{{ node.key }}" {% if node.key == selected_node %}selected{% endif %}>{{ node.name }}</option>
+                    {% endfor %}
+                    {% endif %}
+                </select>
+            </div>
+            <div class="radio-badge">World's End Society</div>
+        </div>
+        </div>
+        </div>
+    </div>
+</div>
+
+
+<script>
+(function() {
+    var col = document.querySelector('.radio-col');
+    var device = col && col.querySelector('.radio-device');
+    if (!col || !device) return;
+    function scaleRadio() {
+        if (window.innerWidth <= 768) {
+            var s = col.offsetWidth / 280;
+            device.style.transform = 'scale(' + s + ')';
+            col.style.height = (device.offsetHeight * s) + 'px';
+        } else {
+            device.style.transform = '';
+            col.style.height = '';
+        }
+    }
+    scaleRadio();
+    window.addEventListener('resize', scaleRadio);
+})();
+</script>
+
+<script>
+var refreshMap;
+
+(function() {
+    var feed = document.getElementById('live-feed');
+    var mapRefreshEvents = {survey: 1, charter: 1, upkeep: 1};
+    var cmdLabels = {survey: 'Survey', charter: 'Charter', upkeep: 'Upkeep'};
+    var _lastEventId = 0;
+    var MAX_FEED_ENTRIES = 6;
+    var TELEMETRY_TIMEOUT = {{ telemetry_timeout }};
+
+    // Draining signal meter under the active transmission line. Anchored to the
+    // server-provided deadline (survives reconnect); the drain is a soft estimate
+    // — only gps_fix / gps_fail is authoritative, so a slow-but-live reply never
+    // shows a false failure.
+    var SignalBar = (function() {
+        function fillEl() {
+            var p = feed.querySelector('.feed-progress');
+            if (!p) return null;
+            var bar = p.querySelector('.feed-bar');
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.className = 'feed-bar';
+                bar.innerHTML = '<div class="feed-bar-fill"></div>';
+                p.appendChild(bar);
+            }
+            return bar.querySelector('.feed-bar-fill');
+        }
+        function set(el, cls, width) {
+            if (el._t) { clearTimeout(el._t); el._t = null; }
+            el.className = 'feed-bar-fill' + (cls ? ' ' + cls : '');
+            el.style.transition = 'none';
+            el.style.width = width;
+        }
+        return {
+            pulse: function() {
+                var el = fillEl(); if (el) set(el, 'pulse', '20%');
+            },
+            drain: function(deadlineTs) {
+                var el = fillEl(); if (!el) return;
+                var remaining = deadlineTs - Date.now() / 1000;
+                if (remaining <= 0.3) { set(el, 'listening', '4%'); return; }
+                var startPct = Math.max(4, Math.min(100, remaining / TELEMETRY_TIMEOUT * 100));
+                set(el, '', startPct + '%');
+                void el.offsetWidth; // reflow so the transition takes
+                el.style.transition = 'width ' + remaining.toFixed(2) + 's linear';
+                el.style.width = '0%';
+                // Bar emptied but no fix/fail yet → keep listening, don't fail.
+                el._t = setTimeout(function() {
+                    var e = fillEl();
+                    if (e) { e.className = 'feed-bar-fill listening'; e.style.transition = 'none'; e.style.width = '4%'; }
+                }, remaining * 1000);
+            },
+            lock: function() { var el = fillEl(); if (el) set(el, 'locked', '100%'); },
+            fail: function() { var el = fillEl(); if (el) set(el, 'failed', '100%'); }
+        };
+    })();
+
+    // Watchdog: if a non-terminal progress line (hailing / awaiting signal /
+    // triangulating) is never advanced by a follow-up event — e.g. a stale event
+    // replayed on SSE reconnect, or a round-trip that died server-side — clear it
+    // so the feed can't stick on "awaiting signal" with a frozen bar. Covers the
+    // worst legit case: two flood attempts (2 x timeout) plus margin.
+    var _progressWatchdog = null;
+    function armProgressWatchdog() {
+        if (_progressWatchdog) clearTimeout(_progressWatchdog);
+        _progressWatchdog = setTimeout(function() {
+            _progressWatchdog = null;
+            var p = feed.querySelector('.feed-progress');
+            if (p) p.remove();
+        }, (TELEMETRY_TIMEOUT * 2 + 15) * 1000);
+    }
+    function clearProgressWatchdog() {
+        if (_progressWatchdog) { clearTimeout(_progressWatchdog); _progressWatchdog = null; }
+    }
+
+    var PROGRESS_STAGES = {
+        cmd_received: 1, gps_request: 1, gps_triangulating: 1, gps_fix: 1
+    };
+
+    function relTime(ts) {
+        var diff = Math.max(0, Math.floor(Date.now() / 1000 - ts));
+        if (diff < 10) return 'now';
+        if (diff < 60) return diff + 's';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm';
+        if (diff < 86400) return Math.floor(diff / 3600) + 'h';
+        return Math.floor(diff / 86400) + 'd';
+    }
+
+    var FEED_MAX_AGE_SEC = 7200;
+
+    function pruneFeed() {
+        var now = Math.floor(Date.now() / 1000);
+        feed.querySelectorAll('.feed-entry').forEach(function(entry) {
+            var timeEl = entry.querySelector('.feed-time[data-ts]');
+            if (!timeEl) return;
+            if (now - parseInt(timeEl.dataset.ts) > FEED_MAX_AGE_SEC) entry.remove();
+        });
+        if (!feed.querySelector('.feed-entry')) {
+            var ph = document.createElement('div');
+            ph.className = 'feed-entry feed-placeholder';
+            ph.textContent = 'Monitoring radio transmissions...';
+            feed.appendChild(ph);
+        }
+    }
+
+    setInterval(function() {
+        var els = feed.querySelectorAll('.feed-time[data-ts]');
+        els.forEach(function(el) { el.textContent = relTime(parseInt(el.dataset.ts)); });
+        pruneFeed();
+    }, 15000);
+
+    function progressDots(stage) {
+        if (stage === 'cmd_received') return '·';
+        if (stage === 'gps_request') return '··';
+        if (stage === 'gps_triangulating') return '···';
+        if (stage === 'gps_fix') return '····';
+        return '';
+    }
+
+    function itemLabel(t) {
+        if (t === 'probe') return 'Scout';
+        var parts = t.split('_');
+        if (parts.length < 2) return t.charAt(0).toUpperCase() + t.slice(1);
+        var kind = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+        var rarity = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+        return kind + ' (' + rarity + ')';
+    }
+
+    // Relic drops arrive as raw type slugs (e.g. "vigor_tonic"); give them the
+    // same display names the shop/relic shelf use instead of leaking the slug.
+    var RELIC_LABELS = {
+        buried_cache: 'Buried Cache',
+        vigor_tonic: 'Vigor Tonic',
+        wardstone: 'Wardstone'
+    };
+    function relicLabel(t) {
+        if (RELIC_LABELS[t]) return RELIC_LABELS[t];
+        return t.split('_').map(function(w) {
+            return w.charAt(0).toUpperCase() + w.slice(1);
+        }).join(' ');
+    }
+
+    function formatEvent(event) {
+        var d = event.data || {};
+        var type = event.type;
+        var cmd = cmdLabels[d.command] || d.command;
+        if (type === 'cmd_received') {
+            return {text: cmd + ' ' + progressDots('cmd_received') + ' hailing spyglass', cls: 'feed-dim', progress: true};
+        } else if (type === 'gps_request') {
+            return {text: cmd + ' ' + progressDots('gps_request') + ' awaiting signal', cls: 'feed-dim', progress: true};
+        } else if (type === 'gps_triangulating') {
+            var modeTag = d.mode === 'last_path' ? 'known route' : 'scanning mesh';
+            var label;
+            if (d.fallback) {
+                label = 'known route lost — scanning mesh';
+            } else if (d.attempt > 1) {
+                label = 'retriangulating [' + modeTag + ']';
+            } else {
+                label = 'triangulating [' + modeTag + ']';
+            }
+            return {text: cmd + ' ' + progressDots('gps_triangulating') + ' ' + label, cls: d.fallback ? 'feed-warn' : 'feed-dim', progress: true};
+        } else if (type === 'gps_fix') {
+            return {text: cmd + ' ' + progressDots('gps_fix') + ' position locked', cls: 'feed-dim', progress: true};
+        } else if (type === 'gps_fail') {
+            var detail = d.reason === 'timeout' ? 'No response from spyglass' : d.reason === 'no_gps' ? 'Spyglass GPS not enabled' : 'Companion link error';
+            return {text: detail + ' — ' + cmd + ' aborted', cls: 'feed-warn', progress: true};
+        } else if (type === 'command_busy') {
+            return {text: (cmd || 'Command') + ' in progress — stand by', cls: 'feed-dim'};
+        } else if (type === 'cmd_failed') {
+            return {text: cmd + ' — ' + d.reason, cls: 'feed-warn'};
+        } else if (type === 'survey_rejected') {
+            var reason;
+            if (d.reason === 'cooldown') reason = d.hex_name + ' already surveyed';
+            else if (d.reason === 'rate') reason = 'Transmitter cooling — hold a moment';
+            else reason = 'Position change too fast';
+            return {text: reason, cls: 'feed-warn'};
+        } else if (type === 'survey') {
+            var t = d.hex_name + ' +' + d.xp + 'xp +' + d.provisions + 'prov';
+            if (d.discovery) t += ' DISCOVERY';
+            if (d.relic) t += ' [' + relicLabel(d.relic) + ']';
+            if (d.surveys_remaining !== undefined) {
+                t += d.surveys_remaining === 0 ? ' LIMIT' : ' ' + d.surveys_remaining + ' left';
+            }
+            if (d.first_today) {
+                var mk = d.first_survey_bonus || 0;
+                t += ' — FIRST SURVEY OF THE DAY';
+                if (mk) t += ' (+' + mk + ' Mark' + (mk === 1 ? '' : 's') + ')';
+            }
+            return {text: t, cls: 'feed-success'};
+        } else if (type === 'charter') {
+            return {text: d.post_name + ' chartered — ' + d.territory, cls: 'feed-success'};
+        } else if (type === 'upkeep') {
+            var dr = d.days_until_ruined;
+            var tail = (dr != null)
+                ? ' upkeep — ruin timer reset, ' + dr + ' day' + (dr === 1 ? '' : 's') + ' until ruin'
+                : ' upkeep — Lv' + d.level + ' all clear';
+            return {text: d.post_name + tail, cls: 'feed-success'};
+        } else if (type === 'rank_up') {
+            return {text: 'PROMOTED ' + d.name, cls: 'feed-success'};
+        } else if (type === 'contract_complete') {
+            return {text: d.label + ' — ' + d.reward, cls: 'feed-success'};
+        } else if (type === 'route_lost') {
+            return {text: 'Known route lost — scanning mesh', cls: 'feed-dim'};
+        } else if (type === 'multiplayer_items_received') {
+            var counts = {};
+            (d.items || []).forEach(function(i) { counts[i.type] = (counts[i.type] || 0) + 1; });
+            var parts = Object.entries(counts).map(function(e) { return e[1] + '× ' + itemLabel(e[0]); });
+            var n = (d.items || []).length;
+            var from = d.survey_count ? ' from ' + d.survey_count + ' survey' + (d.survey_count === 1 ? '' : 's') : '';
+            var t = 'SUPPLY DROP — ' + n + ' crate' + (n === 1 ? '' : 's') + from + ': ' + parts.join(', ');
+            return {text: t, cls: 'feed-success'};
+        } else if (type === 'multiplayer_bundle_pushed' || type === 'multiplayer_raid_dispatched' || type === 'multiplayer_boost_deployed' || type === 'multiplayer_scouted') {
+            return null;
+        }
+        return null;
+    }
+
+    function addEntry(event) {
+        var fmt = formatEvent(event);
+        if (!fmt) return;
+        if (event.ts && Math.floor(Date.now() / 1000) - event.ts > FEED_MAX_AGE_SEC) return;
+        if (event.id && event.id > _lastEventId) _lastEventId = event.id;
+
+        var placeholder = feed.querySelector('.feed-placeholder');
+        if (placeholder) placeholder.remove();
+
+        var progressEl = feed.querySelector('.feed-progress');
+        if (fmt.progress) {
+            if (progressEl) {
+                progressEl.querySelector('.feed-text').textContent = fmt.text;
+                progressEl.className = 'feed-entry feed-progress ' + (fmt.cls || '');
+                var timeEl = progressEl.querySelector('.feed-time');
+                if (timeEl) { timeEl.dataset.ts = event.ts; timeEl.textContent = relTime(event.ts); }
+                return;
+            }
+            var entry = document.createElement('div');
+            entry.className = 'feed-entry feed-progress ' + (fmt.cls || '');
+            entry.innerHTML = '<span class="feed-time" data-ts="' + event.ts + '">' + relTime(event.ts) + '</span> <span class="feed-text">' + fmt.text + '</span>';
+            feed.insertBefore(entry, feed.firstChild);
+            return;
+        }
+
+        if (progressEl) progressEl.remove();
+
+        var entry = document.createElement('div');
+        entry.className = 'feed-entry' + (fmt.cls ? ' ' + fmt.cls : '');
+        entry.innerHTML = '<span class="feed-time" data-ts="' + event.ts + '">' + relTime(event.ts) + '</span> <span class="feed-text">' + fmt.text + '</span>';
+        feed.insertBefore(entry, feed.firstChild);
+
+        while (feed.children.length > MAX_FEED_ENTRIES) {
+            feed.removeChild(feed.lastChild);
+        }
+    }
+
+    var reconnectTimer = null;
+    var _source = null;
+
+    // Only the live signal bar / progress watchdog are gated on freshness: a
+    // gps_triangulating replayed on reconnect must not restart the draining bar
+    // or re-arm the watchdog. The feed text itself has its own age filter.
+    var EVENT_FRESH_SEC = 120;
+
+    function handleEvent(event) {
+        // Dedup reconnect replays: the server replays everything after last_id,
+        // which can overlap events already delivered live. Ids are monotonic.
+        if (event.id) {
+            if (event.id <= _lastEventId) return;
+            _lastEventId = event.id;
+        }
+        addEntry(event);
+        var d = event.data || {};
+        var fresh = !event.ts || (Math.floor(Date.now() / 1000) - event.ts <= EVENT_FRESH_SEC);
+        if (!fresh) return;
+        if (event.type === 'cmd_received' || event.type === 'gps_request') {
+            SignalBar.pulse();
+            armProgressWatchdog();
+        } else if (event.type === 'gps_triangulating') {
+            SignalBar.drain(d.deadline_ts || (event.ts + TELEMETRY_TIMEOUT));
+            armProgressWatchdog();
+        } else if (event.type === 'gps_fix') {
+            SignalBar.lock();
+            clearProgressWatchdog();
+        } else if (event.type === 'gps_fail') {
+            SignalBar.fail();
+            clearProgressWatchdog();
+            // A GPS abort during hands-free auto-survey is expected background
+            // noise — only sound the failure for a manual command the operator
+            // is actively waiting on.
+            if (!autoSurveyActive()) playSurveyFail();
+        } else if (event.type === 'autosurvey_logged') {
+            // Success sound now rides the 'survey' event below (fires for manual
+            // and auto alike); this branch just drives the pilot-lamp flash.
+            bumpAutoSurveyCount();
+        } else if (event.type === 'survey') {
+            playSurveySuccess();
+        } else if (event.type === 'charter') {
+            // Chartering a new Survey Post is a rare milestone — a short
+            // three-note fanfare rather than the routine survey ding.
+            playCharterFanfare();
+        } else if (event.type === 'upkeep') {
+            playSurveySuccess();
+        } else if (event.type === 'survey_rejected') {
+            playSurveyFail();
+        } else if (event.type === 'cmd_failed') {
+            // Counterpart to the charter/upkeep success cues (these are always
+            // manual commands — never emitted on the auto-survey path).
+            playSurveyFail();
+        }
+        if (event.type in mapRefreshEvents && refreshMap) {
+            refreshMap();
+        }
+    }
+
+    // Stall watchdog: a dropped cellular link often leaves a half-open socket
+    // where EventSource.onerror never fires and the feed silently freezes. The
+    // server pings ~every 15s, so any gap longer than this means the stream is
+    // dead — tear it down and reconnect. Reset on every message and ping.
+    var STALL_TIMEOUT_MS = 45000;
+    var _stallTimer = null;
+    function bumpStall() {
+        if (_stallTimer) clearTimeout(_stallTimer);
+        _stallTimer = setTimeout(function() {
+            _stallTimer = null;
+            if (!document.hidden) connectSSE();
+            else bumpStall(); // backgrounded: the visibility handler will reconnect
+        }, STALL_TIMEOUT_MS);
+    }
+
+    function connectSSE() {
+        if (_source) { _source.close(); _source = null; }
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+        var url = '/api/events';
+        if (_lastEventId) url += '?last_id=' + _lastEventId;
+        _source = new EventSource(url);
+        bumpStall();
+        _source.onopen = function() { bumpStall(); };
+        _source.onmessage = function(e) {
+            bumpStall();
+            try { handleEvent(JSON.parse(e.data)); } catch(err) {}
+        };
+        // Named 'ping' events don't trigger onmessage — listen explicitly so the
+        // heartbeat keeps the stall watchdog alive on a quiet-but-live stream.
+        _source.addEventListener('ping', function() { bumpStall(); });
+        _source.onerror = function() {
+            _source.close();
+            _source = null;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(connectSSE, 5000);
+        };
+    }
+    connectSSE();
+
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            // May have been suspended/killed while backgrounded; reconnect to
+            // guarantee a live stream and replay anything missed (deduped by id).
+            connectSSE();
+        }
+    });
+
+    window.addEntry = addEntry;
+})();
+
+(function() {
+    const homeLat = {{ home_lat }};
+    const homeLng = {{ home_lon }};
+
+    const map = L.map('map', { zoomControl: true }).setView([homeLat, homeLng], 11);
+
+    const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OSM',
+        maxZoom: 18,
+    });
+    const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OSM &copy; CARTO',
+        maxZoom: 19,
+        subdomains: 'abcd',
+    });
+
+    const savedTheme = localStorage.getItem('lora-map-theme') || 'dark';
+    let activeTiles = savedTheme === 'light' ? lightTiles : darkTiles;
+    activeTiles.addTo(map);
+
+    const darkToggle = document.getElementById('toggle-dark');
+    let isDark = savedTheme !== 'light';
+    // Show the icon of the mode you'll switch TO — sun in dark mode, moon in light.
+    function syncModeBtn() {
+        darkToggle.innerHTML = isDark
+            ? '<i class="ti ti-sun"></i>'
+            : '<i class="ti ti-moon"></i>';
+        darkToggle.title = isDark ? 'Switch to light map' : 'Switch to dark map';
+    }
+    syncModeBtn();
+    darkToggle.addEventListener('click', function() {
+        isDark = !isDark;
+        map.removeLayer(activeTiles);
+        activeTiles = isDark ? darkTiles : lightTiles;
+        activeTiles.addTo(map);
+        localStorage.setItem('lora-map-theme', isDark ? 'dark' : 'light');
+        syncModeBtn();
+    });
+
+    const colors = {
+        discovered: '#4CAF50',
+        post: '#FF9800',
+        cooldown: '#5C6BC0',
+    };
+
+    // --- Current-hex support: figure out which known hex the live fix sits in,
+    // from already-loaded map data (no new deps, no server round-trip — position
+    // stays client-side). Drives the contextual button cues + hex highlight. ---
+    var latestHexes = [];
+    var refreshHereReadout = function() {}; // reassigned by initLiveFix
+
+    function pointInPolygon(lat, lng, boundary) {
+        // Ray casting; boundary is [[lat, lng], ...].
+        var inside = false;
+        for (var i = 0, j = boundary.length - 1; i < boundary.length; j = i++) {
+            var yi = boundary[i][0], xi = boundary[i][1];
+            var yj = boundary[j][0], xj = boundary[j][1];
+            if (((yi > lat) !== (yj > lat)) &&
+                (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+        }
+        return inside;
+    }
+
+    // What the hex you're standing in affords — drives the contextual button
+    // cues (there's no separate readout line anymore). `surveyable` gates the
+    // hands-free auto-survey so it never fires on a hex that's on cooldown.
+    function computeHereStatus(lat, lng) {
+        var cur = currentHexAt(lat, lng);
+        if (cur && cur.post_name && cur.upkeep_due)
+            return {cmd: 'upkeep', cls: 'ctx-upkeep-due', surveyable: false};
+        if (cur && cur.on_cooldown)
+            return {cmd: 'survey', cls: 'ctx-survey-cooldown', surveyable: false};
+        if (cur)  // discovered before (incl. a stocked post) — survey it again
+            return {cmd: 'survey', cls: 'ctx-survey-known', surveyable: true};
+        return {cmd: 'survey', cls: null, surveyable: true};  // brand-new hex
+    }
+
+    // The known hex the point falls in (null if it's not on the map yet — a
+    // brand-new hex). Used only to de-dupe auto-surveys per hex.
+    function currentHexAt(lat, lng) {
+        for (var i = 0; i < latestHexes.length; i++) {
+            var h = latestHexes[i];
+            if (h.boundary && pointInPolygon(lat, lng, h.boundary)) return h;
+        }
+        return null;
+    }
+
+    // --- Hands-free auto-survey ---------------------------------------------
+    // When enabled, entering a "Survey Ready" hex fires a survey automatically so
+    // the operator never has to touch the phone (the safest behavior is also the
+    // rewarded one). The client debounce mirrors the server's uniform rate cap
+    // (SURVEY_MIN_INTERVAL_S ≈ 35s), so a too-fast mover simply can't out-earn it.
+    var AUTO_SURVEY_MIN_MS = 35000;
+    var _autoSurvey = {lastTs: 0, lastHexId: null, inFlight: false};
+
+    function autoSurveyEnabled() {
+        // Armed AND usable — a disabled switch (Locate off / no secure context)
+        // never counts, so auto-survey can't silently run without a fix.
+        var cb = document.getElementById('toggle-autosurvey');
+        return !!(cb && cb.checked && !cb.disabled);
+    }
+
+    function maybeAutoSurvey(lat, lng) {
+        if (!autoSurveyEnabled()) return;
+        // One mesh telemetry round-trip runs at a time (the companion is a single
+        // physical node); don't stack a second attempt on top of an in-flight one.
+        if (_autoSurvey.inFlight) return;
+        var hex = currentHexAt(lat, lng);
+        var hexId = hex ? hex.hex_id : null;
+        // Never re-fire for a hex we've already *successfully* auto-surveyed this
+        // pass. lastHexId is committed only on a logged survey (see below), so a
+        // hex whose telemetry round-trip failed stays eligible for a retry.
+        if (hexId && hexId === _autoSurvey.lastHexId) return;
+        var now = Date.now();
+        if (now - _autoSurvey.lastTs < AUTO_SURVEY_MIN_MS) return;
+        // Debounce *attempts* (success or fail) to the rate cap so a flaky node
+        // can't be hammered every fix, but only mark the hex done once it logs.
+        _autoSurvey.lastTs = now;
+        _autoSurvey.inFlight = true;
+        runCommand('survey', null, {auto: true}).then(function(res) {
+            _autoSurvey.inFlight = false;
+            if (res && res.ok) {
+                _autoSurvey.lastHexId = hexId;
+            }
+            // On any failure (GPS timeout, node busy, transient no-fix) leave
+            // lastHexId unset: the next fix after the rate cap retries this hex,
+            // instead of silently skipping it for the rest of the visit.
+        }, function() {
+            _autoSurvey.inFlight = false;
+        });
+    }
+
+    const hexLayer = L.layerGroup().addTo(map);
+    const hexLabelLayer = L.layerGroup();
+    const repeaterLayer = L.layerGroup().addTo(map);
+    let furthestMarker = null;
+
+    map.on('zoomend', function() {
+        if (map.getZoom() >= 15) {
+            if (!map.hasLayer(hexLabelLayer)) map.addLayer(hexLabelLayer);
+        } else {
+            if (map.hasLayer(hexLabelLayer)) map.removeLayer(hexLabelLayer);
+        }
+    });
+
+    const savedRepeaters = localStorage.getItem('lora-map-repeaters') !== 'false';
+    const repeaterToggle = document.getElementById('toggle-repeaters');
+    repeaterToggle.checked = savedRepeaters;
+    if (!savedRepeaters) map.removeLayer(repeaterLayer);
+    repeaterToggle.addEventListener('change', function() {
+        if (this.checked) {
+            map.addLayer(repeaterLayer);
+        } else {
+            map.removeLayer(repeaterLayer);
+        }
+        localStorage.setItem('lora-map-repeaters', this.checked);
+    });
+
+    function esc(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    function drawHexes(hexes, fitBounds) {
+        hexLayer.clearLayers();
+        hexLabelLayer.clearLayers();
+        if (furthestMarker) {
+            map.removeLayer(furthestMarker);
+            furthestMarker = null;
+        }
+        if (hexes.length === 0) return;
+
+        let furthestDist = 0;
+        let furthestData = null;
+
+        hexes.forEach(hex => {
+            if (hex.survey_lat != null && hex.survey_lng != null) {
+                const dist = Math.sqrt(
+                    Math.pow(hex.survey_lat - homeLat, 2) + Math.pow(hex.survey_lng - homeLng, 2)
+                );
+                if (dist > furthestDist) {
+                    furthestDist = dist;
+                    furthestData = hex;
+                }
+            }
+        });
+
+        hexes.forEach(hex => {
+            const latlngs = hex.boundary.map(b => [b[0], b[1]]);
+            const color = hex.on_cooldown ? colors.cooldown : (colors[hex.type] || colors.discovered);
+
+            const polygon = L.polygon(latlngs, {
+                color: color,
+                weight: 2,
+                fillColor: color,
+                fillOpacity: 0.25,
+            }).addTo(hexLayer);
+
+            L.marker([hex.lat, hex.lng], {
+                icon: L.divIcon({
+                    html: '<span class="hex-label">' + esc(hex.name) + '</span>',
+                    className: 'hex-label-icon',
+                    iconSize: [240, 30],
+                    iconAnchor: [120, 15],
+                }),
+                interactive: false,
+            }).addTo(hexLabelLayer);
+
+            let popup = '<strong>' + esc(hex.name) + '</strong><br>';
+            popup += 'Surveys: ' + hex.survey_count + '<br>';
+            const date = new Date(hex.discovered_at * 1000);
+            popup += 'Discovered: ' + date.toLocaleDateString() + '<br>';
+            if (hex.on_cooldown) {
+                popup += '<em style="color:#5C6BC0;">On cooldown (resets 00:00 UTC)</em><br>';
+            }
+
+            if (hex.post_name) {
+                popup += '<br><strong>Survey Post: ' + esc(hex.post_name) + '</strong><br>';
+                popup += 'Level: ' + '★'.repeat(hex.post_level);
+            }
+
+            if (hex.survey_id) {
+                popup += '<br><button onclick="removeSurvey(' + hex.survey_id + ', this)" ' +
+                    'style="margin-top:0.4rem;padding:0.2rem 0.5rem;font-size:0.75rem;' +
+                    'background:#c62828;border:1px solid #e53935;color:#fff;border-radius:0.3rem;cursor:pointer;">' +
+                    'Remove Last Survey</button>';
+            }
+
+            polygon.bindPopup(popup);
+
+            if (hex.post_name) {
+                L.marker([hex.lat, hex.lng], {
+                    title: hex.post_name,
+                    icon: L.divIcon({
+                        html: '🏴',
+                        className: 'emoji-marker',
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12],
+                        popupAnchor: [0, -12],
+                    }),
+                }).addTo(hexLayer).bindPopup(
+                    '<strong>🏴 ' + esc(hex.post_name) + '</strong><br>Level ' + '★'.repeat(hex.post_level)
+                );
+            }
+
+            if (hex.survey_lat != null) {
+                const isFurthest = furthestData && hex === furthestData;
+                if (isFurthest) return;
+                let surveyPopup = '<strong>Survey location</strong><br>' +
+                    hex.survey_lat.toFixed(5) + ', ' + hex.survey_lng.toFixed(5);
+                if (hex.survey_id) {
+                    surveyPopup += '<br><button onclick="removeSurvey(' + hex.survey_id + ', this)" ' +
+                        'style="margin-top:0.4rem;padding:0.2rem 0.5rem;font-size:0.75rem;' +
+                        'background:#c62828;border:1px solid #e53935;color:#fff;border-radius:0.3rem;cursor:pointer;">' +
+                        'Remove Survey</button>';
+                }
+                L.circleMarker([hex.survey_lat, hex.survey_lng], {
+                    radius: 4,
+                    color: '#FF5722',
+                    fillColor: '#FF5722',
+                    fillOpacity: 0.9,
+                    weight: 1,
+                }).addTo(hexLayer).bindPopup(surveyPopup);
+            }
+        });
+
+        if (furthestData) {
+            const distMiles = furthestData.distance_miles || 0;
+            furthestMarker = L.marker([furthestData.survey_lat, furthestData.survey_lng], {
+                title: 'Furthest Survey',
+                icon: L.divIcon({
+                    html: '🔭',
+                    className: 'emoji-marker',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15],
+                    popupAnchor: [0, -15],
+                }),
+            }).addTo(map).bindPopup(
+                '<strong>🔭 Furthest Survey</strong><br>' +
+                furthestData.survey_lat.toFixed(5) + ', ' + furthestData.survey_lng.toFixed(5) + '<br>' +
+                distMiles.toFixed(2) + ' miles from base' +
+                (furthestData.survey_id ?
+                    '<br><button onclick="removeSurvey(' + furthestData.survey_id + ', this)" ' +
+                    'style="margin-top:0.4rem;padding:0.2rem 0.5rem;font-size:0.75rem;' +
+                    'background:#c62828;border:1px solid #e53935;color:#fff;border-radius:0.3rem;cursor:pointer;">' +
+                    'Remove Survey</button>' : '')
+            );
+        }
+
+        if (fitBounds) {
+            const params = new URLSearchParams(window.location.search);
+            const focusHex = params.get('focus');
+            const focused = focusHex ? hexes.find(h => h.hex_id === focusHex) : null;
+
+            if (focused) {
+                map.setView([focused.lat, focused.lng], 15);
+            } else if (hexes.length > 1) {
+                const bounds = hexes.map(h => [h.lat, h.lng]);
+                map.fitBounds(bounds, { padding: [30, 30] });
+            }
+        }
+    }
+
+    function drawRepeaters(repeaters) {
+        repeaterLayer.clearLayers();
+        (repeaters || []).forEach(function(r) {
+            L.marker([r.lat, r.lon], {
+                title: r.name,
+                icon: L.divIcon({
+                    html: '📡',
+                    className: 'emoji-marker',
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12],
+                    popupAnchor: [0, -12],
+                }),
+            }).addTo(repeaterLayer).bindPopup('<strong>📡 ' + r.name + '</strong>');
+        });
+    }
+
+    fetch('/api/hexes')
+        .then(r => r.json())
+        .then(function(data) {
+            latestHexes = data.hexes || [];
+            drawHexes(data.hexes, true);
+            drawRepeaters(data.repeaters);
+            refreshHereReadout();
+        });
+
+    L.marker([homeLat, homeLng], {
+        title: 'Base Camp',
+        icon: L.divIcon({
+            html: '🏕️',
+            className: 'emoji-marker',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+            popupAnchor: [0, -15],
+        }),
+    }).addTo(map).bindPopup('<strong>🏕️ Base Camp</strong>');
+
+    refreshMap = function() {
+        fetch('/api/hexes')
+            .then(r => r.json())
+            .then(function(data) {
+                latestHexes = data.hexes || [];
+                drawHexes(data.hexes, false);
+                drawRepeaters(data.repeaters);
+                refreshHereReadout();
+                var newest = null;
+                data.hexes.forEach(function(h) {
+                    if (h.surveyed_at && h.survey_lat != null) {
+                        if (!newest || h.surveyed_at > newest.surveyed_at) newest = h;
+                    }
+                });
+                if (newest) {
+                    map.flyTo([newest.survey_lat, newest.survey_lng], Math.max(map.getZoom(), 13), {duration: 1});
+                }
+            });
+    };
+
+    // --- Live operator position (client-side only; never sent to the server
+    // or over the mesh — surveys still use the spyglass's authoritative fix). ---
+    (function initLiveFix() {
+        var toggle = document.getElementById('toggle-locate');
+        var legend = document.getElementById('legend-you');
+        var statusEl = document.getElementById('locate-status');
+        if (!toggle) return;
+        if (!('geolocation' in navigator) || !window.isSecureContext) {
+            toggle.checked = false;
+            toggle.disabled = true;
+            if (toggle.parentElement) toggle.parentElement.title =
+                window.isSecureContext ? 'Location not supported' : 'Location needs HTTPS';
+            return;
+        }
+
+        var marker = null, accCircle = null, watchId = null, centered = false;
+        var following = true, lastFix = null;
+
+        // --- Geolocation stall watchdog -------------------------------------
+        // watchPosition silently stops delivering on mobile (accuracy drop,
+        // transient GPS loss, OS throttling) with no error and no visibility
+        // change — the map dot just freezes and auto-survey goes dark while the
+        // pilot lamp still reads green. Nothing recovered this before short of a
+        // full page reload (the "switch screens and back" workaround). Mirror the
+        // SSE stall watchdog: if no fix arrives for a stretch while Locate is on,
+        // tear the watch down and restart it to revive the stream.
+        var GEO_STALL_MS = 40000;
+        var _geoStallTimer = null;
+        function clearGeoStall() {
+            if (_geoStallTimer) { clearTimeout(_geoStallTimer); _geoStallTimer = null; }
+        }
+        function bumpGeoStall() {
+            clearGeoStall();
+            if (!toggle.checked) return;
+            _geoStallTimer = setTimeout(function() {
+                _geoStallTimer = null;
+                if (!toggle.checked) return;
+                if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+                setStatus('Re-acquiring…');
+                start();
+            }, GEO_STALL_MS);
+        }
+
+        // --- Contextual button cues (replaces the old status readout line) ---
+        function clearBtnCues() {
+            document.querySelectorAll('.radio-btn').forEach(function(b) {
+                b.classList.remove('ctx-survey-known', 'ctx-survey-cooldown', 'ctx-upkeep-due');
+            });
+        }
+
+        function renderHere() {
+            clearBtnCues();
+            if (!toggle.checked || !lastFix) return;
+            var s = computeHereStatus(lastFix.lat, lastFix.lng);
+            if (s.cls) {
+                var sel = s.cmd === 'upkeep' ? 'upkeep' : 'survey';
+                var btn = document.querySelector('.radio-btn[data-cmd="' + sel + '"]');
+                // Cooldown is advisory only — still tint the (enabled) survey
+                // button; the known/upkeep cues stay off a disabled button.
+                if (btn && (s.cls === 'ctx-survey-cooldown' || !btn.disabled))
+                    btn.classList.add(s.cls);
+            }
+            // Hands-free: auto-fire a survey only where a survey would actually count.
+            if (s.cmd === 'survey' && s.surveyable) maybeAutoSurvey(lastFix.lat, lastFix.lng);
+        }
+        // Called from the hex fetches so the cues track live status changes.
+        refreshHereReadout = renderHere;
+
+        // --- Follow-mode / recenter (task 8) ---
+        var recenterBtn = document.getElementById('recenter-btn');
+        function showRecenter(show) { if (recenterBtn) recenterBtn.hidden = !show; }
+        // A user pan breaks follow (programmatic panTo doesn't fire dragstart).
+        map.on('dragstart', function() {
+            if (toggle.checked && marker) { following = false; showRecenter(true); }
+        });
+        if (recenterBtn) recenterBtn.addEventListener('click', function() {
+            following = true;
+            showRecenter(false);
+            if (marker) map.panTo(marker.getLatLng(), {animate: true});
+        });
+
+        function setStatus(msg) { if (statusEl) statusEl.textContent = msg || ''; }
+
+        function clearFix() {
+            if (marker) { map.removeLayer(marker); marker = null; }
+            if (accCircle) { map.removeLayer(accCircle); accCircle = null; }
+            if (legend) legend.style.display = 'none';
+            centered = false;
+            following = true;
+            lastFix = null;
+            window._locateHasFix = false;
+            if (window.updateAutoSurveyStatus) updateAutoSurveyStatus();
+            showRecenter(false);
+            clearBtnCues();
+        }
+
+        function onPos(p) {
+            bumpGeoStall();  // a live fix — reset the stall watchdog
+            var ll = [p.coords.latitude, p.coords.longitude];
+            var acc = p.coords.accuracy || 0;
+            setStatus('');
+            if (legend) legend.style.display = '';
+            if (!marker) {
+                marker = L.marker(ll, {
+                    icon: L.divIcon({
+                        html: '<span class="live-fix-dot"></span>',
+                        className: 'live-fix-icon',
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9],
+                        popupAnchor: [0, -9],
+                    }),
+                    zIndexOffset: 1000,
+                }).addTo(map).bindPopup('Your position · live fix');
+                accCircle = L.circle(ll, {
+                    radius: acc, color: '#29b6f6', weight: 1,
+                    fillColor: '#29b6f6', fillOpacity: 0.12, interactive: false,
+                }).addTo(map);
+            } else {
+                marker.setLatLng(ll);
+                accCircle.setLatLng(ll).setRadius(acc);
+            }
+            // Follow the operator like a GPS: recenter on each fix while engaged.
+            if (!centered) {
+                map.setView(ll, Math.max(map.getZoom(), 14));
+                centered = true;
+            } else if (following) {
+                map.panTo(ll, {animate: true});
+            }
+            lastFix = {lat: ll[0], lng: ll[1]};
+            window._locateHasFix = true;
+            if (window.updateAutoSurveyStatus) updateAutoSurveyStatus();
+            if (window.noteMovementForIdle) noteMovementForIdle(ll[0], ll[1]);
+            renderHere();
+        }
+
+        function permState(cb) {
+            if (!navigator.permissions || !navigator.permissions.query) { cb(null); return; }
+            navigator.permissions.query({name: 'geolocation'})
+                .then(function(st) { cb(st.state); })
+                .catch(function() { cb(null); });
+        }
+
+        function onErr(e) {
+            // Safari (esp. desktop) can fire PERMISSION_DENIED (code 1) when the
+            // request isn't tied to a user gesture, even when location is actually
+            // allowed. Only treat it as a hard denial if the Permissions API
+            // confirms 'denied'; otherwise keep the toggle on so a retry (next
+            // gesture / toggle) succeeds instead of falsely disabling location.
+            stop();
+            permState(function(state) {
+                if (e && e.code === 1 && state === 'denied') {
+                    setStatus('Location permission denied');
+                    toggle.checked = false;
+                    localStorage.setItem('lora-locate', 'false');
+                    // Locate was force-off (not via its change event) — refresh
+                    // the auto-survey dependency so it can't look armed.
+                    if (window.updateAutoSurveyStatus) updateAutoSurveyStatus();
+                } else {
+                    // Transient failure (timeout / momentary unavailability) —
+                    // don't leave the walk stranded without a watch. Auto-retry a
+                    // few seconds out (the 20s watch timeout keeps this from
+                    // becoming a tight loop) so surveying resumes on its own.
+                    setStatus('Location unavailable — retrying…');
+                    if (toggle.checked) setTimeout(function() {
+                        if (toggle.checked && watchId == null) start();
+                    }, 3000);
+                }
+            });
+        }
+
+        function start() {
+            if (watchId != null) return;
+            setStatus('Triangulating…');
+            watchId = navigator.geolocation.watchPosition(onPos, onErr, {
+                enableHighAccuracy: true, maximumAge: 5000, timeout: 20000,
+            });
+            // Arm the watchdog now so a watch that never delivers a first fix
+            // (dead from the start) still gets restarted rather than hanging.
+            bumpGeoStall();
+        }
+
+        function stop() {
+            clearGeoStall();
+            if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+            clearFix();
+        }
+
+        var enabled = localStorage.getItem('lora-locate') !== 'false'; // default on
+        toggle.checked = enabled;
+        toggle.addEventListener('change', function() {
+            if (this.checked) { localStorage.setItem('lora-locate', 'true'); following = true; start(); }
+            else { localStorage.setItem('lora-locate', 'false'); stop(); setStatus(''); }
+            // Auto-survey depends on Locate — reflect the change in its status.
+            if (window.updateAutoSurveyStatus) updateAutoSurveyStatus();
+        });
+
+        // A load-time watchPosition isn't a user gesture, which Safari may reject;
+        // retry once on the first interaction until we actually get a fix.
+        function gestureRetry() {
+            if (toggle.checked && watchId == null && !marker) start();
+            if (marker) {
+                document.removeEventListener('click', gestureRetry);
+                document.removeEventListener('touchend', gestureRetry);
+            }
+        }
+        document.addEventListener('click', gestureRetry);
+        document.addEventListener('touchend', gestureRetry);
+
+        if (enabled) start();
+    })();
+})();
+
+function removeSurvey(id, btn) {
+    if (btn.dataset.confirmed) {
+        btn.disabled = true;
+        btn.textContent = 'Removing…';
+        fetch('/api/surveys/' + id, {method: 'DELETE'})
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    location.reload();
+                } else {
+                    btn.textContent = data.error || 'Error';
+                }
+            })
+            .catch(() => { btn.textContent = 'Error'; });
+        return;
+    }
+    btn.dataset.confirmed = '1';
+    btn.textContent = 'Confirm remove?';
+    setTimeout(() => {
+        delete btn.dataset.confirmed;
+        btn.textContent = 'Remove Survey';
+    }, 3000);
+}
+
+function runCommand(cmd, btn, opts) {
+    opts = opts || {};
+    // This tap is a user gesture — unlock audio now so the outcome sound (which
+    // arrives via SSE seconds later, after GPS triangulation) is allowed to play.
+    warmSurveyAudio();
+    var allBtns = document.querySelectorAll('.radio-btn');
+    allBtns.forEach(function(b) { b.disabled = true; });
+
+    // Returns a promise resolving to the parsed response body (or null on a
+    // network error) so callers — notably the hands-free auto-survey — can tell
+    // a logged survey from a failed one. Manual callers simply ignore it.
+    return fetch('/api/' + cmd, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({auto: !!opts.auto}),
+    })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            allBtns.forEach(function(b) { b.disabled = false; });
+            return data;
+        })
+        .catch(function() {
+            allBtns.forEach(function(b) { b.disabled = false; });
+            return null;
+        });
+}
+
+// --- Auto-Survey control: pilot-lamp state, chime, persistence ----------------
+var _autoSurveyCount = 0;
+
+// Idle stand-down: a forgotten-on switch keeps high-accuracy GPS + wake lock
+// alive and drains the battery, so auto-survey disarms itself after a stretch
+// with no *logged* survey. The countdown resets only on real progress (a new
+// hex surveyed), NOT on every GPS fix, so a parked phone still times out while
+// anyone actually moving keeps it armed. 30 min is a safe upper bound: at H3
+// res-8 (~0.5 mi across) even slow hiking (1.5-3.5 mph) crosses a fresh hex
+// every ~9-20 min, so only sub-1-mph "movement" — i.e. stopped — trips it.
+var AUTO_SURVEY_IDLE_MS = 30 * 60 * 1000;
+var _autoSurveyIdleTimer = null;
+
+function clearAutoSurveyIdleTimeout() {
+    if (_autoSurveyIdleTimer != null) { clearTimeout(_autoSurveyIdleTimer); _autoSurveyIdleTimer = null; }
+}
+
+// (Re)start the countdown. Called on arm and on each logged survey; safe to call
+// only while armed+usable (guarded so a stray call can't arm a dark switch).
+function armAutoSurveyIdleTimeout() {
+    clearAutoSurveyIdleTimeout();
+    var cb = document.getElementById('toggle-autosurvey');
+    if (!cb || !cb.checked || cb.disabled) return;
+    _autoSurveyIdleTimer = setTimeout(standDownAutoSurvey, AUTO_SURVEY_IDLE_MS);
+}
+
+// Stand-down resets on a *logged* survey — but if telemetry keeps failing, a
+// genuinely-moving operator would still time out and disarm mid-walk. So also
+// reset on real movement: crossing ~0.2mi (roughly an H3 res-8 hex radius)
+// proves you're covering ground, independent of whether a survey logged, while
+// GPS jitter on a parked phone never travels that far so it still times out.
+var _autoSurveyIdleAnchor = null;
+function _approxMovedFar(a, b) {
+    var R = 3958.8; // Earth radius, miles — equirectangular approx is plenty here
+    var dLat = (b.lat - a.lat) * Math.PI / 180;
+    var dLng = (b.lng - a.lng) * Math.PI / 180;
+    var latR = (a.lat + b.lat) / 2 * Math.PI / 180;
+    var x = dLng * Math.cos(latR);
+    return Math.sqrt(dLat * dLat + x * x) * R > 0.2;
+}
+function noteMovementForIdle(lat, lng) {
+    var cb = document.getElementById('toggle-autosurvey');
+    if (!cb || !cb.checked || cb.disabled) { _autoSurveyIdleAnchor = null; return; }
+    var here = {lat: lat, lng: lng};
+    if (!_autoSurveyIdleAnchor) { _autoSurveyIdleAnchor = here; return; }
+    if (_approxMovedFar(_autoSurveyIdleAnchor, here)) {
+        _autoSurveyIdleAnchor = here;
+        armAutoSurveyIdleTimeout();  // real movement — keep it armed
+    }
+}
+
+function standDownAutoSurvey() {
+    clearAutoSurveyIdleTimeout();
+    var cb = document.getElementById('toggle-autosurvey');
+    if (!cb || !cb.checked) return;
+    cb.checked = false;
+    localStorage.setItem('lora-autosurvey', 'false');
+    updateAutoSurveyStatus();
+    radioFeedNote('AUTO-SURVEY stood down — idle. Re-arm to resume.');
+}
+
+// Drive the pilot lamp + switch-enabled state from the true situation. Locate is
+// a hard dependency: with it off (or no secure context) the switch is disabled
+// and the lamp is dark, so the control can never sit "on" while silently idle.
+//   dark  = off / unavailable
+//   amber = armed, listening for a position fix
+//   green = surveying (armed + live fix)
+function updateAutoSurveyStatus() {
+    var cb = document.getElementById('toggle-autosurvey');
+    var lamp = document.getElementById('autosurvey-lamp');
+    if (!cb || !lamp) return;
+    var secure = window.isSecureContext && !!navigator.geolocation;
+    var locateCb = document.getElementById('toggle-locate');
+    var locateOn = !!(locateCb && locateCb.checked);
+    var hasFix = !!window._locateHasFix;
+    cb.disabled = !(secure && locateOn);
+
+    var state;
+    if (!cb.checked || cb.disabled) state = 'lamp-off';
+    else if (!hasFix) state = 'lamp-armed';
+    else state = 'lamp-surveying';
+    lamp.className = 'auto-survey-lamp ' + state;
+
+    // Manage the idle stand-down alongside the true state: start the countdown
+    // once when armed+usable, tear it down when off/blocked. Guarded on a null
+    // timer so this — called on every GPS fix — never resets an in-flight
+    // countdown (only arming and logged surveys do that).
+    if (cb.checked && !cb.disabled) {
+        if (_autoSurveyIdleTimer == null) armAutoSurveyIdleTimeout();
+    } else {
+        clearAutoSurveyIdleTimeout();
+    }
+}
+
+function bumpAutoSurveyCount() {
+    _autoSurveyCount += 1;
+    var lamp = document.getElementById('autosurvey-lamp');
+    updateAutoSurveyStatus();
+    // A logged survey = real progress; restart the idle countdown from zero so
+    // anyone still covering fresh ground never times out.
+    armAutoSurveyIdleTimeout();
+    // Brief brighter flash on each logged survey (pairs with the chime).
+    if (lamp) {
+        lamp.classList.remove('flash');
+        void lamp.offsetWidth; // restart the animation
+        lamp.classList.add('flash');
+    }
+}
+
+// Post a one-off note into the main radio feed (reused for the "needs Locate"
+// hint so auto-survey doesn't need its own screen). Throttled against spam.
+var _lastFeedNoteTs = 0;
+function radioFeedNote(text, cls) {
+    var now = Date.now();
+    if (now - _lastFeedNoteTs < 4000) return;
+    _lastFeedNoteTs = now;
+    var feed = document.getElementById('live-feed');
+    if (!feed) return;
+    var ph = feed.querySelector('.feed-placeholder');
+    if (ph) ph.remove();
+    var entry = document.createElement('div');
+    entry.className = 'feed-entry ' + (cls || 'feed-warn');
+    var span = document.createElement('span');
+    span.className = 'feed-text';
+    span.textContent = text;
+    entry.appendChild(span);
+    feed.insertBefore(entry, feed.firstChild);
+    while (feed.children.length > 40) feed.removeChild(feed.lastChild);
+}
+
+// --- Survey feedback: soft WebAudio blips + optional haptics ------------------
+// No audio assets to load or license. A survey can be heard hundreds of times,
+// so these are deliberately short and gentle: success is a rising two-note
+// "ding", a blocked/failed survey a quieter, lower descending note. Both are
+// best-effort — silently skipped if WebAudio is unavailable or opted out.
+var _sfxCtx = null;
+function _sfxContext() {
+    try {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return null;
+        _sfxCtx = _sfxCtx || new Ctx();
+        if (_sfxCtx.state === 'suspended') _sfxCtx.resume();
+        return _sfxCtx;
+    } catch (e) { return null; }
+}
+function _soundOn() { return localStorage.getItem('lora-sound') !== 'false'; }     // default on
+function _hapticsOn() { return localStorage.getItem('lora-haptics') !== 'false'; } // default on
+function _vibrate(pattern) {
+    if (!_hapticsOn()) return;
+    // Android only — Safari/iOS has no Vibration API, so this is a silent no-op there.
+    try { if (typeof navigator.vibrate === 'function') navigator.vibrate(pattern); } catch (e) {}
+}
+// Play sine notes `step` seconds apart, each envelope-shaped to peak at `peak`
+// gain. Sine + a soft attack/decay keeps it smooth rather than harsh or clicky.
+function _blip(freqs, step, peak) {
+    if (!_soundOn()) return;
+    var ctx = _sfxContext();
+    if (!ctx) return;
+    freqs.forEach(function(freq, i) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        var t0 = ctx.currentTime + i * step;
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + step - 0.01);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + step);
+    });
+}
+// Rising perfect fifth (A5 → E6): a satisfying "logged" confirmation.
+function playSurveySuccess() { _blip([880, 1320], 0.12, 0.10); _vibrate(25); }
+// Softer, lower descending fifth (A4 → E4): a gentle "not this time".
+function playSurveyFail()    { _blip([440, 330], 0.13, 0.06); _vibrate([15, 40, 15]); }
+// Rising open arpeggio (E5 → B5 → E6): a small triumphant flourish for the rare
+// milestone of chartering a Survey Post. Still short; heard far less than surveys.
+function playCharterFanfare() { _blip([660, 990, 1320], 0.11, 0.10); _vibrate([30, 40, 30]); }
+// Warm up the audio context on a user gesture so SSE-driven playback — which
+// arrives seconds after the tap, outside the gesture window — is allowed to sound.
+function warmSurveyAudio() { if (_soundOn()) _sfxContext(); }
+// True while hands-free auto-survey is actively running (switch on + usable).
+function autoSurveyActive() {
+    var cb = document.getElementById('toggle-autosurvey');
+    return !!(cb && cb.checked && !cb.disabled);
+}
+// Back-compat: the auto-survey toggle uses this as its on-confirmation blip.
+function autoSurveyChime() { playSurveySuccess(); }
+
+// Auto-survey fires its success blip on a timer — outside any user gesture — so
+// the WebAudio context must already be unlocked when the survey lands. Toggling
+// auto-survey on unlocks it mid-session, but a page reload with the switch still
+// armed restores it WITHOUT a gesture (see initAutoSurveyToggle), leaving the
+// context suspended and the surveys silent. Warm it on the first interaction
+// anywhere on the page — mirroring the Locate / wake-lock gesture-retry idiom —
+// then stop listening once it's actually running.
+(function initAudioGestureWarm() {
+    function warm() {
+        warmSurveyAudio();
+        if (_sfxCtx && _sfxCtx.state === 'running') {
+            document.removeEventListener('pointerdown', warm);
+            document.removeEventListener('touchend', warm);
+            document.removeEventListener('click', warm);
+        }
+    }
+    document.addEventListener('pointerdown', warm);
+    document.addEventListener('touchend', warm);
+    document.addEventListener('click', warm);
+})();
+
+(function initAutoSurveyToggle() {
+    var cb = document.getElementById('toggle-autosurvey');
+    if (!cb) return;
+    var secure = window.isSecureContext && !!navigator.geolocation;
+    // Restore the armed preference only where auto-survey can actually run;
+    // updateAutoSurveyStatus() gates the switch on Locate + secure context.
+    cb.checked = secure && localStorage.getItem('lora-autosurvey') === 'true';
+    cb.addEventListener('change', async function() {
+        if (this.checked) {
+            // One-time liability disclaimer: the whole point is not touching the
+            // phone, so make the safety expectation explicit the first time.
+            if (localStorage.getItem('lora-autosurvey-ack') !== 'true') {
+                var ok = await loraConfirm(
+                    'Your spyglass will survey automatically as you travel — no ' +
+                    'need to touch your phone. Keep your eyes on the road and ' +
+                    'let the radio do the work. Enable?',
+                    { title: '📡 Auto-Survey', confirmText: 'Enable' }
+                );
+                if (!ok) { this.checked = false; updateAutoSurveyStatus(); return; }
+                localStorage.setItem('lora-autosurvey-ack', 'true');
+            }
+            localStorage.setItem('lora-autosurvey', 'true');
+            // First user gesture — warm up the audio context so the chime works.
+            autoSurveyChime();
+        } else {
+            localStorage.setItem('lora-autosurvey', 'false');
+        }
+        updateAutoSurveyStatus();
+    });
+    // Tapping the switch while it's disabled (a disabled input fires no change)
+    // explains why in the main feed — no dedicated screen needed.
+    var wrap = document.getElementById('autosurvey-toggle-wrap');
+    if (wrap) wrap.addEventListener('click', function() {
+        if (!cb.disabled) return;
+        if (!window.isSecureContext || !navigator.geolocation) {
+            radioFeedNote('AUTO-SURVEY needs a secure link (HTTPS).');
+        } else {
+            radioFeedNote('AUTO-SURVEY needs Locate — engage positioning first.');
+        }
+    });
+    updateAutoSurveyStatus();
+})();
+
+function selectNode(nodeKey) {
+    var btns = document.querySelectorAll('.radio-btn');
+    var sel = document.getElementById('node-select');
+    var display = document.getElementById('spyglass-display');
+    fetch('/api/select-node', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({node_key: nodeKey}),
+    }).then(function() {
+        btns.forEach(function(b) { b.disabled = !nodeKey; });
+        if (sel) sel.value = nodeKey;
+        if (display) {
+            var opt = sel && sel.querySelector('option[value="' + nodeKey + '"]');
+            display.textContent = opt ? opt.textContent : '— none —';
+        }
+    });
+}
+
+function cycleNode(dir) {
+    var sel = document.getElementById('node-select');
+    if (!sel) return;
+    var opts = Array.prototype.slice.call(sel.options).filter(function(o) { return o.value; });
+    if (!opts.length) return;
+    var cur = sel.value;
+    var idx = -1;
+    for (var i = 0; i < opts.length; i++) { if (opts[i].value === cur) { idx = i; break; } }
+    var next = idx + dir;
+    if (next < 0) next = opts.length - 1;
+    if (next >= opts.length) next = 0;
+    selectNode(opts[next].value);
+}
+
+</script>
+
+<script>
+// --- Screen Wake Lock — keep the display awake for dash-mounted / on-the-move
+// play. Scoped to the Radio page; auto-releases when the tab is hidden, so we
+// re-acquire on return. ---
+(function initWakeLock() {
+    var toggle = document.getElementById('toggle-awake');
+    if (!toggle) return;
+    if (!('wakeLock' in navigator)) {
+        toggle.checked = false;
+        toggle.disabled = true;
+        if (toggle.parentElement) toggle.parentElement.title = 'Keep-awake not supported';
+        return;
+    }
+
+    var lock = null;
+
+    async function acquire() {
+        if (lock || document.hidden || !toggle.checked) return;
+        try {
+            lock = await navigator.wakeLock.request('screen');
+            lock.addEventListener('release', function() {
+                lock = null;
+                // The OS/browser can drop a screen lock without a
+                // visibilitychange — Android battery-saver, pulling the
+                // notification shade, a single auto-dim. If we still want it and
+                // the page is visible, re-arm right away so the screen stays on.
+                if (toggle.checked && !document.hidden) acquire();
+            });
+        } catch (e) { /* denied, low battery, or not visible — retry on next gesture */ }
+    }
+
+    function release() {
+        if (lock) { lock.release().catch(function() {}); lock = null; }
+    }
+
+    // Belt-and-suspenders: some platforms drop the lock silently (no release
+    // event), so periodically re-assert it while the page is visible.
+    setInterval(function() {
+        if (toggle.checked && !document.hidden && !lock) acquire();
+    }, 30000);
+
+    var enabled = localStorage.getItem('lora-awake') !== 'false'; // default on
+    toggle.checked = enabled;
+    toggle.addEventListener('change', function() {
+        if (this.checked) { localStorage.setItem('lora-awake', 'true'); acquire(); }
+        else { localStorage.setItem('lora-awake', 'false'); release(); }
+    });
+
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) acquire();
+    });
+
+    // iOS (incl. standalone PWA) requires a user gesture for the first wake-lock
+    // request; the load-time acquire() is silently rejected. Retry on the first
+    // interaction until a lock is actually held, then stop listening.
+    function gestureRetry() {
+        if (toggle.checked && !lock) acquire();
+        if (lock) {
+            document.removeEventListener('click', gestureRetry);
+            document.removeEventListener('touchend', gestureRetry);
+        }
+    }
+    document.addEventListener('click', gestureRetry);
+    document.addEventListener('touchend', gestureRetry);
+
+    if (enabled) acquire();
+})();
+</script>
+
+{% endblock %}

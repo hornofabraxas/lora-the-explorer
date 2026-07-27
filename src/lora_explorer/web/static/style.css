@@ -1,0 +1,2575 @@
+/* === Reset === */
+*, *::before, *::after { box-sizing: border-box; }
+body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, pre { margin: 0; }
+fieldset { margin: 0; padding: 0; border: 0; }
+ul, ol { padding-left: 1.5rem; margin: 0 0 1rem; }
+
+/* === Variables === */
+:root {
+    --pico-font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --pico-font-size: 100%;
+    --pico-line-height: 1.5;
+    --pico-background-color: #121010;
+    --pico-color: #c2c7d0;
+    --pico-primary: #01aaff;
+    --pico-primary-focus: rgba(1, 170, 255, 0.375);
+    --pico-ins-color: #62af9a;
+    --pico-del-color: #cd7e7b;
+    --pico-muted-color: #7b8495;
+    --pico-muted-border-color: #202632;
+    --pico-card-background-color: rgba(20, 18, 14, 0.8);
+    --pico-border-radius: 0.25rem;
+    --pico-border-width: 0.0625rem;
+    --pico-spacing: 1rem;
+    --pico-form-element-border-color: #2a3140;
+    --pico-form-element-background-color: #1c212c;
+    --pico-form-element-active-border-color: #0172ad;
+    --pico-progress-color: #D4A017;
+    --pico-progress-background-color: rgba(139, 115, 85, 0.15);
+    /* Shared status palette — one meaning per colour across the app. */
+    --status-good: #62af9a;
+    --status-warn: #d9a441;
+    --status-bad: #cd7e7b;
+    --status-ward: #9c8cc4;
+}
+@media (min-width: 576px) { :root { --pico-font-size: 106.25%; } }
+@media (min-width: 768px) { :root { --pico-font-size: 112.5%; } }
+@media (min-width: 992px) { :root { --pico-font-size: 118.75%; } }
+@media (min-width: 1200px) { :root { --pico-font-size: 125%; } }
+@media (min-width: 1450px) { :root { --pico-font-size: 131.25%; } }
+
+/* === Base elements === */
+html {
+    font-size: var(--pico-font-size);
+    -webkit-text-size-adjust: 100%;
+}
+html, body { overflow-x: hidden; }
+body {
+    font-family: var(--pico-font-family);
+    font-size: 1rem;
+    line-height: var(--pico-line-height);
+    color: var(--pico-color);
+    background: var(--pico-background-color);
+    -webkit-font-smoothing: antialiased;
+}
+a {
+    color: var(--pico-primary);
+    text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+}
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.1rem; }
+p { margin-bottom: 1rem; }
+small { font-size: 0.875em; }
+mark { background: rgba(212, 160, 23, 0.3); padding: 0.1rem 0.25rem; border-radius: 0.15rem; }
+code {
+    font-size: 0.875em;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.1rem 0.3rem;
+    border-radius: 0.2rem;
+}
+hr {
+    border: 0;
+    border-top: 1px solid var(--pico-muted-border-color);
+    margin: 1rem 0;
+}
+img { max-width: 100%; height: auto; }
+
+/* Container */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--pico-spacing);
+}
+.container-fluid {
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 var(--pico-spacing);
+}
+
+/* Article (card) */
+article {
+    background: var(--pico-card-background-color);
+    border-radius: var(--pico-border-radius);
+    padding: var(--pico-spacing);
+    margin-bottom: var(--pico-spacing);
+}
+article > header {
+    margin: calc(var(--pico-spacing) * -1) calc(var(--pico-spacing) * -1) var(--pico-spacing);
+    padding: var(--pico-spacing);
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius) var(--pico-border-radius) 0 0;
+    text-align: center;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.8;
+}
+
+/* Forms */
+label {
+    display: block;
+    margin-bottom: var(--pico-spacing);
+}
+input, select, textarea {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    font-family: inherit;
+    font-size: 1rem;
+    line-height: var(--pico-line-height);
+    color: var(--pico-color);
+    background: var(--pico-form-element-background-color);
+    border: var(--pico-border-width) solid var(--pico-form-element-border-color);
+    border-radius: var(--pico-border-radius);
+    outline: none;
+    transition: border-color 0.2s;
+    margin-top: 0.25rem;
+}
+input:focus, select:focus, textarea:focus {
+    border-color: var(--pico-form-element-active-border-color);
+    box-shadow: 0 0 0 3px var(--pico-primary-focus);
+}
+input[type="checkbox"], input[type="radio"] {
+    display: inline-block;
+    width: auto;
+    margin-top: 0;
+}
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237b8495' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    padding-right: 2rem;
+}
+
+/* Buttons */
+button, [role="button"], input[type="submit"], input[type="button"] {
+    display: inline-block;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: var(--pico-line-height);
+    text-align: center;
+    text-decoration: none;
+    color: #fff;
+    background: var(--pico-primary);
+    border: var(--pico-border-width) solid var(--pico-primary);
+    border-radius: var(--pico-border-radius);
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+}
+button:hover, [role="button"]:hover, input[type="submit"]:hover {
+    background: color-mix(in srgb, var(--pico-primary) 85%, #000);
+    border-color: color-mix(in srgb, var(--pico-primary) 85%, #000);
+}
+button:focus-visible, [role="button"]:focus-visible {
+    box-shadow: 0 0 0 3px var(--pico-primary-focus);
+}
+button:disabled, [role="button"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+button.outline, [role="button"].outline {
+    color: var(--pico-primary);
+    background: transparent;
+    border-color: var(--pico-primary);
+}
+button.outline:hover, [role="button"].outline:hover {
+    color: #fff;
+    background: var(--pico-primary);
+}
+button.secondary, [role="button"].secondary {
+    background: var(--pico-muted-color);
+    border-color: var(--pico-muted-color);
+}
+button.secondary.outline {
+    color: var(--pico-muted-color);
+    background: transparent;
+    border-color: var(--pico-muted-color);
+}
+
+/* Progress */
+progress {
+    display: block;
+    width: 100%;
+    height: 0.5rem;
+    appearance: none;
+    border: none;
+    background: var(--pico-progress-background-color);
+    border-radius: var(--pico-border-radius);
+    overflow: hidden;
+}
+progress::-webkit-progress-bar { background: transparent; }
+progress::-webkit-progress-value { background: var(--pico-progress-color); }
+progress::-moz-progress-bar { background: var(--pico-progress-color); }
+
+/* Details / Summary */
+details { margin-bottom: var(--pico-spacing); }
+summary {
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+}
+
+/* Table */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: var(--pico-spacing);
+}
+th, td {
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+}
+th { font-weight: 600; }
+
+summary::-webkit-details-marker { display: none; }
+summary::marker { content: ""; }
+summary::after { display: none !important; }
+
+h1, h2, h3, h4, h5, h6, .site-title {
+    font-family: Georgia, "Times New Roman", serif;
+}
+
+.sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: var(--pico-background-color);
+    border-bottom: 1px solid rgba(139, 115, 85, 0.3);
+}
+.site-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem 1rem;
+    background: rgba(139, 115, 85, 0.08);
+    position: relative;
+}
+.site-header .site-title {
+    position: absolute;
+    left: 1rem;
+}
+@media (min-width: 769px) and (max-width: 1050px) {
+    .site-header .site-title { display: none; }
+}
+.header-actions {
+    position: absolute;
+    right: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.guide-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem;
+    border-radius: 0.4rem;
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: none;
+    transition: color 0.15s, background 0.15s;
+}
+.guide-link:hover {
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.07);
+}
+.guide-link[aria-current="page"] {
+    color: #fff;
+    background: var(--pico-primary);
+}
+.guide-link svg {
+    display: block;
+    width: 22px;
+    height: 22px;
+    /* Heavier stroke so the sparse "?" glyph reads at the same visual weight
+       as the detail-dense settings gear beside it. */
+    stroke-width: 2.4;
+}
+.currency-bar {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.95rem;
+    font-family: system-ui, -apple-system, sans-serif;
+    letter-spacing: 0.02em;
+}
+.currency-bar .cur {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 0.35rem;
+    background: rgba(139, 115, 85, 0.12);
+    border: 1px solid rgba(139, 115, 85, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+}
+.currency-bar .cur-val {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+}
+.currency-bar .cur-name {
+    opacity: 0.6;
+    font-size: 0.85rem;
+}
+
+.nav-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 0.3rem 0;
+    background: rgba(255, 255, 255, 0.15);
+    flex-shrink: 0;
+}
+
+.site-title {
+    color: var(--pico-color);
+    font-size: 1.1rem;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.nav-tabs {
+    display: flex;
+    gap: 0.15rem;
+    padding: 0.2rem;
+    background: rgba(139, 115, 85, 0.08);
+    border-radius: 0.5rem;
+    border: 1px solid rgba(139, 115, 85, 0.2);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.nav-tabs::-webkit-scrollbar { display: none; }
+.nav-tabs a {
+    display: block;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: rgba(255, 255, 255, 0.4);
+    border-radius: 0.35rem;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    text-decoration: none;
+}
+.nav-tabs a:hover {
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(139, 115, 85, 0.15);
+}
+.nav-tabs a[aria-selected="true"] {
+    font-weight: 600;
+    color: #dcc9a3;
+    background: rgba(139, 115, 85, 0.25);
+    box-shadow: inset 0 0 0 1px rgba(139, 115, 85, 0.4);
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+.info-grid small {
+    opacity: 0.7;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 0;
+    text-align: center;
+}
+
+/* Flash toast — a floating, auto-dismissing confirmation. Fixed to the top so
+   it overlays content instead of pushing the page down (mobile-friendly). */
+.toast {
+    position: fixed;
+    top: max(0.75rem, env(safe-area-inset-top));
+    left: 50%;
+    z-index: 1200;
+    max-width: min(92vw, 30rem);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0.75rem 0.7rem 1rem;
+    border-radius: 0.6rem;
+    background: linear-gradient(135deg, rgba(30, 25, 18, 0.99), rgba(20, 18, 12, 0.99));
+    border: 1px solid rgba(139, 115, 85, 0.5);
+    border-left: 3px solid var(--pico-muted-border-color);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+    color: #E8D5A3;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    opacity: 0;
+    transform: translateX(-50%) translateY(-0.6rem);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+}
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+}
+.toast-success { border-left-color: var(--status-good); }
+.toast-error { border-left-color: var(--status-bad); }
+.toast-msg { flex: 1; }
+.toast-close {
+    flex: 0 0 auto;
+    background: none; border: none; color: inherit;
+    opacity: 0.6; font-size: 1.2rem; line-height: 1;
+    cursor: pointer; padding: 0 0.25rem; width: auto;
+}
+.toast-close:hover { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+    .toast { transition: opacity 0.25s ease; transform: translateX(-50%); }
+    .toast.show { transform: translateX(-50%); }
+}
+
+progress {
+    margin-bottom: 0.25rem;
+    border-radius: 4px;
+    height: 0.6rem;
+}
+progress::-webkit-progress-bar {
+    background: rgba(139, 115, 85, 0.15);
+    border-radius: 4px;
+}
+progress::-webkit-progress-value {
+    background: linear-gradient(90deg, #8B7355, #D4A017);
+    border-radius: 4px;
+    box-shadow: 0 0 6px rgba(212, 160, 23, 0.3);
+}
+progress::-moz-progress-bar {
+    background: linear-gradient(90deg, #8B7355, #D4A017);
+    border-radius: 4px;
+    box-shadow: 0 0 6px rgba(212, 160, 23, 0.3);
+}
+
+table mark {
+    font-size: 0.75rem;
+    padding: 0.1rem 0.3rem;
+    margin-left: 0.25rem;
+}
+
+.confirm-btn.confirming {
+    background-color: var(--pico-del-color);
+}
+
+/* Game buttons — warm themed buttons for all game actions */
+.game-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.8rem;
+    margin: 0;
+    font-size: 0.8rem;
+    font-family: Georgia, "Times New Roman", serif;
+    letter-spacing: 0.02em;
+    border-radius: 0.4rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    line-height: 1.3;
+    width: auto;
+}
+.game-btn:focus {
+    box-shadow: 0 0 0 2px rgba(212, 160, 23, 0.3);
+}
+.game-btn-primary {
+    background: linear-gradient(135deg, rgba(139, 115, 85, 0.25), rgba(139, 115, 85, 0.15));
+    border: 1px solid rgba(212, 160, 23, 0.5);
+    color: #E8D5A3;
+}
+.game-btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(139, 115, 85, 0.4), rgba(139, 115, 85, 0.25));
+    border-color: rgba(212, 160, 23, 0.7);
+    color: #D4A017;
+}
+.game-btn-secondary {
+    background: transparent;
+    border: 1px solid rgba(139, 115, 85, 0.35);
+    color: rgba(232, 213, 163, 0.7);
+}
+.game-btn-secondary:hover:not(:disabled) {
+    background: rgba(139, 115, 85, 0.12);
+    border-color: rgba(139, 115, 85, 0.5);
+    color: #E8D5A3;
+}
+.game-btn-danger {
+    background: linear-gradient(135deg, rgba(160, 60, 50, 0.3), rgba(160, 60, 50, 0.18));
+    border: 1px solid rgba(200, 80, 70, 0.55);
+    color: #f0c9c2;
+}
+.game-btn-danger:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(180, 70, 58, 0.45), rgba(160, 60, 50, 0.28));
+    border-color: rgba(220, 100, 88, 0.75);
+    color: #ffe0d8;
+}
+.game-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+.game-btn-sm {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.72rem;
+}
+.game-btn-full {
+    width: 100%;
+}
+
+/* Bottom tab bar (mobile only) */
+.bottom-tabs {
+    display: none;
+}
+@media (max-width: 768px) {
+    .site-header {
+        padding: 0.4rem 0.5rem;
+    }
+    .site-header .site-title { position: static; }
+    .header-actions {
+        position: absolute;
+        right: 0.5rem;
+    }
+    .nav-tabs { display: none; }
+    body { padding-bottom: 3.5rem; }
+    .bottom-tabs {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+        background: var(--pico-background-color);
+        border-top: 1px solid rgba(139, 115, 85, 0.3);
+        padding: 0.4rem 0.25rem;
+        padding-bottom: max(0.4rem, env(safe-area-inset-bottom));
+        justify-content: space-around;
+        align-items: stretch;
+    }
+    .bottom-tab {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.2rem;
+        padding: 0.3rem 0.25rem;
+        border-radius: 0.6rem;
+        color: rgba(255, 255, 255, 0.45);
+        text-decoration: none;
+        font-size: 0.68rem;
+        font-weight: 500;
+        transition: color 0.2s, background 0.2s;
+        white-space: nowrap;
+    }
+    .bottom-tab svg {
+        width: 24px;
+        height: 24px;
+        flex-shrink: 0;
+    }
+    .bottom-tab span {
+        display: block;
+    }
+    .bottom-tab.active {
+        color: #dcc9a3;
+        background: rgba(139, 115, 85, 0.25);
+    }
+}
+
+/* Settings gear icon */
+.settings-gear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem;
+    border-radius: 0.4rem;
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: none;
+    transition: color 0.15s, background 0.15s;
+}
+.settings-gear:hover {
+    color: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.07);
+}
+.settings-gear[aria-current="page"] {
+    color: #fff;
+    background: var(--pico-primary);
+}
+.settings-gear svg {
+    display: block;
+    width: 22px;
+    height: 22px;
+}
+
+/* Society Dispatch banner */
+.dispatch-banner {
+    border: 2px solid #D4A017;
+    background: rgba(212, 160, 23, 0.1);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 0 12px rgba(212, 160, 23, 0.08), inset 0 0 20px rgba(212, 160, 23, 0.03);
+}
+.dispatch-header {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #D4A017;
+    margin-bottom: 0.3rem;
+    font-weight: 600;
+}
+.dispatch-body {
+    font-size: 0.88rem;
+    font-style: italic;
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.5;
+    color: #E8D5A3;
+}
+
+/* Briefing two-column row */
+.briefing-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.briefing-row > article {
+    margin: 0;
+}
+@media (max-width: 768px) {
+    .briefing-row { grid-template-columns: 1fr; }
+}
+
+/* Base Camp + Supply Drops sit side by side on desktop and stack on narrow
+   viewports. A lone card (Supply Drops hidden) stays centred at card width. */
+.camp-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+.camp-cards .basecamp-card {
+    flex: 1 1 340px;
+    max-width: 520px;
+    margin: 0;
+}
+
+/* At-a-glance economy row (multiplier / slots / income). */
+.basecamp-summary {
+    margin: 0.4rem 0 0.85rem;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid rgba(139, 115, 85, 0.15);
+}
+
+/* One-line preview of what the next Base Camp level grants — styled to match
+   the card subtitle (e.g. "LEVEL 7 BASE CAMP"). */
+.basecamp-next {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.5;
+    margin-bottom: 0.55rem;
+    line-height: 1.4;
+}
+
+/* Radio page layout */
+.spyglass-layout {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+.spyglass-layout .map-col {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+}
+.map-wrapper {
+    position: relative;
+}
+.spyglass-layout .radio-col {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 280px;
+    flex-shrink: 0;
+    z-index: 500;
+}
+@media (max-width: 768px) {
+    .spyglass-layout {
+        flex-direction: column;
+    }
+    .spyglass-layout .map-col {
+        display: flex;
+        flex-direction: column;
+    }
+    .map-wrapper {
+        display: contents;
+    }
+    .map-col .map-legend-bar { order: 0; }
+    .map-col #map { order: 1; }
+    .spyglass-layout .radio-col {
+        position: static;
+        width: 100%;
+        order: -1;
+        overflow: hidden;
+    }
+    .spyglass-layout .radio-col .radio-device {
+        width: 280px;
+        transform-origin: top left;
+    }
+}
+
+/* Radio device — all sizes in px so proportions are viewport-independent */
+.radio-device {
+    background: #1c1a17 !important;
+    border: 2px solid #8b7355 !important;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(139, 115, 85, 0.15);
+    padding: 0;
+    margin: 0 0 20px 0;
+}
+
+/* Radio screen (CRT phosphor) */
+.radio-device .radio-screen {
+    margin: 15px 15px 2px;
+    background: #0a1a0a !important;
+    border: 1px solid #3a5a3a !important;
+    border-radius: 7px;
+    padding: 6px 10px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5), 0 0 4px rgba(51, 204, 51, 0.08);
+}
+.radio-screen::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.12) 2px,
+        rgba(0, 0, 0, 0.12) 4px
+    );
+    pointer-events: none;
+}
+
+/* Feed area inside radio screen */
+.radio-screen #live-feed {
+    height: 143px;
+    overflow: hidden;
+}
+
+/* Feed entries inside radio screen */
+.radio-screen .feed-entry {
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(51, 204, 51, 0.1);
+    line-height: 1.3;
+    font-size: 13px;
+    color: #33cc33;
+    display: flex;
+    gap: 4px;
+    align-items: baseline;
+}
+.radio-screen .feed-entry:last-child {
+    border-bottom: none;
+}
+.radio-screen .feed-time {
+    opacity: 0.4;
+    font-size: 11px;
+    font-family: monospace;
+    color: #33cc33;
+    flex-shrink: 0;
+    min-width: 20px;
+}
+.radio-screen .feed-text {
+    flex: 1;
+    min-width: 0;
+}
+.radio-screen .feed-dim {
+    opacity: 0.6;
+    color: #33cc33;
+}
+.radio-screen .feed-warn {
+    color: #ccaa33;
+}
+.radio-screen .feed-success {
+    color: #55ee55;
+}
+.radio-screen .feed-placeholder {
+    opacity: 0.35;
+    color: #33cc33;
+    font-size: 13px;
+}
+.radio-screen .feed-progress .feed-text::after {
+    content: '';
+    animation: radio-blink 2s ease-in-out infinite;
+}
+@keyframes radio-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* Signal bar: draining meter under the active transmission line */
+.radio-screen .feed-progress {
+    flex-wrap: wrap;
+}
+.radio-screen .feed-bar {
+    flex: 0 0 100%;
+    height: 3px;
+    margin-top: 4px;
+    background: rgba(51, 204, 51, 0.12);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.radio-screen .feed-bar-fill {
+    height: 100%;
+    width: 0;
+    background: #33cc33;
+    border-radius: 2px;
+    box-shadow: 0 0 4px rgba(51, 204, 51, 0.6);
+}
+.radio-screen .feed-bar-fill.pulse,
+.radio-screen .feed-bar-fill.listening {
+    animation: radio-signal-pulse 1.1s ease-in-out infinite;
+}
+.radio-screen .feed-bar-fill.locked {
+    background: #55ee55;
+    box-shadow: 0 0 6px rgba(85, 238, 85, 0.8);
+}
+.radio-screen .feed-bar-fill.failed {
+    background: #ccaa33;
+    box-shadow: 0 0 5px rgba(204, 170, 51, 0.7);
+    animation: radio-signal-flash 0.45s ease-out;
+}
+@keyframes radio-signal-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.95; }
+}
+@keyframes radio-signal-flash {
+    from { opacity: 0.25; }
+    to { opacity: 1; }
+}
+
+/* Radio buttons panel */
+.radio-buttons {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 15px 4px;
+}
+.radio-btn-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+.radio-device .radio-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: clamp(48px, 100%, 72px) !important;
+    height: 0 !important;
+    padding-bottom: clamp(48px, 100%, 72px) !important;
+    padding-top: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-radius: 50% !important;
+    background: rgba(139, 115, 85, 0.15) !important;
+    border: 1px solid #8b7355 !important;
+    color: #c4a87a !important;
+    font-size: 28px;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.1s, box-shadow 0.2s, color 0.15s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(139, 115, 85, 0.2);
+    margin: 0 !important;
+    line-height: 1;
+    --pico-background-color: transparent;
+    --pico-border-color: transparent;
+    --pico-color: inherit;
+}
+.radio-device .radio-btn i {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #d4a017 !important;
+}
+.radio-device .radio-btn:hover:not(:disabled) {
+    color: #e8c547 !important;
+    background: rgba(139, 115, 85, 0.25) !important;
+    box-shadow: 0 0 10px rgba(212, 160, 23, 0.25), 0 2px 6px rgba(0, 0, 0, 0.3);
+    --pico-background-color: transparent;
+}
+.radio-device .radio-btn:active:not(:disabled) {
+    transform: scale(0.93);
+}
+.radio-device .radio-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+.radio-btn-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #8b7355;
+    margin-top: 4px;
+}
+
+/* Radio button countdown */
+.radio-btn-countdown {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: monospace;
+    font-size: 17px;
+    color: #d4a017 !important;
+    letter-spacing: 0.02em;
+}
+
+/* Node selector (tuner) */
+.radio-tuner {
+    padding: 10px 15px;
+    border-top: 1px solid rgba(139, 115, 85, 0.2);
+}
+.radio-tuner-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8b7355;
+    margin-bottom: 6px;
+    opacity: 0.7;
+}
+.spyglass-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.spyglass-nav {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(139, 115, 85, 0.4) !important;
+    background: rgba(30, 27, 22, 0.6) !important;
+    color: #8b7355 !important;
+    cursor: pointer;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 13px;
+    transition: border-color 0.2s;
+}
+.spyglass-nav:hover {
+    border-color: #c4a87a !important;
+}
+.spyglass-display {
+    flex: 1;
+    background: rgba(5, 15, 5, 0.8);
+    border: 1px solid rgba(139, 115, 85, 0.3);
+    border-radius: 3px;
+    padding: 5px 10px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: #7aff7a;
+    letter-spacing: 0.15em;
+    text-shadow: 0 0 8px rgba(122, 255, 122, 0.3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Radio badge (hidden when toggle present) */
+.radio-badge {
+    text-align: center;
+    padding: 4px 0 8px;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #8b7355;
+    opacity: 0.6;
+}
+
+/* Base Camp card */
+.basecamp-card {
+    border: 2px solid rgba(139, 115, 85, 0.4);
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.6), rgba(30, 25, 18, 0.4));
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3), 0 0 8px rgba(139, 115, 85, 0.08);
+    display: flex;
+    flex-direction: column;
+}
+.basecamp-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+.basecamp-emblem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(20, 18, 12, 0.9);
+    border: 3px solid #8B7355;
+    box-shadow: 0 0 0 1px rgba(139, 115, 85, 0.3), inset 0 0 8px rgba(0, 0, 0, 0.5);
+    flex-shrink: 0;
+    position: relative;
+}
+.basecamp-emblem::before {
+    content: "";
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 1px solid rgba(139, 115, 85, 0.25);
+    pointer-events: none;
+}
+.basecamp-icon {
+    font-size: 1.5rem;
+}
+.basecamp-info {
+    flex: 1;
+}
+.basecamp-name {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #D4A017;
+}
+.basecamp-subtitle {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.5;
+    margin-top: 0.1rem;
+}
+.basecamp-stats {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+}
+.basecamp-stat {
+    text-align: center;
+}
+.basecamp-stat-value {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #E8D5A3;
+}
+.basecamp-stat-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.5;
+}
+.basecamp-upgrade {
+    margin-top: auto;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(139, 115, 85, 0.2);
+}
+.basecamp-upgrade-label {
+    display: block;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.6;
+    margin-bottom: 0.4rem;
+}
+/* Supply Drops card — shares the Base Camp card frame, with a cooler accent
+   to read as the multiplayer/logistics counterpart of the solo economy card. */
+.supplydrop-card {
+    border-color: rgba(90, 130, 150, 0.4);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3), 0 0 8px rgba(90, 130, 150, 0.1);
+}
+.supplydrop-card .basecamp-emblem { border-color: #5A8296; }
+.supplydrop-card .basecamp-name { color: #9CC4D6; }
+.supplydrop-log {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.supplydrop-run {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    background: rgba(90, 130, 150, 0.06);
+    font-size: 0.8rem;
+}
+.supplydrop-run-time {
+    flex: 0 0 4.5rem;
+    opacity: 0.55;
+    font-variant-numeric: tabular-nums;
+}
+.supplydrop-run-surveys {
+    flex: 1;
+    opacity: 0.8;
+}
+.supplydrop-run-drops {
+    flex: 0 0 auto;
+    opacity: 0.4;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+/* When a run actually dropped loot, the count becomes a tappable pill so it
+   reads as a button (tap for the item breakdown) rather than dim static text
+   — the affordance was invisible on mobile before. */
+button.supplydrop-run-drops.has-drops {
+    opacity: 1;
+    color: #cfe6f1;
+    font-weight: 600;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1.2;
+    cursor: pointer;
+    /* Pico makes buttons full-width by default — keep this one hugging its text
+       so it stays a compact pill in the flex row. */
+    width: auto;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid rgba(156, 196, 214, 0.6);
+    border-radius: 999px;
+    background: rgba(90, 130, 150, 0.18);
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+button.supplydrop-run-drops.has-drops:hover,
+button.supplydrop-run-drops.has-drops:active {
+    background: rgba(90, 130, 150, 0.32);
+    border-color: #9CC4D6;
+}
+.supplydrop-empty {
+    font-size: 0.78rem;
+    text-align: center;
+    opacity: 0.5;
+    padding: 0.4rem 0;
+}
+
+.basecamp-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0.3rem 0;
+    font-size: 0.8rem;
+}
+.basecamp-progress-icon {
+    width: 1.2rem;
+}
+.basecamp-progress-row progress {
+    margin: 0;
+    flex: 1;
+    height: 0.5rem;
+}
+.basecamp-progress-count {
+    min-width: 4rem;
+    text-align: right;
+}
+.basecamp-progress-count.ready {
+    color: var(--pico-ins-color);
+}
+
+/* Player card */
+.player-card {
+    border: 2px solid rgba(139, 115, 85, 0.3);
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.5), rgba(25, 22, 16, 0.3));
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.2), 0 0 6px rgba(139, 115, 85, 0.06);
+}
+.player-card .section-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.5;
+}
+.player-card .player-rank {
+    font-size: 1.4rem;
+    font-weight: bold;
+    font-family: Georgia, "Times New Roman", serif;
+    color: #E8D5A3;
+}
+.player-card .player-subtitle {
+    opacity: 0.4;
+    font-style: italic;
+    font-size: 0.85rem;
+}
+.player-card .player-title {
+    color: #E8D5A3;
+    font-size: 0.75rem;
+    font-style: italic;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: -0.1rem;
+}
+.player-card .rank-track {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0.4rem 0 0.2rem;
+}
+.player-card .rank-track small {
+    opacity: 0.6;
+}
+.player-card .rank-xp {
+    opacity: 0.7;
+    font-size: 0.8rem;
+}
+.player-card progress {
+    margin: 0 0 0.4rem;
+}
+.player-card .momentum-row {
+    margin-top: 0.3rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.player-card .momentum-label {
+    opacity: 0.7;
+}
+.player-card .momentum-bars {
+    opacity: 0.4;
+    margin-left: 0.3rem;
+}
+.player-card .momentum-info {
+    opacity: 0.4;
+    margin-left: 0.3rem;
+    font-size: 0.75rem;
+}
+.player-card hr {
+    margin: 0.75rem 0;
+    border-color: rgba(139, 115, 85, 0.2);
+}
+
+/* Relics card */
+.relics-card {
+    border: 2px solid rgba(139, 115, 85, 0.4);
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.6), rgba(30, 25, 18, 0.4));
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.3), 0 0 6px rgba(139, 115, 85, 0.08);
+}
+.relics-card .section-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #D4A017;
+    opacity: 0.7;
+}
+.relics-card .relic-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0.4rem 0;
+    padding: 0.3rem 0;
+}
+.relics-card .relic-row + .relic-row {
+    border-top: 1px solid rgba(139, 115, 85, 0.15);
+}
+.relics-card .relic-undiscovered {
+    opacity: 0.35;
+    font-style: italic;
+}
+
+/* ── Shared inventory + shop item component ─────────────────────────────
+   One visual language for the Briefing Relic Cache and the Multiplayer War
+   Chest: [ Buy ] [ 🏺 Name ×N (primary action) ⓘ ] [ Sell ]. Price/value stays
+   off the resting row and surfaces in the confirm tap; the ⓘ explains via
+   the site-wide tooltip. */
+.shelf-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+/* Restock countdown + its explainer ⓘ ride together on the right edge of the
+   shelf title, so the flex row still sees them as one item. */
+.shelf-restock-group { display: inline-flex; align-items: center; gap: 0.25rem; }
+.shelf-restock {
+    font-size: 0.68rem;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    color: var(--pico-muted-color);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+.item-shelf { display: flex; flex-direction: column; gap: 0.45rem; margin: 0.55rem auto 0; max-width: 34rem; }
+/* Row layout: the item chip sits flush-left and grows; the trade controls
+   (Buy · ×qty · Sell) ride the right edge as a fixed-width cluster. */
+.item-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+}
+.item-row form { margin: 0; }
+.item-mid { display: flex; align-items: center; justify-content: flex-start; gap: 0.3rem; min-width: 0; }
+.item-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.4rem; }
+.item-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    width: auto;
+    max-width: 100%;
+    /* Allow the chip to shrink (its name ellipsizes) so the ⓘ beside it always
+       fits inside .item-mid instead of spilling into the Buy/Sell column. */
+    min-width: 0;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--pico-border-radius);
+    background: rgba(20, 18, 12, 0.5);
+    border: 1px solid rgba(139, 115, 85, 0.3);
+    border-left-width: 3px;
+    color: #E8D5A3;
+    font-family: inherit;
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.item-main:hover:not(:disabled):not(.item-empty) { background: rgba(139, 115, 85, 0.16); }
+.item-main:disabled { cursor: default; }
+a.item-main { text-decoration: none; }
+.item-emoji { font-size: 1.1rem; line-height: 1; flex: 0 0 auto; }
+.item-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Rarity tier numeral (I–IV) — the at-a-glance strength signal. flex: 0 0 auto
+   so it never shrinks or ellipsizes when the name is truncated on a tight row.
+   Outlined pill tinted by rarity, reinforcing the grey→green→blue→purple ramp. */
+.item-tier { flex: 0 0 auto; margin-left: 0.35rem; padding: 0 0.34rem; border-radius: 0.5rem;
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; line-height: 1.55;
+    border: 1px solid currentColor; color: #7b8495; }
+.mp-rarity-uncommon .item-tier { color: var(--status-good); }
+.mp-rarity-rare .item-tier { color: var(--pico-primary); }
+.mp-rarity-epic .item-tier { color: var(--status-ward); }
+/* Quantity owned — a boxed "×N" chip pinned to the right edge of every row so
+   the counts line up in a column even when a row has no Buy/Sell buttons
+   (e.g. Buried Cache). */
+.item-qty {
+    min-width: 2.6rem;
+    padding: 0.2rem 0.4rem;
+    text-align: center;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82rem;
+    color: #E8D5A3;
+    background: rgba(20, 18, 12, 0.5);
+    border: 1px solid rgba(139, 115, 85, 0.3);
+    border-radius: 5px;
+}
+/* Zero owned reads quieter than a stocked count. */
+.item-qty.item-qty-zero { opacity: 0.45; }
+.item-buy, .item-sell { min-width: 3.4rem; }
+/* Type / rarity accent on the left edge (mirrors .mp-item-card). */
+.item-main.acc-cache { border-left-color: #b98a4a; }
+.item-main.acc-tonic { border-left-color: var(--status-good); }
+.item-main.acc-ward { border-left-color: var(--status-ward); }
+.item-main.acc-probe { border-left-color: var(--pico-primary); }
+.item-main.acc-attack { border-left-color: var(--status-bad); }
+.item-main.mp-rarity-common { border-left-color: #7b8495; }
+.item-main.mp-rarity-uncommon { border-left-color: var(--status-good); }
+.item-main.mp-rarity-rare { border-left-color: var(--pico-primary); }
+.item-main.mp-rarity-epic { border-left-color: var(--status-ward); }
+
+/* Expedition Contracts */
+.contracts-section {
+    margin-bottom: 1rem;
+}
+.contracts-section h3 {
+    margin-bottom: 0.5rem;
+}
+.contract-timer {
+    font-size: 0.7rem;
+    font-weight: 400;
+    font-family: system-ui, -apple-system, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.6;
+}
+.contracts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+@media (max-width: 500px) {
+    .contracts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.contract-card {
+    border: 2px solid rgba(139, 115, 85, 0.25);
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.8rem;
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.4), rgba(25, 22, 16, 0.2));
+    display: flex;
+    flex-direction: column;
+}
+.contract-card.purchased {
+    border-color: var(--pico-primary);
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.4), var(--pico-primary-focus));
+}
+.contract-card.completed {
+    border-color: #D4A017;
+    background: linear-gradient(135deg, rgba(40, 35, 15, 0.3), rgba(212, 160, 23, 0.08));
+}
+.contract-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: Georgia, "Times New Roman", serif;
+}
+.contract-desc {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+.contract-reward {
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+}
+.contract-status {
+    margin-top: auto;
+    padding-top: 0.3rem;
+}
+.contract-complete-badge {
+    font-size: 0.8rem;
+    color: #D4A017;
+    font-weight: 600;
+}
+.contract-inbound {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.72rem;
+    color: #8a9ba8;
+    font-weight: 500;
+    cursor: help;
+}
+.contract-progress {
+    font-size: 0.8rem;
+}
+.contract-progress progress {
+    margin: 0.2rem 0 0;
+    width: 5rem;
+    height: 0.4rem;
+}
+
+.exchange-amount {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #E8D5A3;
+    margin-right: 0.15rem;
+}
+
+/* Field Training */
+.field-training {
+    margin-bottom: 1rem;
+    border: 2px solid rgba(139, 115, 85, 0.2);
+    border-radius: var(--pico-border-radius);
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.3), transparent);
+}
+.field-training h3 {
+    margin-bottom: 0.25rem;
+}
+.field-training .ft-subtitle {
+    font-size: 0.8rem;
+    opacity: 0.6;
+    margin-bottom: 0.75rem;
+    font-style: italic;
+}
+.field-training .badge-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.strongbox-reward {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    border-radius: 0.5rem;
+    border: 2px solid #D4A017;
+    background: rgba(212, 160, 23, 0.1);
+    box-shadow: 0 0 10px rgba(212, 160, 23, 0.06);
+}
+.strongbox-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.strongbox-text {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* Expedition Log */
+.expedition-log {
+    border: 2px solid rgba(139, 115, 85, 0.25);
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.5), rgba(25, 22, 16, 0.3));
+    box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.2);
+}
+.expedition-log .log-label {
+    font-style: normal;
+    opacity: 0.6;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #D4A017;
+}
+.expedition-log p {
+    margin: 0.4rem 0 0;
+    font-style: italic;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #E8D5A3;
+    opacity: 0.85;
+}
+
+/* Postcards */
+.postcards-header {
+    font-family: Georgia, "Times New Roman", serif;
+    margin-bottom: 0.75rem;
+}
+.postcards-header small {
+    opacity: 0.5;
+    font-weight: normal;
+}
+.postcard-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+.postcard-card {
+    border: 2px solid rgba(139, 115, 85, 0.2);
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.3), transparent);
+}
+.postcard-card.has-progress {
+    border-color: var(--pico-primary);
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.4), var(--pico-primary-focus));
+}
+.postcard-card.complete {
+    border-color: #D4A017;
+    background: linear-gradient(135deg, rgba(40, 35, 15, 0.3), rgba(212, 160, 23, 0.08));
+    box-shadow: 0 0 8px rgba(212, 160, 23, 0.06);
+}
+.postcard-card .pc-info {
+    flex: 1;
+    min-width: 0;
+}
+.postcard-card .pc-class {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: Georgia, "Times New Roman", serif;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+/* Info marker that carries the full tier-ladder tooltip. Scoped here (not on the
+   whole card) so the "Set as Title" button inside a completed card keeps working
+   on touch — the [data-tip] tap handler only fires for this ⓘ. */
+.postcard-card .pc-tip {
+    all: unset;
+    cursor: help;
+    font-size: 0.7rem;
+    line-height: 1;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+.postcard-card .pc-tip:hover,
+.postcard-card .pc-tip:focus-visible {
+    opacity: 0.9;
+}
+/* Best ACHIEVED metric — the card's headline. */
+.postcard-card .pc-achieved {
+    font-size: 0.78rem;
+    margin-top: 0.15rem;
+    color: #E8D5A3;
+}
+.postcard-card .pc-unearned {
+    color: inherit;
+    opacity: 0.55;
+}
+.postcard-card .pc-title-line {
+    margin-top: 0.3rem;
+}
+.postcard-card .pc-title-active {
+    color: #E8D5A3;
+    font-size: 0.75rem;
+}
+.postcard-card .pc-stars {
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+}
+.postcard-card .pc-stars-earned {
+    color: #D4A017;
+    text-shadow: 0 0 4px rgba(212, 160, 23, 0.3);
+}
+.postcard-card .pc-stars-empty {
+    opacity: 0.25;
+}
+
+/* Recent Surveys */
+.surveys-header {
+    font-family: Georgia, "Times New Roman", serif;
+    margin-bottom: 0.5rem;
+}
+.surveys-table {
+    border: 1px solid rgba(139, 115, 85, 0.15);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+.survey-row {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.survey-row:hover {
+    background: rgba(139, 115, 85, 0.08);
+}
+.survey-row td:last-child::after {
+    content: " →";
+    opacity: 0.4;
+}
+
+/* Survey Post cards */
+.post-card {
+    border: 2px solid rgba(139, 115, 85, 0.3);
+    border-radius: var(--pico-border-radius);
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.4), rgba(25, 22, 16, 0.2));
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.15);
+    margin-bottom: 0;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+}
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.6rem;
+}
+.post-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 0; /* let the title ellipsize instead of pushing the level chip off */
+    flex: 1 1 auto; /* grow into free space so the name gets max room before truncating */
+}
+.post-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.post-rename-btn {
+    background: none;
+    border: none;
+    padding: 0.1rem 0.3rem;
+    font-size: 0.7rem;
+    opacity: 0.5;
+    cursor: pointer;
+    margin: 0;
+    /* Shrink to the icon; a global full-width button rule otherwise balloons this
+       to ~90px and starves the single-line post title. */
+    flex: 0 0 auto;
+    width: auto;
+}
+.post-rename-btn:hover {
+    opacity: 0.8;
+}
+.post-actions {
+    margin-top: auto;
+    padding-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.post-card .post-title {
+    font-family: Georgia, "Times New Roman", serif;
+    color: #E8D5A3;
+    /* Keep the outpost name on a single line; truncate rather than wrap. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+.post-card a.post-title {
+    text-decoration: none;
+}
+.post-card a.post-title:hover {
+    color: var(--pico-primary);
+    text-decoration: underline;
+}
+.post-card .post-level {
+    color: #D4A017;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    flex: 0 0 auto; /* never shrink the rating; the title truncates instead */
+    letter-spacing: 0.05em;
+}
+.post-card .post-star { color: #D4A017; }
+.post-card .post-star-empty { color: rgba(212, 160, 23, 0.35); }
+
+/* Survey Posts grid layout */
+/* Flex-wrap + centre so a lone or odd post sits centred at a natural width
+   instead of stranded on one half or stretched full-width. Stacks on mobile. */
+.posts-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+}
+/* At most two posts per row: a ~50% basis means a third card always wraps,
+   while min-width forces a single column once cards would get too narrow. */
+.posts-grid .post-card {
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 320px;
+    max-width: 520px;
+    margin: 0;
+}
+@media (max-width: 600px) {
+    /* One post per row on phones. Dropping min-width alone still let two cards
+       share a row (the 50% basis fits once min-width is gone), which squeezed
+       the post internals; force a full-width basis so they stack cleanly. */
+    .posts-grid .post-card { flex-basis: 100%; min-width: 0; max-width: none; }
+}
+
+/* Survey Posts info box */
+.posts-info {
+    border: 1px solid rgba(139, 115, 85, 0.2);
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.3), transparent);
+    font-size: 0.9rem;
+}
+.posts-info p:first-of-type {
+    margin-bottom: 0.5rem;
+}
+.posts-info code {
+    color: #D4A017;
+}
+
+/* Survey Posts header */
+.posts-header h2 {
+    margin-bottom: 0.1rem;
+}
+.posts-header p {
+    opacity: 0.5;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+.highlight-row { background: rgba(99, 179, 237, 0.15); font-weight: 600; }
+.mp-inventory { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.mp-item-card {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--pico-border-radius);
+    background: rgba(20, 18, 12, 0.5);
+    border: 1px solid rgba(139, 115, 85, 0.3);
+    border-left-width: 3px;
+}
+/* Rarity accent on the left edge — reads at a glance without extra chrome. */
+.mp-item-card.mp-rarity-common { border-left-color: #7b8495; }
+.mp-item-card.mp-rarity-uncommon { border-left-color: var(--status-good); }
+.mp-item-card.mp-rarity-rare { border-left-color: var(--pico-primary); }
+.mp-item-card.mp-rarity-epic { border-left-color: var(--status-ward); }
+.mp-item-card.mp-rarity-legendary { border-left-color: #D4A017; }
+.mp-item-icon { font-size: 1.2rem; }
+.mp-item-name { font-size: 0.85rem; color: #E8D5A3; }
+.mp-item-count { font-weight: 700; font-size: 0.9rem; opacity: 0.8; }
+
+/* Settings — Player ID row */
+.setting-id-row { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; }
+.setting-id-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.55; }
+.setting-id-value { font-family: monospace; font-size: 0.85rem; color: #E8D5A3; }
+
+/* Outposts — post header status chip (single summary indicator) */
+.post-status-chip {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.45rem;
+    border-radius: 1rem;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+    opacity: 0.9;
+}
+.post-status-chip.status-good { color: var(--status-good); }
+.post-status-chip.status-warn { color: var(--status-warn); }
+.post-status-chip.status-bad { color: var(--status-bad); }
+.post-status-chip.status-ward { color: var(--status-ward); }
+
+/* Outposts — per-post Income strip (provisions + renown), mirrors the Base Camp
+   summary so the two economy read-outs share one visual language. */
+.post-income {
+    display: flex;
+    gap: 0.5rem;
+    margin: 0.1rem 0 0.6rem;
+}
+.post-income-stat {
+    flex: 1;
+    text-align: center;
+    background: rgba(20, 18, 12, 0.4);
+    border-radius: 6px;
+    padding: 0.4rem 0.2rem;
+}
+.post-income-value {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #E8D5A3;
+    line-height: 1.2;
+}
+.post-income-full { font-size: 0.8rem; color: var(--pico-muted-color); font-weight: 400; }
+.post-income-dim { font-size: 0.9rem; color: var(--status-ward); }
+.post-income-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.5;
+    margin-top: 0.1rem;
+}
+.post-income-label .cond-info { opacity: 0.5; }
+
+/* Slim upkeep runway — the drain timer, kept thin so it never reads as a second
+   Health bar. Green grace + red ruin window sit inside the standard 6px track. */
+.upkeep-runway {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.upkeep-runway-icon { font-size: 0.75rem; opacity: 0.6; }
+.upkeep-runway-text {
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    opacity: 0.75;
+    white-space: nowrap;
+}
+.upkeep-runway-text.is-warn { color: var(--status-warn); opacity: 0.95; }
+.upkeep-runway-text.is-bad { color: var(--status-bad); opacity: 0.95; }
+.upkeep-runway .cond-info { margin-left: 0; }
+
+/* Defenses slot — the installed-item control lives on its own labelled row now,
+   reading as a proper equipment slot rather than a chip floating under the bar. */
+.cond-defense-row { align-items: center; }
+
+/* Outposts — unified Condition block (upkeep + defense share one language) */
+.post-condition {
+    padding-bottom: 0.6rem;
+    margin-top: 0.1rem;
+    border-bottom: 1px solid rgba(139, 115, 85, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.cond-row { display: flex; align-items: center; gap: 0.5rem; }
+.cond-label {
+    flex: 0 0 4.8rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.5;
+    white-space: nowrap;
+}
+.cond-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.cond-fill { height: 100%; border-radius: 3px; transition: width 0.3s, background 0.3s; }
+.cond-fill.good { background: var(--status-good); }
+.cond-fill.warn { background: var(--status-warn); }
+.cond-fill.bad { background: var(--status-bad); }
+.cond-ward-row { color: var(--status-ward); font-size: 0.8rem; }
+
+/* Taller bars with the value read from inside the fill (label stays outside). */
+.cond-row-bar .cond-label { align-self: center; }
+.cond-track-tall {
+    height: 20px;
+    border-radius: 5px;
+    position: relative;
+}
+.cond-track-tall .cond-fill { border-radius: 5px; }
+.cond-inbar {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    color: #F0E4C8;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+    white-space: nowrap;
+}
+/* Upkeep runway: a fixed-scale bar (grace + ruin ramp). Green = time at full
+   income, red = the ruin ramp window; both drain toward the left as time passes. */
+.upkeep-track { display: flex; }
+.upkeep-seg { height: 100%; transition: width 0.3s; }
+.upkeep-safe { background: var(--status-good); }
+.upkeep-ruin { background: var(--status-bad); }
+
+/* Upkeep-mechanic help affordance next to the label. */
+.cond-info {
+    width: auto;
+    display: inline-flex;
+    flex: 0 0 auto;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0 0 0 0.2rem;
+    cursor: pointer;
+    opacity: 0.55;
+    font-size: 0.72rem;
+    line-height: 1;
+    color: inherit;
+    vertical-align: middle;
+}
+.cond-info:hover, .cond-info:focus { opacity: 0.95; }
+
+/* Installed-item slot content — sits in the labelled "Defenses" row, left-
+   aligned against the bar column (the row's .cond-label owns the left gutter). */
+.cond-fort {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+/* Hover/tap tooltip (custom — pico's is unreliable on touch). */
+.floating-tip {
+    position: absolute;
+    z-index: 1000;
+    max-width: 240px;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    /* Multi-line tips (e.g. the postcard tier ladder) keep their newlines. */
+    white-space: pre-line;
+    color: #E8D5A3;
+    background: linear-gradient(135deg, rgba(30, 25, 18, 0.98), rgba(20, 18, 12, 0.98));
+    border: 1px solid rgba(139, 115, 85, 0.5);
+    border-radius: var(--pico-border-radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+.cond-fort-boost { color: var(--pico-primary); font-size: 0.75rem; }
+/* Installed-item slot doubles as the install/replace control — styled to match
+   the parchment item chips (rarity accent on the left edge). */
+.fort-slot {
+    font: inherit;
+    /* Pico defaults buttons to width:100%; hug the label instead so the chip
+       stays compact rather than stretching across the card. */
+    width: auto;
+    font-size: 0.68rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: background 0.15s, border-color 0.15s;
+}
+.fort-slot.fort-installed {
+    color: #E8D5A3;
+    background: rgba(20, 18, 12, 0.5);
+    border: 1px solid rgba(139, 115, 85, 0.35);
+    border-left: 3px solid var(--status-ward);
+}
+.fort-slot.fort-empty {
+    color: var(--pico-muted-color);
+    background: transparent;
+    border: 1px dashed var(--pico-muted-border-color);
+}
+.fort-slot:hover { background: color-mix(in srgb, var(--pico-primary) 12%, transparent); }
+
+/* Outposts — inbound-raid threat banner (Boost surfaces here, only when hit) */
+.post-threat {
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.55rem;
+    border-radius: var(--pico-border-radius);
+    background: rgba(205, 126, 123, 0.1);
+    border: 1px solid rgba(205, 126, 123, 0.4);
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+.post-threat-text { color: var(--status-bad); }
+/* Fully collapse when there's no inbound raid — display:flex would otherwise
+   override the `hidden` attribute and leave an empty banner behind. */
+.post-threat[hidden] { display: none; }
+
+/* Game modals — dark, parchment-toned to match the rest of the site */
+dialog { background: transparent; border: none; padding: 0; }
+dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+dialog > article {
+    background: linear-gradient(135deg, rgba(30, 25, 18, 0.98), rgba(20, 18, 12, 0.98));
+    border: 1px solid rgba(139, 115, 85, 0.45);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    color: #C9BBA0;
+}
+dialog > article > header {
+    background: transparent;
+    border-bottom: 1px solid rgba(139, 115, 85, 0.2);
+    margin-bottom: 0.75rem;
+}
+dialog > article > header strong {
+    font-family: Georgia, "Times New Roman", serif;
+    color: #E8D5A3;
+}
+dialog > article > footer {
+    background: transparent;
+    border-top: 1px solid rgba(139, 115, 85, 0.2);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+/* Close (×) — Pico's rel=prev icon isn't reliable here, so draw it ourselves */
+dialog > article > header button[rel="prev"] {
+    width: auto;
+    float: right;
+    margin: 0;
+    padding: 0 0.35rem;
+    background: none;
+    border: none;
+    box-shadow: none;
+    color: var(--pico-muted-color);
+    font-size: 1.1rem;
+    line-height: 1;
+}
+dialog > article > header button[rel="prev"]::after { content: "\2715"; }
+dialog > article > header button[rel="prev"]:hover { color: #E8D5A3; }
+
+/* Themed defense dialogs (shared look for fortify / boost / heal) */
+.mp-dialog { max-width: 28rem; }
+.mp-dialog-hint { font-size: 0.85rem; color: var(--pico-muted-color); margin-bottom: 0.6rem; }
+.mp-choice-list { max-height: 13rem; overflow-y: auto; margin-bottom: 0.5rem; }
+.mp-choice { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; font-size: 0.9rem; margin: 0; cursor: pointer; }
+.mp-choice input { margin: 0; }
+.ward-range-scale { display: flex; justify-content: space-between; font-size: 0.7rem; opacity: 0.5; margin-bottom: 0.5rem; }
+
+/* ============================================================
+   Multiplayer — offensive command hub.
+   Shares the parchment/tactical card language used on Outposts.
+   ============================================================ */
+.mp-page { display: flex; flex-direction: column; gap: 1rem; }
+
+/* Paired half-width cards (Your Frontlines + Frontier Merchant). A lone card
+   grows to fill the row; below ~660px they wrap and stack. */
+.mp-split { display: flex; flex-wrap: wrap; gap: 1rem; }
+.mp-split > .mp-card { flex: 1 1 320px; margin: 0; min-width: 0; }
+
+/* Section card — mirrors .post-card so the page reads like the rest
+   of the app instead of a plain <article> stack. */
+.mp-card {
+    border: 2px solid rgba(139, 115, 85, 0.3);
+    border-radius: var(--pico-border-radius);
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.4), rgba(25, 22, 16, 0.2));
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.15);
+    padding: 0.75rem 1rem;
+    margin: 0;
+}
+.mp-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(139, 115, 85, 0.15);
+}
+/* Left-aligned serif title — overrides the centered/uppercase article>header look. */
+.mp-card-head h2 {
+    margin: 0;
+    flex: 1;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 1;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.05rem;
+    color: #E8D5A3;
+}
+.mp-card-foot { font-size: 0.8em; color: var(--pico-muted-color); margin-top: 0.6rem; }
+.mp-muted { color: var(--pico-muted-color); }
+.mp-cooldown-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    color: rgba(232, 213, 163, 0.6);
+    white-space: nowrap;
+}
+.mp-attack-locked {
+    font-size: 0.85rem;
+    background: rgba(212, 160, 23, 0.08);
+    border: 1px solid rgba(212, 160, 23, 0.3);
+    border-radius: var(--pico-border-radius);
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+/* --- War Room: your standing pinned up top so you never scroll the
+   leaderboard to find yourself (scales with player count). --- */
+.mp-warroom {
+    border-color: rgba(1, 170, 255, 0.35);
+    background: linear-gradient(135deg, rgba(20, 18, 12, 0.5), var(--pico-primary-focus));
+}
+.mp-warroom-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
+.mp-warroom-emblem {
+    display: flex; align-items: center; justify-content: center;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(20, 18, 12, 0.9);
+    border: 3px solid #8B7355;
+    box-shadow: 0 0 0 1px rgba(139, 115, 85, 0.3), inset 0 0 8px rgba(0, 0, 0, 0.5);
+    font-size: 1.5rem; flex-shrink: 0;
+}
+.mp-warroom-id { flex: 1; min-width: 0; }
+.mp-warroom-name {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 1.3rem; font-weight: bold; color: #D4A017;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mp-warroom-sub {
+    display: flex; align-items: center; gap: 0.35rem;
+    font-size: 0.7rem; margin-top: 0.15rem; min-height: 1.2rem;
+}
+.mp-no-title { text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.5; }
+.mp-title-picker { margin: 0; display: inline-flex; }
+.mp-title-picker select {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #D4A017; background-color: transparent; border: none; outline: none;
+    padding: 0.05rem 1.05rem 0.05rem 0.35rem; margin: 0;
+    height: auto; width: auto; min-width: 0; line-height: 1.3;
+    font-family: inherit; cursor: pointer; border-radius: 4px;
+    -webkit-appearance: none; -moz-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6' fill='none' stroke='%23D4A017' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0.3rem center; background-size: 0.6rem;
+}
+.mp-title-picker select:hover { background-color: rgba(212, 160, 23, 0.12); }
+.mp-title-picker option { text-transform: none; }
+.mp-title-info {
+    background: none; border: none; color: var(--pico-muted-color);
+    cursor: pointer; padding: 0; margin: 0; width: auto;
+    font-size: 0.8rem; line-height: 1; opacity: 0.6;
+}
+.mp-title-info:hover { opacity: 1; }
+.mp-warroom-rank {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 2rem; font-weight: 700; color: #E8D5A3; line-height: 1; flex-shrink: 0;
+}
+.mp-warroom-rank .mp-rank-hash { font-size: 1rem; color: var(--pico-muted-color); vertical-align: super; margin-right: 0.05em; }
+.mp-warroom-stats {
+    display: flex; justify-content: space-around; gap: 1rem;
+    padding-top: 0.6rem; border-top: 1px solid rgba(139, 115, 85, 0.2);
+}
+.mp-stat { text-align: center; }
+.mp-stat-value { font-family: Georgia, "Times New Roman", serif; font-size: 1.2rem; font-weight: 700; color: #E8D5A3; }
+.mp-stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.5; }
+
+/* --- Your Frontlines (inbound threats; defense managed on Outposts) --- */
+/* Frontlines sub-sections: Incoming (threats) then Outgoing (your raid). */
+.mp-front-section + .mp-front-section {
+    margin-top: 0.85rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(139, 115, 85, 0.15);
+}
+.mp-front-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--pico-muted-color);
+    margin: 0 0 0.45rem;
+    font-family: inherit;
+    font-weight: 600;
+}
+.mp-front-subhead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
+}
+.mp-front-subhead .mp-front-label { margin: 0; }
+.mp-front-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+@media (max-width: 600px) { .mp-front-grid { grid-template-columns: 1fr; } }
+.mp-front-post {
+    border: 1px solid rgba(139, 115, 85, 0.3);
+    border-radius: var(--pico-border-radius);
+    background: rgba(20, 18, 12, 0.35);
+    padding: 0.6rem 0.75rem;
+}
+.mp-front-threatened { border-color: rgba(205, 126, 123, 0.55); }
+.mp-front-top { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.4rem; }
+.mp-front-name { font-family: Georgia, "Times New Roman", serif; color: #E8D5A3; font-size: 0.95rem; }
+.mp-siege-chip {
+    flex-shrink: 0; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--status-bad); border: 1px solid rgba(229, 72, 77, 0.4);
+    background: rgba(229, 72, 77, 0.1); border-radius: 1rem; padding: 0.1rem 0.45rem;
+}
+
+/* Inbound party: time-you-have on the left, projected verdict on the right.
+   One row per raid, colour-keyed by threat so a wall of them still scans. */
+.mp-raid-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+    margin-top: 0.35rem; padding: 0.3rem 0.5rem;
+    font-size: 0.78rem; border-radius: 0.3rem;
+    border-left: 3px solid var(--pico-muted-border-color);
+    background: rgba(20, 18, 12, 0.4);
+}
+.mp-raid-eta { font-variant-numeric: tabular-nums; color: #E8D5A3; flex-shrink: 0; }
+.mp-raid-verdict { text-align: right; color: var(--pico-muted-color); }
+.mp-raid-raze { border-left-color: var(--status-bad); background: rgba(229, 72, 77, 0.09); }
+.mp-raid-raze .mp-raid-verdict { color: var(--status-bad); font-weight: 600; }
+.mp-raid-heavy { border-left-color: var(--status-warn); background: rgba(212, 160, 23, 0.08); }
+.mp-raid-heavy .mp-raid-verdict { color: var(--status-warn); }
+
+/* --- Outgoing sortie: target, at-a-glance stats, travel progress --- */
+.mp-sortie { display: flex; flex-direction: column; gap: 0.6rem; }
+.mp-sortie-target {
+    display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap;
+    font-family: Georgia, "Times New Roman", serif; font-size: 0.95rem; color: #E8D5A3;
+}
+.mp-sortie-rival { font-family: inherit; font-size: 0.78rem; color: var(--pico-muted-color); }
+.mp-sortie-rival::before { content: "· "; }
+.mp-sortie-stats {
+    display: flex; justify-content: space-around; gap: 0.75rem;
+    padding: 0.5rem 0; border-top: 1px solid rgba(139, 115, 85, 0.2);
+    border-bottom: 1px solid rgba(139, 115, 85, 0.2);
+}
+.mp-sortie-stats .mp-stat-value { font-size: 1.05rem; }
+.mp-proj { font-family: inherit; font-size: 0.85rem; }
+.mp-proj-raze { color: var(--status-bad); }
+.mp-proj-damage { color: var(--status-warn); }
+.mp-proj-none { color: var(--pico-muted-color); }
+
+/* Travel bar — how far the party has walked, dispatch → arrival. */
+.mp-travel-bar {
+    height: 5px; border-radius: 3px; overflow: hidden;
+    background: rgba(20, 18, 12, 0.6); border: 1px solid rgba(139, 115, 85, 0.25);
+}
+.mp-travel-bar > span {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, #8B7355, #D4A017);
+    transition: width 1s linear;
+}
+.mp-travel-legend {
+    display: flex; justify-content: space-between; gap: 0.5rem;
+    margin-top: 0.3rem; font-size: 0.78rem; color: var(--pico-muted-color);
+}
+.mp-travel-legend strong { color: #E8D5A3; }
+
+/* Landed result banner. */
+.mp-outcome {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0.6rem; border-radius: var(--pico-border-radius);
+    border-left: 3px solid var(--pico-muted-border-color);
+    background: rgba(20, 18, 12, 0.4);
+}
+.mp-outcome-icon { font-size: 1.3rem; line-height: 1; flex-shrink: 0; }
+.mp-outcome-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.mp-outcome-text strong { font-size: 1rem; }
+.mp-outcome-text small { font-size: 0.78rem; color: var(--pico-muted-color); }
+.mp-outcome-razed { border-left-color: var(--status-bad); background: rgba(229, 72, 77, 0.1); }
+.mp-outcome-razed strong { color: var(--status-bad); }
+.mp-outcome-damaged { border-left-color: var(--status-warn); background: rgba(212, 160, 23, 0.09); }
+.mp-outcome-damaged strong { color: var(--status-warn); }
+.mp-outcome-defended strong { color: #E8D5A3; }
+
+/* --- Warfront filter / sort bar --- */
+.mp-warfront-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+.mp-warfront-search {
+    flex: 1 1 12rem;
+    margin: 0;
+    min-width: 0;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+}
+.mp-warfront-bands { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.mp-band-chip {
+    width: auto;
+    margin: 0;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+    line-height: 1;
+    color: var(--pico-muted-color);
+    background: rgba(20, 18, 12, 0.4);
+    border: 1px solid rgba(139, 115, 85, 0.3);
+    border-radius: 1rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.mp-band-chip:hover { color: #E8D5A3; border-color: rgba(139, 115, 85, 0.5); }
+.mp-band-chip.active {
+    color: #E8D5A3;
+    background: var(--pico-primary-focus);
+    border-color: rgba(1, 170, 255, 0.5);
+}
+.mp-warfront-sort {
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+    padding: 0.4rem 1.8rem 0.4rem 0.6rem;
+    font-size: 0.8rem;
+}
+.mp-warfront-more { margin: 0.25rem 0 0.5rem; }
+.mp-warfront-count { font-size: 0.78rem; margin: 0.25rem 0 0; }
+.mp-warfront-empty { font-size: 0.85rem; padding: 0.5rem 0; }
+
+/* --- Warfront (leaderboard) rows --- */
+.mp-player-row {
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: var(--pico-border-radius);
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+}
+.mp-player-header {
+    display: flex; align-items: center; gap: 0.6rem;
+    padding: 0.5rem 0.75rem; cursor: pointer; user-select: none;
+}
+.mp-player-header:hover { background: var(--pico-card-background-color); }
+.mp-player-emblem {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(20, 18, 12, 0.9); border: 2px solid #8B7355;
+    font-size: 0.95rem;
+}
+.mp-player-id { flex: 1; min-width: 0; }
+.mp-player-name-row { display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; }
+.mp-rank { color: var(--pico-muted-color); font-size: 0.85em; flex-shrink: 0; }
+.mp-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-player-title {
+    font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #D4A017; margin-top: 0.05rem; cursor: help; display: inline-block;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
+}
+.mp-player-metrics { display: flex; align-items: center; gap: 0.55rem; flex-shrink: 0; }
+.mp-metric { color: var(--pico-muted-color); font-size: 0.75em; white-space: nowrap; }
+.mp-metric strong { color: #E8D5A3; font-weight: 700; }
+/* Scout-revealed distance chip. '?' (unscouted) is muted; a revealed range is
+   tinted by proximity band so the leaderboard reads at a glance. */
+.mp-band { font-size: 0.8em; cursor: help; white-space: nowrap; }
+.mp-band-unknown { opacity: 0.6; }
+.mp-band-nearby { color: #7FB77E; }
+.mp-band-regional { color: #D4A017; }
+.mp-band-distant { color: #C97064; }
+.mp-expand-icon { font-size: 0.7em; width: 1em; text-align: center; transition: transform 0.15s; flex-shrink: 0; }
+.mp-expand-icon.open { transform: rotate(90deg); }
+.mp-detail { color: var(--pico-muted-color); font-size: 0.85em; white-space: nowrap; }
+@media (max-width: 480px) {
+    .mp-player-metrics { gap: 0.4rem; }
+    .mp-metric:not(.mp-band) { font-size: 0.7em; }
+}
+
+/* --- Titles reference popup (shared by war-room picker + leaderboard) --- */
+.mp-title-popup {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0, 0, 0, 0.6);
+    align-items: center; justify-content: center; padding: 1rem;
+}
+.mp-title-popup.open { display: flex; }
+.mp-title-popup-inner {
+    /* Opaque parchment (matches .lora-modal-card) — a translucent card let the
+       page bleed through and read as unfinished. */
+    background: linear-gradient(135deg, rgba(30, 25, 18, 0.99), rgba(20, 18, 12, 0.99));
+    border: 1px solid rgba(139, 115, 85, 0.5);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    border-radius: 0.75rem; padding: 1.25rem 1.5rem;
+    max-width: 420px; width: 100%; max-height: 80vh; overflow-y: auto;
+}
+.mp-title-popup-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.mp-title-popup-close {
+    cursor: pointer; opacity: 0.6; font-size: 1.2rem;
+    background: none; border: none; color: inherit; padding: 0.25rem; width: auto;
+}
+.mp-title-popup-close:hover { opacity: 1; }
+.mp-title-popup-intro { font-size: 0.8rem; opacity: 0.7; margin: 0 0 0.75rem; line-height: 1.4; }
+.mp-title-list { list-style: none; margin: 0; padding: 0; }
+.mp-title-item { padding: 0.5rem 0.6rem; border-radius: 6px; border-left: 2px solid transparent; }
+.mp-title-item + .mp-title-item { margin-top: 0.25rem; }
+.mp-title-item.earned { border-left-color: #D4A017; }
+.mp-title-item.highlight { background: rgba(212, 160, 23, 0.12); }
+.mp-title-item-name { display: block; font-weight: 600; color: #E8D5A3; font-size: 0.9rem; }
+.mp-title-item.earned .mp-title-item-name { color: #D4A017; }
+.mp-title-check { color: #7cc47c; }
+.mp-title-item-desc { display: block; font-size: 0.78rem; opacity: 0.7; margin-top: 0.1rem; }
+/* --- Site-wide themed modal (loraAlert / loraConfirm / tap tooltips) ------
+   Replaces the browser's native alert()/confirm() dialogs so prompts match
+   the game's parchment theme instead of the OS chrome. */
+.lora-modal {
+    display: none; position: fixed; inset: 0; z-index: 1100;
+    background: rgba(0, 0, 0, 0.65);
+    align-items: center; justify-content: center; padding: 1rem;
+}
+.lora-modal.open { display: flex; }
+.lora-modal-card {
+    background: linear-gradient(135deg, rgba(30, 25, 18, 0.99), rgba(20, 18, 12, 0.99));
+    border: 1px solid rgba(139, 115, 85, 0.5);
+    border-radius: 0.75rem;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    padding: 1.1rem 1.35rem 1.2rem;
+    max-width: 26rem; width: 100%; max-height: 80vh; overflow-y: auto;
+}
+.lora-modal-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.lora-modal-title { color: #E8D5A3; font-size: 1rem; }
+.lora-modal-x {
+    cursor: pointer; opacity: 0.6; font-size: 1.3rem; line-height: 1;
+    background: none; border: none; color: inherit; padding: 0 0.25rem; width: auto;
+}
+.lora-modal-x:hover { opacity: 1; }
+.lora-modal-body {
+    color: #E8D5A3; font-size: 0.9rem; line-height: 1.5;
+    white-space: pre-line; opacity: 0.92;
+}
+.lora-modal-actions {
+    display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.1rem; flex-wrap: wrap;
+}
+.mp-player-detail {
+    padding: 0.5rem 0.75rem 0.75rem 2.5rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+    background: var(--pico-card-background-color);
+}
+.mp-posts-table { margin: 0; font-size: 0.85em; }
+.mp-posts-table th, .mp-posts-table td { padding: 0.3rem 0.5rem; }
+.mp-scout-stale { font-size: 0.8em; margin-bottom: 0.35rem; opacity: 0.9; }
+
+/* --- Raid modal --- */
+.mp-raid-items { max-height: 13rem; overflow-y: auto; margin-bottom: 0.5rem; }
+.mp-raid-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.2rem 0; font-size: 0.9em; }
+.mp-raid-item label { margin: 0; flex: 1; }
+.mp-raid-have { color: var(--pico-muted-color); font-size: 0.85em; }
+.mp-qty { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.mp-qty-btn {
+    width: 1.7rem; height: 1.7rem; padding: 0; margin: 0; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; border-radius: 0.35rem; cursor: pointer;
+    background: var(--pico-secondary-background); color: var(--pico-secondary-inverse);
+    border: 1px solid var(--pico-secondary-border, var(--pico-muted-border-color));
+}
+.mp-qty-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.mp-qty-val { min-width: 1.3rem; text-align: center; font-variant-numeric: tabular-nums; }
+.mp-recon { font-size: 0.85em; color: var(--pico-muted-color); margin-bottom: 0.5rem; }
+.mp-preview {
+    padding: 0.5rem 0.75rem; border-radius: var(--pico-border-radius);
+    background: var(--pico-card-sectioning-background-color);
+    font-size: 0.9em; border-left: 3px solid var(--pico-muted-border-color);
+    white-space: pre-line;
+}
+.mp-preview.raze { border-left-color: var(--status-bad); }
+.mp-preview.damage { border-left-color: var(--status-warn); }
+
+/* === Shared Help / Settings "document" theme ============================
+   Help and Settings are reference/config pages, not game surfaces. Instead of
+   the heavy card treatment used elsewhere, they read as a single flowing
+   document: a narrow measure, quiet dividers between sections, and generous
+   line spacing. Readability first. */
+.doc-page { max-width: 46rem; margin: 0 auto; }
+.doc-page > h2 { margin-bottom: 0.35rem; }
+.doc-lede {
+    color: var(--pico-muted-color);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+.doc-section {
+    padding: 1.1rem 0;
+    border-top: 1px solid var(--pico-muted-border-color);
+}
+.doc-section:first-of-type { border-top: none; padding-top: 0.4rem; }
+.doc-section-title {
+    font-size: 1.02rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    margin: 0 0 0.65rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #E8D5A3;
+}
+.doc-section-title .doc-note { margin-left: auto; font-size: 0.72rem; font-weight: 400; opacity: 0.55; }
+.doc-section > p { line-height: 1.6; margin-bottom: 0.6rem; }
+.doc-section > p:last-child { margin-bottom: 0; }
+.doc-section ol, .doc-section ul { margin-bottom: 0.5rem; }
+.doc-section li { margin-bottom: 0.3rem; line-height: 1.55; }
+.doc-section li:last-child { margin-bottom: 0; }
+
+/* Definition list — replaces bordered reference tables. Term + description
+   ride a two-column grid on wide screens, stack on narrow ones. */
+.doc-defs { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.1rem; align-items: baseline; margin: 0; }
+.doc-defs dt { font-weight: 600; color: #E8D5A3; }
+.doc-defs dt code { white-space: nowrap; }
+.doc-defs dd { margin: 0; line-height: 1.55; }
+.doc-defs .doc-def-locked { opacity: 0.45; font-style: italic; }
+@media (max-width: 560px) {
+    .doc-defs { grid-template-columns: 1fr; gap: 0.15rem; }
+    .doc-defs dt { margin-top: 0.4rem; }
+    .doc-defs dt:first-child { margin-top: 0; }
+    .doc-defs dd { margin: 0 0 0.35rem; opacity: 0.9; }
+}
+
+/* Collapsible advanced/optional block — single unified style so Settings never
+   needs per-block inline styling (and never nests one inside another). */
+.doc-collapse {
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 0.5rem;
+    padding: 0.65rem 0.85rem;
+    margin-top: 0.75rem;
+    background: rgba(255, 255, 255, 0.015);
+}
+.doc-collapse + .doc-collapse { margin-top: 0.6rem; }
+.doc-collapse > summary {
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    color: #E8D5A3;
+}
+.doc-collapse > summary::-webkit-details-marker { display: none; }
+.doc-collapse > summary::marker { content: ""; }
+.doc-collapse > summary .details-arrow { opacity: 0.5; transition: transform 0.2s; flex: 0 0 auto; }
+.doc-collapse[open] > summary { margin-bottom: 0.7rem; }
+.doc-collapse[open] > summary .details-arrow { transform: rotate(90deg); }
+.doc-collapse .doc-collapse-body { }
+
+/* A quiet inline note/caption used throughout both pages. */
+.doc-hint { font-size: 0.8rem; opacity: 0.6; line-height: 1.5; }
+.doc-hint-warn { font-size: 0.8rem; color: var(--status-warn); opacity: 0.85; }

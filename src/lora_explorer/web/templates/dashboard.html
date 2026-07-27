@@ -1,0 +1,500 @@
+{% extends "base.html" %}
+{% block title %}Briefing — LoRa the Explorer{% endblock %}
+
+{% block head %}
+{% if player or needs_setup %}
+{% if needs_setup %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endif %}
+<style>
+    #setup-map {
+        height: 400px;
+        border-radius: 0.5rem;
+        border: 1px solid var(--pico-muted-border-color);
+    }
+    .achievement-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 0.7rem;
+        border-radius: 0.4rem;
+        font-size: 0.85rem;
+        border: 1px solid var(--pico-muted-border-color);
+        background: rgba(255, 255, 255, 0.03);
+    }
+    .achievement-badge.earned {
+        border-color: var(--pico-primary);
+        background: var(--pico-primary-focus);
+    }
+    .achievement-badge.locked {
+        opacity: 0.6;
+    }
+    .commission-card {
+        background: var(--pico-card-background-color);
+        border: 1px solid var(--pico-muted-border-color);
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1rem;
+    }
+    .commission-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.6rem;
+    }
+    .commission-progress {
+        font-size: 0.78rem;
+        opacity: 0.65;
+        white-space: nowrap;
+    }
+    .commission-steps {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+    .commission-step {
+        display: flex;
+        gap: 0.6rem;
+        padding: 0.45rem 0.5rem;
+        border-radius: 0.4rem;
+        align-items: flex-start;
+    }
+    .commission-step.current {
+        background: var(--pico-primary-focus);
+        border: 1px solid var(--pico-primary);
+        padding: 0.5rem;
+    }
+    .commission-step.locked {
+        opacity: 0.5;
+    }
+    .commission-icon {
+        font-size: 0.8rem;
+        line-height: 1.5;
+        flex-shrink: 0;
+    }
+    .commission-step.current .commission-icon {
+        color: var(--pico-primary);
+    }
+    .commission-name {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .commission-sub {
+        font-size: 0.78rem;
+        opacity: 0.7;
+    }
+    .commission-sub.req {
+        opacity: 1;
+        color: var(--pico-primary);
+        margin-top: 0.1rem;
+    }
+    .commission-sub.unlock {
+        opacity: 0.65;
+        margin-top: 0.05rem;
+    }
+    .commission-sub.done {
+        opacity: 0.6;
+    }
+    .postcard-popup {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.6);
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+    .postcard-popup.open { display: flex; }
+    .postcard-popup-inner {
+        background: var(--pico-card-background-color);
+        border: 1px solid var(--pico-muted-border-color);
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        max-width: 400px;
+        width: 100%;
+    }
+    .postcard-popup-inner .popup-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+    .postcard-popup-inner .popup-close {
+        cursor: pointer;
+        opacity: 0.6;
+        font-size: 1.2rem;
+        background: none;
+        border: none;
+        color: inherit;
+        padding: 0.25rem;
+    }
+    .postcard-popup-inner .popup-close:hover { opacity: 1; }
+</style>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% if not player %}
+    {% if needs_setup %}
+    <article>
+        <header><h2>Establish Your Base Camp</h2></header>
+        <p>Welcome, explorer. The World's End Society has issued your charter. Click the map to mark where your expedition begins.</p>
+        <div id="setup-map"></div>
+        <form method="post" action="/setup/home" id="setup-form" style="margin-top: 1rem;">
+            <input type="hidden" name="lat" id="setup-lat">
+            <input type="hidden" name="lon" id="setup-lon">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button type="submit" id="confirm-btn" disabled style="margin: 0;">Confirm Base Camp</button>
+                <span id="setup-coords" style="font-size: 0.85rem; opacity: 0.5;">No location selected</span>
+            </div>
+        </form>
+    </article>
+    <script>
+    (function() {
+        const map = L.map('setup-map').setView([30, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OSM', maxZoom: 18,
+        }).addTo(map);
+
+        let marker = null;
+        const btn = document.getElementById('confirm-btn');
+        const latInput = document.getElementById('setup-lat');
+        const lonInput = document.getElementById('setup-lon');
+        const coordsLabel = document.getElementById('setup-coords');
+
+        map.on('click', function(e) {
+            const lat = e.latlng.lat;
+            const lon = e.latlng.lng;
+            if (marker) { marker.setLatLng(e.latlng); }
+            else { marker = L.marker(e.latlng).addTo(map); }
+            latInput.value = lat.toFixed(6);
+            lonInput.value = lon.toFixed(6);
+            coordsLabel.textContent = lat.toFixed(4) + ', ' + lon.toFixed(4);
+            coordsLabel.style.opacity = '1';
+            btn.disabled = false;
+        });
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(pos) {
+                map.setView([pos.coords.latitude, pos.coords.longitude], 13);
+            });
+        }
+    })();
+    </script>
+    {% else %}
+    <article>
+        <header><h2>Awaiting First Survey</h2></header>
+        <p>No explorer has checked in yet. Head out with your spyglass and send <code>/lora survey</code> to begin your journey.</p>
+    </article>
+    {% endif %}
+{% else %}
+
+<div class="dispatch-banner">
+    <div class="dispatch-header">📡 SOCIETY DISPATCH · <span id="dispatch-countdown"></span></div>
+    <div class="dispatch-body" id="dispatch-msg" data-full="{{ dispatch_msg | e }}"></div>
+</div>
+
+<div class="briefing-row">
+<article class="player-card">
+    <div style="display: flex; align-items: baseline; gap: 0.5rem;">
+        <span class="player-rank">{{ rank_name }}</span>
+        <small class="player-subtitle">· World's End Society</small>
+    </div>
+    {% if active_title %}
+    <div class="player-title">{{ active_title }}</div>
+    {% endif %}
+    {% if next_rank %}
+    <div class="rank-track">
+        <small>Rank {{ player.rank_level }}</small>
+        <small class="rank-xp">{{ xp_in_rank }} / {{ xp_needed }} XP</small>
+        <small>Rank {{ next_rank.level }}</small>
+    </div>
+    <progress value="{{ xp_progress }}" max="100"></progress>
+    {% else %}
+    <small><mark>Maximum rank achieved</mark></small>
+    {% endif %}
+    {% if momentum_tier > 0 %}
+    <div class="momentum-row" onclick="document.getElementById('momentumPopup').classList.add('open');">
+        <span class="momentum-label">Momentum:</span> <strong>{{ momentum_tier * 5 }}% XP boost</strong>
+        <span class="momentum-bars">{{ "▮" * momentum_tier }}{{ "▯" * (5 - momentum_tier) }}</span>
+        <small class="momentum-info">ⓘ</small>
+    </div>
+    {% endif %}
+</article>
+
+<article class="relics-card">
+    <div class="shelf-title">
+        <span class="section-label">{% if merchant_unlocked %}Frontier Merchant{% else %}Relic Inventory{% endif %}</span>
+        {% if merchant_unlocked %}
+        <span class="shelf-restock-group">
+            <span class="shelf-restock" data-restock="{{ merchant_reset_ts }}"></span>
+            <button type="button" class="cond-info" data-tip="The merchant carries a small, randomly drawn selection of stock each week — one of each item shown. Whatever isn't here restocks when the caravan turns over.">ⓘ</button>
+        </span>
+        {% endif %}
+    </div>
+    <div class="item-shelf">
+        {# Buried Cache — found only; opens for a lump of provisions (no buy/sell). #}
+        {% if 'buried_cache' in discovered_relics %}
+        {% set n = relic_counts.buried_cache %}
+        <div class="item-row">
+            <div class="item-mid">
+                {% if n > 0 %}
+                {% set cache_relic = relics|selectattr('type', 'equalto', 'buried_cache')|first %}
+                <form method="post" action="/relics/{{ cache_relic.id }}/use-cache">
+                    <button type="submit" class="item-main acc-cache confirm-btn" data-confirm-text="Open · +{{ buried_cache_amount }} 📦?">
+                        <span class="item-emoji">🏺</span><span class="item-name">Buried Cache</span>
+                    </button>
+                </form>
+                {% else %}
+                <span class="item-main acc-cache item-empty"><span class="item-emoji">🏺</span><span class="item-name">Buried Cache</span></span>
+                {% endif %}
+                <button type="button" class="cond-info" data-tip="A stash of provisions. Open it to collect a one-time lump of 📦.">ⓘ</button>
+            </div>
+            <div class="item-actions">
+                <span class="item-qty{% if n == 0 %} item-qty-zero{% endif %}">×{{ n }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="item-row"><div class="item-mid"><span class="item-main item-empty">✧ Undiscovered relic</span></div></div>
+        {% endif %}
+
+        {# Vigor Tonic — buy / drink (clears cooldowns) / salvage. #}
+        {% if 'vigor_tonic' in discovered_relics %}
+        {% set n = relic_counts.vigor_tonic %}
+        {% set price = merchant_relic_prices.vigor_tonic %}
+        {% set bought = 'vigor_tonic' in merchant_relic_purchased %}
+        {% if n > 0 %}{% set tonic_relic = relics|selectattr('type', 'equalto', 'vigor_tonic')|first %}{% endif %}
+        <div class="item-row">
+            <div class="item-mid">
+                {% if n > 0 %}
+                <form method="post" action="/relics/{{ tonic_relic.id }}/use-tonic">
+                    <button type="submit" class="item-main acc-tonic confirm-btn" data-confirm-text="Drink — clear all cooldowns?">
+                        <span class="item-emoji">⚗️</span><span class="item-name">Vigor Tonic</span>
+                    </button>
+                </form>
+                {% else %}
+                <span class="item-main acc-tonic item-empty"><span class="item-emoji">⚗️</span><span class="item-name">Vigor Tonic</span></span>
+                {% endif %}
+                <button type="button" class="cond-info" data-tip="Drink to instantly clear all your survey cooldowns, so you can survey again right away.">ⓘ</button>
+            </div>
+            <div class="item-actions">
+                {# Buy — only when the merchant is open and it hasn't been bought this
+                   week. Locked/out-of-stock rows drop the button rather than show it disabled. #}
+                {% if merchant_unlocked and not bought %}
+                <form method="post" action="/merchant/buy-relic">
+                    <input type="hidden" name="relic_type" value="vigor_tonic">
+                    <button type="submit" class="game-btn game-btn-primary game-btn-sm confirm-btn item-buy"
+                        data-confirm-text="Buy · {{ price }} 📦?"
+                        {% if player.provisions < price %}disabled{% endif %}
+                        data-tip="{% if player.provisions < price %}Need {{ price }} 📦{% else %}Buy for {{ price }} 📦{% endif %}">Buy</button>
+                </form>
+                {% endif %}
+                {% if n > 0 %}
+                <form method="post" action="/relics/{{ tonic_relic.id }}/salvage">
+                    <button type="submit" class="game-btn game-btn-secondary game-btn-sm confirm-btn item-sell" data-confirm-text="Sell · +{{ relic_salvage_value.vigor_tonic }} 📦?">Sell</button>
+                </form>
+                {% else %}
+                <button class="game-btn game-btn-secondary game-btn-sm item-sell" disabled>Sell</button>
+                {% endif %}
+                <span class="item-qty{% if n == 0 %} item-qty-zero{% endif %}">×{{ n }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="item-row"><div class="item-mid"><span class="item-main item-empty">✧ Undiscovered relic</span></div></div>
+        {% endif %}
+
+        {# Wardstone — buy / apply on Outposts / salvage. #}
+        {% if 'wardstone' in discovered_relics %}
+        {% set n = relic_counts.wardstone %}
+        {% set price = merchant_relic_prices.wardstone %}
+        {% set bought = 'wardstone' in merchant_relic_purchased %}
+        {% if n > 0 %}{% set ward_relic = relics|selectattr('type', 'equalto', 'wardstone')|first %}{% endif %}
+        <div class="item-row">
+            <div class="item-mid">
+                {% if n > 0 %}
+                <a href="/outposts" role="button" class="item-main acc-ward">
+                    <span class="item-emoji">🛡️</span><span class="item-name">Wardstone</span>
+                </a>
+                {% else %}
+                <span class="item-main acc-ward item-empty"><span class="item-emoji">🛡️</span><span class="item-name">Wardstone</span></span>
+                {% endif %}
+                <button type="button" class="cond-info" data-tip="Apply to a Survey Post to make it dormant — no income, but safe from ruin and raids while you're away.">ⓘ</button>
+            </div>
+            <div class="item-actions">
+                {# Buy — only when the merchant is open and it hasn't been bought this
+                   week. Locked/out-of-stock rows drop the button rather than show it disabled. #}
+                {% if merchant_unlocked and not bought %}
+                <form method="post" action="/merchant/buy-relic">
+                    <input type="hidden" name="relic_type" value="wardstone">
+                    <button type="submit" class="game-btn game-btn-primary game-btn-sm confirm-btn item-buy"
+                        data-confirm-text="Buy · {{ price }} 📦?"
+                        {% if player.provisions < price %}disabled{% endif %}
+                        data-tip="{% if player.provisions < price %}Need {{ price }} 📦{% else %}Buy for {{ price }} 📦{% endif %}">Buy</button>
+                </form>
+                {% endif %}
+                {% if n > 0 %}
+                <form method="post" action="/relics/{{ ward_relic.id }}/salvage">
+                    <button type="submit" class="game-btn game-btn-secondary game-btn-sm confirm-btn item-sell" data-confirm-text="Sell · +{{ relic_salvage_value.wardstone }} 📦?">Sell</button>
+                </form>
+                {% else %}
+                <button class="game-btn game-btn-secondary game-btn-sm item-sell" disabled>Sell</button>
+                {% endif %}
+                <span class="item-qty{% if n == 0 %} item-qty-zero{% endif %}">×{{ n }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="item-row"><div class="item-mid"><span class="item-main item-empty">✧ Undiscovered relic</span></div></div>
+        {% endif %}
+    </div>
+</article>
+</div>
+
+{% if commission_done < commission_total %}
+<div class="commission-card">
+    <div class="commission-header">
+        <span class="section-label">🎖️ Society Commission</span>
+        <span class="commission-progress">{{ commission_done }} / {{ commission_total }} unlocked</span>
+    </div>
+    <div class="commission-steps">
+        {% for step in commission_steps %}
+        <div class="commission-step {{ step.status }}">
+            <span class="commission-icon">{% if step.status == 'done' %}✅{% elif step.status == 'current' %}▶{% else %}🔒{% endif %}</span>
+            <div class="commission-body">
+                <div class="commission-name">{{ step.name }}</div>
+                {% if step.status == 'done' %}
+                <div class="commission-sub done">Unlocked: {{ step.unlocks }}</div>
+                {% elif step.status == 'current' %}
+                <div class="commission-sub req">{{ step.requirement }}</div>
+                <div class="commission-sub unlock">→ {{ step.unlocks }}</div>
+                {% else %}
+                <div class="commission-sub">{{ step.requirement }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if not (ft_complete and strongbox_claimed) %}
+<div id="field-training" class="field-training">
+    <h3>🎯 Field Training <small style="opacity: 0.6;">({{ ft_count }} / {{ ft_total }})</small></h3>
+    <p class="ft-subtitle">Complete your initiation to earn a Society Strongbox.</p>
+    <div class="badge-grid">
+        {% for card in ft_cards %}
+        <div class="achievement-badge {% if card.earned %}earned{% else %}locked{% endif %}">
+            <span class="badge-icon">{% if card.earned %}✅{% else %}🔒{% endif %}</span>
+            <span>{{ card.name }} <small style="opacity: 0.7;">— {{ card.hint }}</small></span>
+        </div>
+        {% endfor %}
+    </div>
+    {% if ft_complete and not strongbox_claimed %}
+    <div class="strongbox-reward">
+        <div class="strongbox-inner">
+            <div>
+                <strong>🎁 Society Strongbox</strong>
+                <div class="strongbox-text">Field Training complete! Claim your reward.</div>
+            </div>
+            <form method="post" action="/strongbox/claim" style="margin: 0;">
+                <button type="submit" class="game-btn game-btn-primary" style="font-size: 0.9rem; padding: 0.4rem 1rem;">Open Strongbox</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if contracts_unlocked and contracts %}
+<div class="contracts-section">
+    <h3>📜 Expedition Contracts · <span id="contract-countdown" class="contract-timer" data-reset="{{ contract_reset_ts }}"></span></h3>
+    <div class="contracts-grid">
+        {% for c in contracts %}
+        <div class="contract-card {% if c.completed %}completed{% elif c.purchased %}purchased{% endif %}">
+            <div class="contract-label">{{ c.label }}</div>
+            <div class="contract-desc">{{ c.desc }}</div>
+            <div class="contract-reward">Reward: <strong>{{ c.reward_label }}</strong></div>
+            <div class="contract-status">
+                {% if c.completed %}
+                <span class="contract-complete-badge">✓ Complete</span>
+                {% if c.pending_supply_drop %}
+                <span class="contract-inbound" data-tip="Munitions are air-dropped with your next supply drop — the reward lands on the next radio sync, not instantly.">📦 Inbound next supply drop</span>
+                {% endif %}
+                {% elif c.purchased %}
+                <div class="contract-progress">{{ c.progress }} / {{ c.target }}</div>
+                <progress value="{{ c.progress }}" max="{{ c.target }}"></progress>
+                {% else %}
+                <form method="post" action="/contracts/{{ c.id }}/buy" style="margin: 0;">
+                    <button type="submit" class="game-btn game-btn-primary game-btn-sm confirm-btn" style="white-space: nowrap;">Buy ({{ c.cost }} 📦)</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+
+<script>
+(function() {
+    var el = document.getElementById('dispatch-countdown');
+    if (!el) return;
+    function update() {
+        var now = new Date();
+        var midnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+        var diff = Math.max(0, Math.floor((midnight - now) / 1000));
+        var h = Math.floor(diff / 3600);
+        var m = Math.floor((diff % 3600) / 60);
+        el.textContent = h > 0 ? h + 'H ' + m + 'M' : m + 'M';
+    }
+    update();
+    setInterval(update, 60000);
+
+    var cel = document.getElementById('contract-countdown');
+    if (cel) {
+        var resetTs = parseInt(cel.dataset.reset, 10) * 1000;
+        function updateContract() {
+            var diff = Math.max(0, Math.floor((resetTs - Date.now()) / 1000));
+            var d = Math.floor(diff / 86400);
+            var h = Math.floor((diff % 86400) / 3600);
+            var m = Math.floor((diff % 3600) / 60);
+            cel.textContent = d > 0 ? d + 'D ' + h + 'H ' + m + 'M' : h > 0 ? h + 'H ' + m + 'M' : m + 'M';
+        }
+        updateContract();
+        setInterval(updateContract, 60000);
+    }
+
+    var msg = document.getElementById('dispatch-msg');
+    if (!msg) return;
+    var full = msg.dataset.full;
+    msg.textContent = full;
+    msg.style.minHeight = msg.offsetHeight + 'px';
+    msg.textContent = '';
+    var i = 0;
+    function typeLetter() {
+        if (i >= full.length) return;
+        msg.textContent += full[i];
+        i++;
+        setTimeout(typeLetter, 22);
+    }
+    typeLetter();
+})();
+</script>
+
+<div class="postcard-popup" id="momentumPopup" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="postcard-popup-inner">
+        <div class="popup-header">
+            <strong>Momentum</strong>
+            <button class="popup-close" onclick="document.getElementById('momentumPopup').classList.remove('open')">&times;</button>
+        </div>
+        <p style="margin: 0; font-size: 0.85rem; line-height: 1.5;">
+            Survey daily to build momentum. Each consecutive day adds <strong>+5% XP</strong>, up to <strong>+25%</strong> at 5 days.
+            Missing a day drops your momentum by one level per day missed.
+        </p>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
