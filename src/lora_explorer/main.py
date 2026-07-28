@@ -12,6 +12,7 @@ from .game.engine import GameEngine
 from .game.backup import run_backup_loop
 from .multiplayer.client import WorkerClient
 from .multiplayer.manager import MultiplayerManager
+from .update_check import run_update_check_loop
 from .web.app import create_app
 
 logging.basicConfig(
@@ -73,7 +74,13 @@ async def _load_companion_config(db: Database, env_config: dict) -> dict:
     }
 
 
-async def run() -> None:
+async def run(on_ready=None) -> None:
+    """``on_ready(loop, stop_event)``, if given, is called once the event loop
+    and shutdown signal exist, before the server starts serving. The Windows
+    tray launcher uses this to capture a reference it can use to trigger a
+    clean shutdown from its own thread (loop.call_soon_threadsafe(stop_event.set))
+    when the user clicks Quit — the CLI/Docker entry point passes nothing and
+    behaves exactly as before."""
     env_config = get_env_config()
 
     if env_config["home_lat"] == 0 and env_config["home_lon"] == 0:
@@ -116,6 +123,8 @@ async def run() -> None:
 
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
+    if on_ready:
+        on_ready(loop, stop_event)
     try:
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, stop_event.set)
@@ -146,6 +155,7 @@ async def run() -> None:
     web_task = asyncio.create_task(server.serve())
     web_task.add_done_callback(lambda _: stop_event.set())
     backup_task = asyncio.create_task(run_backup_loop(config["db_path"], engine=engine))
+    update_check_task = asyncio.create_task(run_update_check_loop(db))
 
     try:
         await stop_event.wait()
@@ -155,6 +165,7 @@ async def run() -> None:
         engine.begin_shutdown()
         server.should_exit = True
         backup_task.cancel()
+        update_check_task.cancel()
         await web_task
     finally:
         await multiplayer_manager.stop()

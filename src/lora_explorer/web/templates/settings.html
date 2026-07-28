@@ -638,6 +638,80 @@
 </details>
 
 <details class="doc-section doc-section-collapse">
+    <summary class="doc-section-title">🔄 Updates <span class="details-arrow">▶</span></summary>
+            <p class="doc-hint" style="margin-bottom: 0.6rem;">
+                Running v{{ app_version }}.
+                {% if update_check and update_check.ok %}
+                    {% if update_check.update_available %}
+                        {# latest_version is a GitHub tag_name, already "vX.Y.Z" — no extra v prefix. #}
+                        <strong>{{ update_check.latest_version }} is available.</strong>
+                        <a href="{{ update_check.url }}" target="_blank" rel="noopener">Release notes →</a>
+                    {% else %}
+                        Up to date.
+                    {% endif %}
+                {% elif update_check and not update_check.ok %}
+                    Last check failed — try again below.
+                {% else %}
+                    No check has run yet.
+                {% endif %}
+            </p>
+            <p class="doc-hint" style="margin-bottom: 0.75rem;">
+                Docker: Force Update your container (or <code>docker compose pull</code>) picks up the latest
+                push. Windows: download and run the installer from the release page.
+            </p>
+            <label class="switch-row">
+                <input type="checkbox" role="switch" id="s-update-check" {% if update_check_enabled %}checked{% endif %}>
+                <span>Check for updates automatically <small style="opacity: 0.55;">— once a day, a plain request to GitHub's public release list. No player data is sent.</small></span>
+            </label>
+            <div id="update-check-result" class="save-result"></div>
+            <button type="button" class="game-btn game-btn-secondary" style="margin-top: 0.6rem;" onclick="checkForUpdateNow()">Check now</button>
+            <script>
+            (function() {
+                var cb = document.getElementById('s-update-check');
+                var result = document.getElementById('update-check-result');
+                if (cb) cb.addEventListener('change', function() {
+                    fetch('/api/update-check/toggle', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({enabled: cb.checked})
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        result.className = data.ok ? 'save-result' : 'save-result error';
+                        result.textContent = '';
+                    })
+                    .catch(function() {
+                        result.className = 'save-result error';
+                        result.textContent = 'Network error';
+                    });
+                });
+            })();
+            async function checkForUpdateNow() {
+                const result = document.getElementById('update-check-result');
+                result.className = 'save-result';
+                result.textContent = 'Checking…';
+                try {
+                    const res = await fetch('/api/update-check/now', {method: 'POST'});
+                    const data = await res.json();
+                    if (!data.ok) {
+                        result.className = 'save-result error';
+                        result.textContent = 'Check failed — try again later.';
+                        return;
+                    }
+                    result.className = 'save-result';
+                    result.textContent = data.update_available
+                        // latest_version is a GitHub tag_name, already "vX.Y.Z".
+                        ? (data.latest_version + ' is available.')
+                        : 'Up to date.';
+                } catch (e) {
+                    result.className = 'save-result error';
+                    result.textContent = 'Network error';
+                }
+            }
+            </script>
+</details>
+
+<details class="doc-section doc-section-collapse">
     <summary class="doc-section-title">🔒 Privacy &amp; Your Data <span class="details-arrow">▶</span></summary>
 
             <div class="settings-subhead">What this server stores</div>
@@ -645,7 +719,8 @@
                 This database holds a <strong>detailed history of where you have physically been</strong> —
                 your base camp coordinates, the latitude and longitude of every survey, and every
                 territory you've discovered. It stays on this machine. The game sends no telemetry
-                and no analytics anywhere.
+                and no analytics — the only outbound paths are multiplayer (if registered), a webhook
+                (if configured), and the opt-in update check below, off by default.
             </p>
             <p class="doc-hint" style="margin-bottom: 0.75rem;">
                 ⚠️ Treat <strong>backup files as sensitive</strong> — a backup contains your full location
@@ -668,6 +743,13 @@
             <p class="doc-hint" style="margin-bottom: 0.75rem;">
                 A <strong>notification webhook</strong> is configured, so PvP alert text is also sent to
                 that URL. Clear it above to stop.
+            </p>
+            {% endif %}
+            {% if update_check_enabled %}
+            <p class="doc-hint" style="margin-bottom: 0.75rem;">
+                Automatic update checking is on: once a day this server asks GitHub's public release
+                list for the newest version — a plain request with no player data attached. Turn it
+                off in Updates above to stop.
             </p>
             {% endif %}
 

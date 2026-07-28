@@ -171,12 +171,19 @@ def test_app_has_dashboard_route(app):
 
 # --- Route integration tests (via ASGI) ---
 
-async def _asgi_request(app, method: str, path: str, data: dict | None = None) -> tuple[int, str, dict]:
-    """Minimal ASGI request without httpx."""
+async def _asgi_request(app, method: str, path: str, data: dict | None = None,
+                         json_body: dict | None = None) -> tuple[int, str, dict]:
+    """Minimal ASGI request without httpx. `json_body` sends a JSON body with
+    the matching content-type instead of the default form encoding used by
+    `data` — the two are mutually exclusive."""
     from urllib.parse import urlencode
-    req_body = urlencode(data).encode() if data else b""
+    if json_body is not None:
+        req_body = json.dumps(json_body).encode()
+    else:
+        req_body = urlencode(data).encode() if data else b""
     cookie = getattr(app.state, "_test_session_cookie", None)
-    headers = [(b"content-type", b"application/x-www-form-urlencoded")]
+    content_type = b"application/json" if json_body is not None else b"application/x-www-form-urlencoded"
+    headers = [(b"content-type", content_type)]
     if cookie:
         headers.append((b"cookie", f"{COOKIE_NAME}={cookie}".encode()))
     query_string = b""
@@ -222,6 +229,10 @@ async def _get(app, path: str) -> tuple[int, str]:
 
 async def _post(app, path: str, data: dict | None = None) -> tuple[int, str, dict]:
     return await _asgi_request(app, "POST", path, data=data)
+
+
+async def _post_json(app, path: str, json_body: dict | None = None) -> tuple[int, str, dict]:
+    return await _asgi_request(app, "POST", path, json_body=json_body or {})
 
 
 # --- Dashboard ---
@@ -1537,3 +1548,91 @@ async def test_delete_survey_endpoint_rolls_back(app, engine, adapter, db):
     assert "notes" not in rb
     assert rb["postcards_revoked"] >= 0
     assert await db.get_survey(sid) is None
+
+
+# --- Update check & version routes -------------------------------------------
+
+@pytest.mark.asyncio
+async def test_api_version_reports_current_version(app):
+    from lora_explorer import __version__
+    status, body = await _get(app, "/api/version")
+    assert status == 200
+    assert json.loads(body)["version"] == __version__
+
+
+@pytest.mark.asyncio
+async def test_update_check_toggle_defaults_off(app):
+    status, body = await _get(app, "/settings")
+    assert "s-update-check\" " in body or 'id="s-update-check"' in body
+    assert "checked" not in body.split('id="s-update-check"')[1].split(">")[0]
+
+
+@pytest.mark.asyncio
+async def test_update_check_toggle_persists(app, db):
+    status, body, _ = await _post_json(app, "/api/update-check/toggle", {"enabled": True})
+    assert status == 200
+    assert json.loads(body) == {"ok": True, "enabled": True}
+    from lora_explorer import update_check
+    assert await update_check.is_enabled(db) is True
+
+    status, body, _ = await _post_json(app, "/api/update-check/toggle", {"enabled": False})
+    assert json.loads(body)["enabled"] is False
+    assert await update_check.is_enabled(db) is False
+
+
+@pytest.mark.asyncio
+async def test_update_check_now_works_regardless_of_toggle(app, db, monkeypatch):
+    """A manual check is allowed even while automatic checking is off — the
+    click itself is the consent, matching the design in update_check.py."""
+    from lora_explorer import update_check
+
+    class _FakeResp:
+        def json(self):
+            return {"tag_name": "v99.0.0", "html_url": "https://example/releases/v99.0.0"}
+
+        def raise_for_status(self):
+            pass
+
+    class _FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, headers=None):
+            return _FakeResp()
+
+    monkeypatch.setattr(update_check.httpx, "AsyncClient", lambda **_: _FakeClient())
+
+    assert await update_check.is_enabled(db) is False  # off
+    status, body, _ = await _post_json(app, "/api/update-check/now")
+    assert status == 200
+    data = json.loads(body)
+    assert data["ok"] is True
+    assert data["update_available"] is True
+    assert data["latest_version"] == "v99.0.0"
+
+
+@pytest.mark.asyncio
+async def test_settings_shows_update_available_banner_from_cache(app, db):
+    import time
+    await db.set_setting("update_check_cache", json.dumps({
+        "ok": True, "update_available": True, "latest_version": "v9.9.9",
+        "url": "https://example/releases/v9.9.9", "checked_at": int(time.time()),
+    }))
+    status, body = await _get(app, "/settings")
+    # Exact match, not a substring — "vv9.9.9" would also satisfy an "in"
+    # check for "v9.9.9", which is exactly the double-v-prefix bug this
+    # guards against (latest_version is already "vX.Y.Z" from GitHub).
+    assert "<strong>v9.9.9 is available.</strong>" in body
+    assert "vv9.9.9" not in body
+
+
+@pytest.mark.asyncio
+async def test_no_update_required_banner_by_default(app):
+    """No multiplayer_manager is wired in the test app fixture, so the
+    Worker-driven required-update banner must default to absent, not error."""
+    status, body = await _get(app, "/")
+    assert status == 200
+    assert "Update required" not in body

@@ -524,3 +524,70 @@ async def test_try_push_reconciles_raze_from_notifications(manager, db, monkeypa
 
     await manager._try_push(force=True)
     assert await db.get_post_by_id(post["id"]) is None
+
+
+# --- Update-required tracking ------------------------------------------------
+
+def test_note_worker_result_sets_flag_on_426(manager):
+    assert manager.update_required is False
+    manager._note_worker_result({"ok": False, "update_required": True, "min_version": "0.3.0"})
+    assert manager.update_required is True
+    assert manager.min_client_version == "0.3.0"
+
+
+def test_note_worker_result_clears_flag_on_success(manager):
+    manager._update_required = True
+    manager._min_client_version = "0.3.0"
+    manager._note_worker_result({"ok": True})
+    assert manager.update_required is False
+    # The last known floor is left in place — informational, not part of the
+    # "currently blocked" signal — so a resurfaced banner still names a version.
+    assert manager.min_client_version == "0.3.0"
+
+
+def test_note_worker_result_ignores_unrelated_failure(manager):
+    """A generic failure (network error, 500, wrong signature) must not flip the
+    flag either way — only an explicit update_required or an explicit ok."""
+    manager._update_required = False
+    manager._note_worker_result({"ok": False, "error": "boom"})
+    assert manager.update_required is False
+
+    manager._update_required = True
+    manager._note_worker_result({"ok": False, "error": "boom"})
+    assert manager.update_required is True
+
+
+@pytest.mark.asyncio
+async def test_try_push_sets_update_required_from_worker_426(manager, db):
+    await db.get_or_create_player("k", 40.0, -105.0)
+
+    manager._client.push_bundle = AsyncMock(return_value={
+        "ok": False, "update_required": True, "min_version": "0.5.0",
+    })
+
+    await manager._try_push(force=True)
+    assert manager.update_required is True
+    assert manager.min_client_version == "0.5.0"
+
+
+@pytest.mark.asyncio
+async def test_try_push_clears_update_required_on_next_success(manager, db):
+    await db.get_or_create_player("k", 40.0, -105.0)
+    manager._update_required = True
+    manager._min_client_version = "0.5.0"
+
+    manager._client.push_bundle = AsyncMock(return_value={"ok": True, "drops": [], "notifications": []})
+
+    await manager._try_push(force=True)
+    assert manager.update_required is False
+
+
+@pytest.mark.asyncio
+async def test_poll_status_sets_update_required_from_worker_426(manager, db):
+    manager._client.get_status = AsyncMock(return_value={
+        "ok": False, "update_required": True, "min_version": "0.5.0",
+    })
+    engaged = await manager._poll_status()
+    assert engaged is False
+    assert manager.update_required is True
+    assert manager.min_client_version == "0.5.0"

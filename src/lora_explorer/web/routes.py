@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Stre
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from .. import __version__
+from .. import update_check as update_check_module
 from ..game.backup import list_backups, create_backup, restore_backup
 from .auth import (
     hash_password, verify_password, create_session_cookie,
@@ -232,6 +233,10 @@ async def _template(request, name, ctx):
     else:
         ctx.setdefault("companion_configured", False)
         ctx.setdefault("companion_connected", False)
+    manager = request.app.state.multiplayer_manager
+    ctx.setdefault("update_required", manager.update_required if manager else False)
+    ctx.setdefault("min_client_version", manager.min_client_version if manager else None)
+    ctx.setdefault("app_version", __version__)
     if "currency" not in ctx:
         player = ctx.get("player")
         if not player:
@@ -1456,6 +1461,9 @@ async def settings_page(request: Request):
     oidc_config = await db.get_oidc_config()
     has_password = await db.get_setting("password_hash") is not None
 
+    update_check_enabled = await update_check_module.is_enabled(db)
+    update_check_cache = await update_check_module.get_cached(db)
+
     manager = request.app.state.multiplayer_manager
     pvp_enabled = manager.pvp_enabled if manager else False
     mp_registered = manager.registered if manager else False
@@ -1492,6 +1500,8 @@ async def settings_page(request: Request):
         "mesh_notify": mesh_notify,
         "last_sync_at": manager._last_push_at if manager else None,
         "app_version": __version__,
+        "update_check_enabled": update_check_enabled,
+        "update_check": update_check_cache,
     })
 
 
@@ -1501,6 +1511,31 @@ async def api_version():
     network request; it just reports what this install already knows about
     itself. See PRIVACY.md before wiring this into any remote update check."""
     return JSONResponse({"version": __version__})
+
+
+@router.post("/api/update-check/toggle")
+async def api_update_check_toggle(request: Request):
+    """Opt-in switch for the periodic GitHub Releases check (update_check.py).
+    Off by default — this is the only place that turns automatic checking on,
+    matching the opt-in mesh/webhook toggles above."""
+    db = request.app.state.db
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    enabled = bool(body.get("enabled"))
+    await update_check_module.set_enabled(db, enabled)
+    return JSONResponse({"ok": True, "enabled": enabled})
+
+
+@router.post("/api/update-check/now")
+async def api_update_check_now(request: Request):
+    """Manual, explicit check — always allowed regardless of the opt-in
+    toggle above, since a user clicking a 'Check now' button is itself the
+    consent for that one request."""
+    db = request.app.state.db
+    result = await update_check_module.check_now(db)
+    return JSONResponse(result)
 
 
 @router.post("/api/companion/test-message")

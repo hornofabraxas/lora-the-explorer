@@ -27,8 +27,9 @@ fully self-contained.
 
 ## 2. What your own install stores (you are the controller)
 
-Everything below lives in the SQLite database on **your** machine (`/app/data/explorer.db` by
-default) and is never transmitted anywhere except as described in §3.
+Everything below lives in the SQLite database on **your** machine (`/app/data/explorer.db` in
+Docker, `%LOCALAPPDATA%\LoRaTheExplorer\explorer.db` on the Windows installer) and is never
+transmitted anywhere except as described in §3.
 
 - **Precise GPS coordinates.** Your base camp (`players.home_lat` / `home_lon`), your most recent
   survey position (`last_survey_lat` / `last_survey_lon`), and **the latitude/longitude of every
@@ -41,6 +42,11 @@ default) and is never transmitted anywhere except as described in §3.
 - **Account credentials.** Your dashboard password (hashed) or your OIDC subject identifier,
   plus session cookies.
 - **Gameplay records.** XP, currencies, Survey Posts, relics, postcards, activity log.
+- **Log output.** Some log lines include a truncated (8-character) H3 hex prefix at charter time.
+  On Docker/Linux this goes to stderr, captured by your container runtime's own log driver until it
+  rotates it out. On the **Windows installer**, it's written to a rotating file at
+  `%LOCALAPPDATA%\LoRaTheExplorer\lora-explorer.log` — local only, never transmitted, but treat it
+  with the same care as a backup if you ever share it for support.
 
 **This means your database is a detailed map of where you physically go.** If you run this on a
 machine other people can reach, secure it. Do not expose the dashboard to the public internet
@@ -52,7 +58,7 @@ any legal obligations that come with it are yours, not the project's.
 
 ## 3. What leaves your install
 
-Nothing leaves unless you turn it on. There are exactly three outbound paths:
+Nothing leaves unless you turn it on. There are exactly four outbound paths:
 
 ### 3a. The multiplayer service (only after you register)
 
@@ -89,6 +95,18 @@ Game commands and replies travel over LoRa radio. **LoRa mesh traffic is not pri
 unencrypted at the transport level in the sense that anyone with a receiver in range can observe
 mesh activity, and MeshCore routing is public by design. Do not put anything sensitive in a
 command or a Survey Post name.
+
+### 3d. Update check (off by default, you turn it on)
+
+Settings → Updates has a **manual "Check now" button**, always available, and a separate
+**"check automatically" toggle, off by default**. Either one sends a single plain, unauthenticated
+`GET` to GitHub's public releases API (`api.github.com/repos/hornofabraxas/lora-the-explorer/releases/latest`)
+with a generic User-Agent — no player ID, no location, no version-mismatch fingerprinting beyond
+"what's the newest tag." When on, the automatic check runs at most once a day. GitHub's own privacy
+policy governs what GitHub does with that request. See `src/lora_explorer/update_check.py`.
+
+This is unrelated to, and does not require, multiplayer registration — it works (or stays off) the
+same way whether or not you've ever registered for the war ledger.
 
 ---
 

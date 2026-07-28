@@ -524,6 +524,13 @@ async def settings(request: Request):
         "pvp_ready": False,
         "pvp_ready_reason": "Charter at least one Survey Post before enabling PvP",
         "webhook_url": "https://discord.com/api/webhooks/example",
+        "app_version": "0.2.0",
+        "update_check_enabled": False,
+        "update_check": {
+            "ok": True, "update_available": True, "latest_version": "v0.3.0",
+            "url": "https://github.com/hornofabraxas/lora-the-explorer/releases/tag/v0.3.0",
+            "checked_at": 0, "current_version": "0.2.0",
+        },
     })
 
 

@@ -61,6 +61,26 @@ class MultiplayerManager:
         # rid -> post hex for incoming raids still in flight, so a raid that
         # vanishes without razing its target can be counted as repelled (Bulwark).
         self._active_incoming: dict[str, str] = {}
+        # Set when the Worker rejects a request with 426 (client below its
+        # MIN_CLIENT_VERSION floor) — see WorkerClient._error_result. Cleared the
+        # next time any tracked call succeeds, so it self-heals once the player
+        # updates without needing a restart. Read by the dashboard to show a
+        # persistent "update required" banner instead of silently stalled sync.
+        self._update_required: bool = False
+        self._min_client_version: str | None = None
+
+    def _note_worker_result(self, result: dict) -> None:
+        """Update the update-required flag from any Worker call's result dict.
+        Called from the two recurring background loops (push, status poll) —
+        the paths that run regardless of user action and so are the ones that
+        can both discover the block and later discover it's lifted on their
+        own, without the player having to do anything."""
+        if result.get("update_required"):
+            self._update_required = True
+            if result.get("min_version"):
+                self._min_client_version = result["min_version"]
+        elif result.get("ok"):
+            self._update_required = False
 
     async def start(self) -> None:
         settings = await self._load_settings()
@@ -106,6 +126,14 @@ class MultiplayerManager:
     @property
     def pvp_enabled(self) -> bool:
         return self._pvp_enabled
+
+    @property
+    def update_required(self) -> bool:
+        return self._update_required
+
+    @property
+    def min_client_version(self) -> str | None:
+        return self._min_client_version
 
     async def pvp_readiness(self) -> dict:
         """A player may only enable PvP once they hold a Charter License
@@ -647,6 +675,7 @@ class MultiplayerManager:
         loop holds the fast cadence; False lets it fall back to the idle cadence."""
         now = int(time.time())
         status = await self._client.get_status()
+        self._note_worker_result(status)
         if not status.get("ok"):
             return False
 
@@ -864,6 +893,7 @@ class MultiplayerManager:
             ]
 
         result = await self._client.push_bundle(bundle)
+        self._note_worker_result(result)
         if result.get("ok"):
             now = int(time.time())
             self._last_push_at = now

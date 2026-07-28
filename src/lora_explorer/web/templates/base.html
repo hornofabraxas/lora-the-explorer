@@ -60,6 +60,18 @@
     </div>
 
     <main class="container">
+        {% if update_required|default(false) %}
+        {# Worker-driven, not opt-in — the war ledger has refused to sync because #}
+        {# this install is below its version floor. Shown on every page (like    #}
+        {# the companion warning) since sync failing is otherwise silent.        #}
+        <div class="companion-warning" style="padding: 0.5rem 0.9rem; border-radius: 0.5rem; border: 1px solid var(--pico-del-color); background: color-mix(in srgb, var(--pico-del-color) 15%, transparent); font-size: 0.85rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <span>🛑 <strong>Update required</strong> — the war ledger now requires
+            {% if min_client_version %}v{{ min_client_version }} or newer{% else %}a newer version{% endif %}
+            to sync multiplayer. Local play still works.
+            <a href="https://github.com/hornofabraxas/lora-the-explorer/releases/latest" target="_blank" rel="noopener">Get the latest version →</a></span>
+        </div>
+        {% endif %}
+
         {% if not companion_connected|default(true) and nav_active != 'setup' %}
         <div class="companion-warning" style="padding: 0.5rem 0.9rem; border-radius: 0.5rem; border: 1px solid var(--pico-del-color); background: color-mix(in srgb, var(--pico-del-color) 15%, transparent); font-size: 0.85rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
             <span>⚠️ <strong>Companion not connected</strong> — {% if not companion_configured|default(true) %}<a href="/setup">Configure your base camp node</a> to start playing.{% else %}check your node is powered on and reachable. <a href="/settings">Settings →</a>{% endif %}</span>
