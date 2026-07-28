@@ -634,9 +634,7 @@ async def dashboard(request: Request):
     # player always sees the next unlock, what it needs, and what it grants.
     rl = player["rank_level"]
     cl = player["base_camp_level"]
-    n_posts = len(raw_posts)
     charter_license = rl >= CHARTER_MIN_LEVEL and cl >= CHARTER_MIN_CAMP
-    pvp_ready = charter_license and n_posts >= 1
 
     commission_steps = [
         {
@@ -646,7 +644,7 @@ async def dashboard(request: Request):
             "unlocks": "Society Strongbox · 📦100 + Wardstone",
         },
         {
-            "name": "Scout Commission",
+            "name": "Scout Rank",
             "done": rl >= CONTRACTS_MIN_LEVEL,
             "requirement": f"Reach {rank_name(CONTRACTS_MIN_LEVEL)} (rank {CONTRACTS_MIN_LEVEL})",
             "unlocks": "Expedition Contracts",
@@ -655,20 +653,14 @@ async def dashboard(request: Request):
             "name": "Charter License",
             "done": charter_license,
             "requirement": f"Reach rank {CHARTER_MIN_LEVEL} + {camp_name(CHARTER_MIN_CAMP)} (camp {CHARTER_MIN_CAMP})",
-            "unlocks": "Charter Survey Posts · +3 🪙 first-charter bonus",
+            "unlocks": "Charter Survey Posts · +3 🪙 first-charter bonus · "
+                       "PvP Combat unlocks (enable in Settings) after your first post",
         },
         {
             "name": "Frontier Merchant",
             "done": cl >= MERCHANT_MIN_CAMP_LEVEL,
             "requirement": f"Upgrade to {camp_name(MERCHANT_MIN_CAMP_LEVEL)} (camp {MERCHANT_MIN_CAMP_LEVEL})",
             "unlocks": "Frontier Merchant · weekly relic shop",
-        },
-        {
-            "name": "PvP Combat",
-            "done": pvp_enabled,
-            "requirement": "Ready — enable in Settings" if (pvp_ready and not pvp_enabled)
-                           else "Hold a Charter License + 1 Survey Post",
-            "unlocks": "Attack & defend Survey Posts",
         },
     ]
     _current_seen = False

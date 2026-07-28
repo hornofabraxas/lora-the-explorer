@@ -20,10 +20,13 @@ from pathlib import Path
 # Must happen before `lora_explorer.main` is imported below: main.py reads HOST
 # via os.getenv at MODULE level (WEB_HOST = os.getenv("HOST", "0.0.0.0")), so
 # setting this in main() would be too late — the import below has already
-# locked in whatever HOST was set at this point. Desktop default is loopback
-# only, since this machine's DB holds full location history; a user who wants
-# LAN access can still set HOST themselves before launching.
-os.environ.setdefault("HOST", "127.0.0.1")
+# locked in whatever HOST was set at this point. Defaults to all interfaces
+# (matching the Docker image) since players need to reach this from other
+# devices on the LAN and over VPN — the dashboard is auth-gated (see
+# AuthMiddleware/setup.html) before any game data is readable regardless of
+# which interface it's bound to. A user who wants loopback-only can still set
+# HOST=127.0.0.1 themselves before launching.
+os.environ.setdefault("HOST", "0.0.0.0")
 
 
 def _configure_logging() -> Path:

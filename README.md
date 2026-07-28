@@ -134,9 +134,12 @@ project without a code-signing certificate, not a false-positive detector workin
 "More info" → "Run anyway" if you trust the source, or build it yourself from
 `packaging/windows/` if you'd rather not.
 
-The Windows build listens on `127.0.0.1` only by default (unlike the Docker image, which listens on
-all interfaces) — your location history lives on this specific machine, so it isn't exposed to your
-LAN unless you set `HOST` yourself.
+The Windows build listens on all interfaces by default (matching the Docker image), so it's reachable
+from other devices on your LAN or over VPN without extra setup. The dashboard is auth-gated, but
+that gate isn't up yet on a brand-new install — **set a password (or OIDC) on first launch, from the
+same machine, before exposing this to a network anyone else can reach**, including the open internet
+via port forwarding. Until you do, anyone who reaches `/setup` first claims the password. If you want
+loopback-only instead, set `HOST=127.0.0.1` yourself before launching.
 
 ## Updating
 

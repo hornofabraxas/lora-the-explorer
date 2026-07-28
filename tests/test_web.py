@@ -360,9 +360,11 @@ async def test_dashboard_shows_society_commission(app, engine, adapter):
     status, body = await _get(app, "/")
     assert status == 200
     assert "Society Commission" in body
-    # All checkpoint steps are surfaced in one card.
-    for step in ["Field Training", "Scout Commission", "Charter License",
-                 "Frontier Merchant", "PvP Combat"]:
+    # All checkpoint steps are surfaced in one card. PvP Combat isn't a
+    # separate step — it's folded into Charter License's unlock text, since
+    # PvP eligibility and having chartered a first post are the same moment.
+    for step in ["Field Training", "Scout Rank", "Charter License",
+                 "Frontier Merchant"]:
         assert step in body
 
 
@@ -376,7 +378,7 @@ async def test_dashboard_commission_marks_unlocked_steps(app, engine, adapter, d
     )
     status, body = await _get(app, "/")
     assert status == 200
-    # Scout Commission gate is met → shown as unlocked.
+    # Scout Rank gate is met → shown as unlocked.
     assert "Unlocked: Expedition Contracts" in body
 
 
