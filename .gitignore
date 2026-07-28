@@ -9,3 +9,5 @@ build/
 .env
 .DS_Store
 .pytest_cache/
+dist-installer/
+packaging/windows/icon.ico

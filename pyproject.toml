@@ -22,9 +22,18 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
 ]
+# Only needed to build/run the packaged Windows tray app (windows_tray.py).
+# Not a dependency of the game itself — Docker, Linux, and `python -m
+# lora_explorer` never import this module.
+windows = [
+    "pystray>=0.19.5",
+    "pillow>=10.0",
+    "pyinstaller>=6.10",
+]
 
 [project.scripts]
 lora-explorer = "lora_explorer.main:main"
+lora-explorer-tray = "lora_explorer.windows_tray:main"
 
 [build-system]
 requires = ["setuptools>=68.0"]

@@ -102,6 +102,8 @@ base camp coordinates, every survey's latitude and longitude, and every hex you'
 - **Single-player sends nothing anywhere.** No telemetry, no analytics, no phone-home.
 - **Multiplayer is opt-in** and sends only a ~11 km-rounded centroid plus opaque post tokens —
   never your precise GPS, survey history, or real hex IDs.
+- **The optional update check is opt-in and off by default** — a plain request to GitHub's public
+  release list, no player data attached, never automatic unless you turn it on in Settings.
 - **The hosted multiplayer service is 18+.**
 
 Full detail: **[PRIVACY.md](PRIVACY.md)** · **[TERMS.md](TERMS.md)** · **[SECURITY.md](SECURITY.md)**
@@ -118,6 +120,24 @@ The hosted war ledger lives at `lora.nukeradio.net` and is currently **invite-on
 is in alpha. The server is open source too — see the companion repo,
 [`lora-worker`](https://github.com/hornofabraxas/lora-worker). You can run your own.
 
+## Windows
+
+The [releases page](https://github.com/hornofabraxas/lora-the-explorer/releases) has a
+`LoRaTheExplorer-Setup-X.Y.Z.exe` installer for each tagged version — Start Menu shortcut, optional
+desktop icon, no Python or Docker needed. It runs as a system-tray app: right-click the tray icon
+for **Open Dashboard**, **Open Log Folder**, or **Quit**. Data (including your survey history —
+treat it as sensitive, see [Privacy](#privacy--your-data)) lives in `%LOCALAPPDATA%\LoRaTheExplorer\`
+and is **not** removed by uninstalling.
+
+The installer is unsigned, so Windows SmartScreen will warn on first run — this is a solo hobby
+project without a code-signing certificate, not a false-positive detector working correctly. Click
+"More info" → "Run anyway" if you trust the source, or build it yourself from
+`packaging/windows/` if you'd rather not.
+
+The Windows build listens on `127.0.0.1` only by default (unlike the Docker image, which listens on
+all interfaces) — your location history lives on this specific machine, so it isn't exposed to your
+LAN unless you set `HOST` yourself.
+
 ## Updating
 
 **Docker:** the `:latest` tag on `ghcr.io/hornofabraxas/lora-the-explorer` tracks every push to
@@ -125,8 +145,14 @@ is in alpha. The server is open source too — see the companion repo,
 Tagged releases (`v0.2.0`, etc.) are published separately and pinned — use one of those instead if
 you want a stable version rather than the rolling edge.
 
-There is currently no in-app update check or notification. The Settings page shows the running
-version at the bottom.
+**Windows:** download and run the newer installer from the releases page; it installs over the old
+version in place.
+
+**Checking for updates:** Settings → Updates has a manual "Check now" button (always available) and
+an opt-in daily automatic check (off by default) — both a plain, unauthenticated request to GitHub's
+public release list, no player data attached. See [Privacy](#privacy--your-data). If you're
+registered for multiplayer and the war ledger has moved past what your version can talk to, you'll
+see an "Update required" banner — local play keeps working either way.
 
 ## Releasing (maintainers)
 
@@ -135,10 +161,12 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-CI builds and pushes `ghcr.io/hornofabraxas/lora-the-explorer:v0.2.0` and publishes a GitHub
-Release with auto-generated notes. It does not touch `:latest`. Version numbers follow
-[SemVer](https://semver.org/) loosely — this is pre-1.0, so breaking wire/schema changes bump the
-minor version.
+CI builds and pushes `ghcr.io/hornofabraxas/lora-the-explorer:v0.2.0`, publishes a GitHub Release
+with auto-generated notes, and attaches the Windows installer built from that same commit. It does
+not touch `:latest`. Version numbers follow [SemVer](https://semver.org/) loosely — this is
+pre-1.0, so breaking wire/schema changes bump the minor version, ideally alongside raising
+`MIN_CLIENT_VERSION` on the Worker (see the `lora-worker` repo) so old clients get a clear "please
+update" instead of silently desyncing.
 
 ## Contributing
 
