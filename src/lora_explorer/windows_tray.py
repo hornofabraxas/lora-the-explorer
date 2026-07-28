@@ -12,6 +12,7 @@ import asyncio
 import logging
 import logging.handlers
 import os
+import sys
 import threading
 import webbrowser
 from pathlib import Path
@@ -46,6 +47,21 @@ def _configure_logging() -> Path:
 
 
 _LOG_PATH = _configure_logging()
+
+# PyInstaller windowed (console=False) builds have no console, so Windows
+# leaves sys.stdout/sys.stderr as None — anything downstream that assumes a
+# real stream exists (uvicorn's default logging setup, an uncaught
+# traceback's default excepthook, etc.) then throws the moment it tries to
+# write, and since stderr is None that failure is completely invisible: the
+# asyncio main thread dies silently while pystray's tray-icon thread (a
+# separate, non-daemon thread) keeps the process alive forever with no
+# window, no port bound, and nothing in the log. Redirecting to devnull here
+# — PyInstaller's own documented fix for this — guarantees a real stream
+# exists everywhere below.
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
 
 from . import __version__  # noqa: E402  (must follow _configure_logging above)
 from . import main as lora_main  # noqa: E402  (same import-order reason)
@@ -106,6 +122,12 @@ class TrayApp:
         self._icon.run_detached()
         try:
             asyncio.run(lora_main.run(on_ready=self._on_ready))
+        except Exception:
+            # Belt-and-suspenders: the stdout/stderr guard above should mean
+            # exceptions no longer vanish, but a windowed build has no console
+            # to show them either way — the log file is the only place a user
+            # (or Open Log Folder from the tray menu) can ever see this.
+            log.exception("Fatal error during startup/run")
         finally:
             self._icon.stop()
 
