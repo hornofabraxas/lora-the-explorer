@@ -5,13 +5,16 @@ import os
 import sqlite3
 import sys
 
+from .paths import default_db_path
+
 
 def main():
+    default_path = os.environ.get("DB_PATH") or default_db_path()
     parser = argparse.ArgumentParser(description="Reset LoRa the Explorer authentication")
     parser.add_argument(
         "--data-dir",
-        default=os.environ.get("DB_PATH", "/app/data/explorer.db"),
-        help="Path to data directory or database file (default: /app/data/explorer.db)",
+        default=default_path,
+        help=f"Path to data directory or database file (default: {default_path})",
     )
     parser.add_argument(
         "--mode",

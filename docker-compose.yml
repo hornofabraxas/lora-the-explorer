@@ -15,7 +15,7 @@ services:
       - HOME_LAT=0
       - HOME_LON=0
       - DB_PATH=/app/data/explorer.db
-      - UTC_OFFSET=-7
+      - TZ=America/Phoenix
     restart: unless-stopped
 
 volumes:

@@ -7,9 +7,11 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
+from ..paths import default_db_path
+
 log = logging.getLogger(__name__)
 
-DB_PATH = os.getenv("DB_PATH", "/app/data/explorer.db")
+DB_PATH = os.getenv("DB_PATH") or default_db_path()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS players (

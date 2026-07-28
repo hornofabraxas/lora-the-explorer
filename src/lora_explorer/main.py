@@ -5,6 +5,7 @@ import signal
 
 import uvicorn
 
+from .paths import default_db_path
 from .radio.meshcore_adapter import MeshCoreAdapter
 from .game.database import Database
 from .game.engine import GameEngine
@@ -20,6 +21,12 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 WEB_PORT = int(os.getenv("WEB_PORT", "1492"))
+# 0.0.0.0 is correct for Docker/Unraid (unchanged default — nothing there sets
+# HOST). A native desktop run should bind loopback-only instead, since this
+# machine's database holds full location history; the Windows installer sets
+# HOST=127.0.0.1 explicitly rather than this default changing underneath
+# existing container deployments.
+WEB_HOST = os.getenv("HOST", "0.0.0.0")
 
 
 def get_env_config() -> dict:
@@ -32,7 +39,7 @@ def get_env_config() -> dict:
         "ble_pin": os.getenv("BLE_PIN", ""),
         "home_lat": float(os.getenv("HOME_LAT", "0")),
         "home_lon": float(os.getenv("HOME_LON", "0")),
-        "db_path": os.getenv("DB_PATH", "/app/data/explorer.db"),
+        "db_path": os.getenv("DB_PATH") or default_db_path(),
     }
 
 
@@ -109,11 +116,23 @@ async def run() -> None:
 
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop_event.set)
+    try:
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, stop_event.set)
+    except NotImplementedError:
+        # Windows' default ProactorEventLoop doesn't implement
+        # add_signal_handler at all — this raises before registering anything,
+        # so falling back for both signals here is safe. signal.signal() is
+        # supported on Windows; call_soon_threadsafe is the correct way to
+        # touch the event loop from a handler that isn't scheduled by it.
+        def _handle_signal(signum, frame):
+            loop.call_soon_threadsafe(stop_event.set)
+
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(sig, _handle_signal)
 
     uvi_config = uvicorn.Config(
-        app, host="0.0.0.0", port=WEB_PORT, log_level="info",
+        app, host=WEB_HOST, port=WEB_PORT, log_level="info",
         # Backstop: force-close anything still open 10s into the drain so a
         # wedged connection can't hold the container open until Docker SIGKILLs.
         timeout_graceful_shutdown=10,
@@ -122,7 +141,7 @@ async def run() -> None:
 
     await engine.start()
     await multiplayer_manager.start()
-    log.info("LoRa the Explorer is running. Dashboard at http://0.0.0.0:%d", WEB_PORT)
+    log.info("LoRa the Explorer is running. Dashboard at http://%s:%d", WEB_HOST, WEB_PORT)
 
     web_task = asyncio.create_task(server.serve())
     web_task.add_done_callback(lambda _: stop_event.set())

@@ -118,6 +118,28 @@ The hosted war ledger lives at `lora.nukeradio.net` and is currently **invite-on
 is in alpha. The server is open source too — see the companion repo,
 [`lora-worker`](https://github.com/hornofabraxas/lora-worker). You can run your own.
 
+## Updating
+
+**Docker:** the `:latest` tag on `ghcr.io/hornofabraxas/lora-the-explorer` tracks every push to
+`main` — Force Update (Unraid) or `docker compose pull && docker compose up -d` picks it up.
+Tagged releases (`v0.2.0`, etc.) are published separately and pinned — use one of those instead if
+you want a stable version rather than the rolling edge.
+
+There is currently no in-app update check or notification. The Settings page shows the running
+version at the bottom.
+
+## Releasing (maintainers)
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+CI builds and pushes `ghcr.io/hornofabraxas/lora-the-explorer:v0.2.0` and publishes a GitHub
+Release with auto-generated notes. It does not touch `:latest`. Version numbers follow
+[SemVer](https://semver.org/) loosely — this is pre-1.0, so breaking wire/schema changes bump the
+minor version.
+
 ## Contributing
 
 Issues and pull requests are welcome. Please run the tests first:

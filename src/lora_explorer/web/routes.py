@@ -11,6 +11,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse, FileResponse
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
+from .. import __version__
 from ..game.backup import list_backups, create_backup, restore_backup
 from .auth import (
     hash_password, verify_password, create_session_cookie,
@@ -1490,7 +1491,16 @@ async def settings_page(request: Request):
         "webhook_url": webhook_url,
         "mesh_notify": mesh_notify,
         "last_sync_at": manager._last_push_at if manager else None,
+        "app_version": __version__,
     })
+
+
+@router.get("/api/version")
+async def api_version():
+    """Local version info only — not a phone-home check. Nothing here makes a
+    network request; it just reports what this install already knows about
+    itself. See PRIVACY.md before wiring this into any remote update check."""
+    return JSONResponse({"version": __version__})
 
 
 @router.post("/api/companion/test-message")
