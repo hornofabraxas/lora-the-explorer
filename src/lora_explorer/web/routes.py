@@ -538,7 +538,10 @@ async def dashboard(request: Request):
     momentum_tier = player.get("momentum_tier", 0)
 
     ft_postcards = await db.get_postcards_by_class(key, FIELD_TRAINING_CLASS)
-    ft_earned = {c["description"] for c in ft_postcards}
+    # Intersect with the current postcard list so a legacy "Sworn In" postcard
+    # (dropped — that rank-5 gate now lives only in Society Commission) can't
+    # inflate the count for players who earned it before the change.
+    ft_earned = {c["description"] for c in ft_postcards} & set(FIELD_TRAINING_POSTCARDS)
     ft_total = len(FIELD_TRAINING_POSTCARDS)
     ft_count = len(ft_earned)
     ft_complete = ft_count >= ft_total
@@ -550,7 +553,6 @@ async def dashboard(request: Request):
         "Long Range": "Survey from 1+ mile away",
         "Cartographer": "Discover 5 unique territories",
         "Relic Hunter": "Find your first relic",
-        "Sworn In": "Reach Scout (level 5)",
     }
     ft_cards = []
     for ft_name in FIELD_TRAINING_POSTCARDS:
@@ -638,10 +640,10 @@ async def dashboard(request: Request):
 
     commission_steps = [
         {
-            "name": "Field Training",
+            "name": "Complete Field Training",
             "done": ft_complete,
-            "requirement": f"Complete 6 training objectives ({ft_count}/{ft_total})",
-            "unlocks": "Society Strongbox · 📦100 + Wardstone",
+            "requirement": f"Complete {ft_total} training objectives ({ft_count}/{ft_total})",
+            "unlocks": "Society Strongbox",
         },
         {
             "name": "Scout Rank",
@@ -650,14 +652,14 @@ async def dashboard(request: Request):
             "unlocks": "Expedition Contracts",
         },
         {
-            "name": "Charter License",
+            "name": "Obtain Charter License",
             "done": charter_license,
             "requirement": f"Reach rank {CHARTER_MIN_LEVEL} + {camp_name(CHARTER_MIN_CAMP)} (camp {CHARTER_MIN_CAMP})",
             "unlocks": "Charter Survey Posts · +3 🪙 first-charter bonus · "
                        "PvP Combat unlocks (enable in Settings) after your first post",
         },
         {
-            "name": "Frontier Merchant",
+            "name": "Unlock Frontier Merchant",
             "done": cl >= MERCHANT_MIN_CAMP_LEVEL,
             "requirement": f"Upgrade to {camp_name(MERCHANT_MIN_CAMP_LEVEL)} (camp {MERCHANT_MIN_CAMP_LEVEL})",
             "unlocks": "Frontier Merchant · weekly relic shop",
@@ -937,6 +939,8 @@ async def outposts_page(request: Request):
     for run in supply_runs:
         run["summary"] = _supply_run_summary(run["drops"])
 
+    charter_license = current >= CHARTER_MIN_CAMP and player["rank_level"] >= CHARTER_MIN_LEVEL
+
     return await _template(request, "outposts.html", {
         "player": player,
         "camp_name": camp_name(current),
@@ -945,6 +949,7 @@ async def outposts_page(request: Request):
         "next_camp_level": next_camp_level,
         "next_camp_name": camp_name(next_camp_level) if next_camp_info else None,
         "post_limit": post_limit,
+        "charter_license": charter_license,
         "total_prov_per_day": total_prov_per_day,
         "renown_per_level": RENOWN_PER_DAY_PER_LEVEL,
         "renown_age_rate": RENOWN_AGE_BONUS_PER_DAY,

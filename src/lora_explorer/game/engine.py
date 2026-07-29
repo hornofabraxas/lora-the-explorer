@@ -330,7 +330,7 @@ CAMP_RELIC_BOOST = 1.05
 
 HEX_AREA_SQ_MI = 0.31
 
-STRONGBOX_PROVISIONS = 100
+STRONGBOX_PROVISIONS = 200
 
 FIELD_TRAINING_CLASS = "Field Training"
 FIELD_TRAINING_POSTCARDS = [
@@ -339,7 +339,6 @@ FIELD_TRAINING_POSTCARDS = [
     "Long Range",
     "Cartographer",
     "Relic Hunter",
-    "Sworn In",
 ]
 
 DISPATCH_EFFECTS = [
@@ -1430,8 +1429,6 @@ class GameEngine:
                 "level": next_lvl, "name": req["name"],
                 "reward_prov": req["reward_prov"],
             })
-            if next_lvl == 5:
-                await self._check_sworn_in_field_training(player_key)
             self._publish_event("rank_up", {"level": next_lvl, "name": req["name"]})
             rank = next_lvl
         return promotions
@@ -1612,17 +1609,9 @@ class GameEngine:
                     "Relic Hunter", None, None,
                 )
 
-    async def _check_sworn_in_field_training(self, player_key: str) -> None:
-        ft = await self._db.get_postcards_by_class(player_key, FIELD_TRAINING_CLASS)
-        if not any(c["description"] == "Sworn In" for c in ft):
-            await self._db.award_postcard(
-                player_key, FIELD_TRAINING_CLASS, 1,
-                "Sworn In", None, None,
-            )
-
     async def claim_strongbox(self, player_key: str) -> dict:
         ft = await self._db.get_postcards_by_class(player_key, FIELD_TRAINING_CLASS)
-        ft_earned = {c["description"] for c in ft}
+        ft_earned = {c["description"] for c in ft} & set(FIELD_TRAINING_POSTCARDS)
         if len(ft_earned) < len(FIELD_TRAINING_POSTCARDS):
             return {"success": False, "reason": "Field Training not complete"}
 
@@ -1632,16 +1621,16 @@ class GameEngine:
 
         async with self._db.transaction():
             await self._db.add_provisions(player_key, STRONGBOX_PROVISIONS)
-            await self._db.add_relic(player_key, "wardstone", "strongbox")
+            await self._db.add_relic(player_key, "vigor_tonic", "strongbox")
             await self._db.set_setting("strongbox_claimed", "1")
 
         await self._db.log_activity(
             player_key, "relic",
             "Opened the Society Strongbox",
-            f"+{STRONGBOX_PROVISIONS} provisions, wardstone",
+            f"+{STRONGBOX_PROVISIONS} provisions, vigor tonic",
         )
 
-        return {"success": True, "provisions": STRONGBOX_PROVISIONS, "relic": "Wardstone"}
+        return {"success": True, "provisions": STRONGBOX_PROVISIONS, "relic": "Vigor Tonic"}
 
     async def _request_position_for_node(self, node_key: str, command: str) -> PositionResult:
         self._publish_event("gps_request", {"command": command})

@@ -351,33 +351,6 @@
 </article>
 </div>
 
-{% if commission_done < commission_total %}
-<div class="commission-card">
-    <div class="commission-header">
-        <span class="section-label">🎖️ Society Commission</span>
-        <span class="commission-progress">{{ commission_done }} / {{ commission_total }} unlocked</span>
-    </div>
-    <div class="commission-steps">
-        {% for step in commission_steps %}
-        <div class="commission-step {{ step.status }}">
-            <span class="commission-icon">{% if step.status == 'done' %}✅{% elif step.status == 'current' %}▶{% else %}🔒{% endif %}</span>
-            <div class="commission-body">
-                <div class="commission-name">{{ step.name }}</div>
-                {% if step.status == 'done' %}
-                <div class="commission-sub done">Unlocked: {{ step.unlocks }}</div>
-                {% elif step.status == 'current' %}
-                <div class="commission-sub req">{{ step.requirement }}</div>
-                <div class="commission-sub unlock">→ {{ step.unlocks }}</div>
-                {% else %}
-                <div class="commission-sub">{{ step.requirement }}</div>
-                {% endif %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
-
 {% if not (ft_complete and strongbox_claimed) %}
 <div id="field-training" class="field-training">
     <h3>🎯 Field Training <small style="opacity: 0.6;">({{ ft_count }} / {{ ft_total }})</small></h3>
@@ -403,6 +376,33 @@
         </div>
     </div>
     {% endif %}
+</div>
+{% endif %}
+
+{% if commission_done < commission_total %}
+<div class="commission-card">
+    <div class="commission-header">
+        <span class="section-label">🎖️ Society Commission</span>
+        <span class="commission-progress">{{ commission_done }} / {{ commission_total }} unlocked</span>
+    </div>
+    <div class="commission-steps">
+        {% for step in commission_steps %}
+        <div class="commission-step {{ step.status }}">
+            <span class="commission-icon">{% if step.status == 'done' %}✅{% elif step.status == 'current' %}▶{% else %}🔒{% endif %}</span>
+            <div class="commission-body">
+                <div class="commission-name">{{ step.name }}</div>
+                {% if step.status == 'done' %}
+                <div class="commission-sub done">Unlocked: {{ step.unlocks }}</div>
+                {% elif step.status == 'current' %}
+                <div class="commission-sub req">{{ step.requirement }}</div>
+                <div class="commission-sub unlock">→ {{ step.unlocks }}</div>
+                {% else %}
+                <div class="commission-sub">{{ step.requirement }}</div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 {% endif %}
 

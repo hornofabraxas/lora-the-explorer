@@ -264,7 +264,11 @@
 </div>
 {% else %}
 <article class="posts-info">
+    {% if charter_license %}
     <p>No Survey Posts yet. Use <code>/lora charter</code> at a discovered territory to plant your flag.</p>
+    {% else %}
+    <p>Survey Posts are unavailable until you earn your Charter License — see Society Commission on the Briefing page.</p>
+    {% endif %}
 </article>
 {% endif %}
 

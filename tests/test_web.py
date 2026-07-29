@@ -445,7 +445,9 @@ async def test_outposts_page_empty(app, engine, adapter):
     await adapter.simulate_message("/lora survey")
     status, body = await _get(app, "/outposts")
     assert status == 200
-    assert "No Survey Posts yet" in body
+    # A fresh rank-1 player has no Charter License yet, so the empty state
+    # points at Society Commission instead of the /lora charter instructions.
+    assert "unavailable until you earn your Charter License" in body
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,9 @@
 <article>
     <header><h2>Join the Network</h2></header>
     <p>Register to compete on the global leaderboard, scout rival outposts, and wage PvP warfare.</p>
+    {% if not charter_license %}
+    <p class="doc-hint">Locked until you earn your Charter License — see Society Commission on the Briefing page.</p>
+    {% else %}
     <form method="post" action="/api/multiplayer/register">
         <label for="display_name">Explorer Name</label>
         <input type="text" id="display_name" name="display_name" maxlength="32" required placeholder="Your display name">
@@ -27,6 +30,7 @@
         </label>
         <button type="submit">Register</button>
     </form>
+    {% endif %}
 </article>
 
 {% else %}

@@ -11,6 +11,8 @@ from ..game.engine import (
     multiplayer_item_name,
     weekly_merchant_item_types,
     _week_start_utc,
+    CHARTER_MIN_LEVEL,
+    CHARTER_MIN_CAMP,
 )
 from .routes import MERCHANT_MIN_CAMP_LEVEL
 
@@ -122,6 +124,7 @@ async def multiplayer_page(request: Request):
             "registered": False,
             "player_id": None,
             "leaderboard": [],
+            "charter_license": False,
         })
 
     leaderboard = []
@@ -237,6 +240,11 @@ async def multiplayer_page(request: Request):
     player = await db.get_first_player()
     available_titles = await _available_title_labels(db, manager)
     active_title = player.get("active_title") if player else None
+    charter_license = bool(
+        player
+        and player["rank_level"] >= CHARTER_MIN_LEVEL
+        and player["base_camp_level"] >= CHARTER_MIN_CAMP
+    )
     if player:
         now = int(time.time())
         posts = await db.get_all_posts(player["key"])
@@ -254,6 +262,7 @@ async def multiplayer_page(request: Request):
         "nav_active": "multiplayer",
         "enabled": True,
         "registered": manager.registered,
+        "charter_license": charter_license,
         "player_id": manager.player_id,
         "pvp_enabled": manager.pvp_enabled,
         "leaderboard": leaderboard,
@@ -317,6 +326,19 @@ async def multiplayer_register(request: Request):
 
     if manager.registered:
         return _flash_redirect("/multiplayer", "Already registered", "error")
+
+    db = request.app.state.db
+    player = await db.get_first_player()
+    if not (
+        player
+        and player["rank_level"] >= CHARTER_MIN_LEVEL
+        and player["base_camp_level"] >= CHARTER_MIN_CAMP
+    ):
+        return _flash_redirect(
+            "/multiplayer",
+            "Obtain your Charter License first — see Society Commission on the Briefing page",
+            "error",
+        )
 
     form = await request.form()
     display_name = str(form.get("display_name", "")).strip()
