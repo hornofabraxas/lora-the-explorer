@@ -371,8 +371,10 @@ async def test_survey_no_ack_result_via_send(adapter, engine):
 
 
 @pytest.mark.asyncio
-async def test_survey_in_flight_silently_drops_duplicate(adapter, engine):
-    """Second survey while first is in-flight is silently dropped."""
+async def test_survey_in_flight_replies_busy_to_duplicate(adapter, engine):
+    """Second survey while first is in-flight is refused, but the sender gets
+    a radio reply — not silence — since command_busy only reaches the SSE
+    feed, which a player out in the field with just the spyglass can't see."""
     import asyncio
 
     original_request = adapter.request_position
@@ -392,7 +394,8 @@ async def test_survey_in_flight_silently_drops_duplicate(adapter, engine):
 
     msg2 = IncomingMessage(sender_key="abc123", text="/lora survey", timestamp=2, snr=-8.0, rssi=-105, hops=2)
     r2 = await engine._handle_message(msg2)
-    assert r2 is None
+    assert r2 is not None
+    assert "STILL WORKING" in r2
 
     position_ready.set()
     await adapter.await_survey()
@@ -445,9 +448,13 @@ async def test_radio_and_web_commands_share_one_slot(adapter, engine, db):
     assert web_result["ok"] is False
     assert "in progress" in web_result["error"].lower()
 
-    # A radio command is dropped (busy) and does not replace the held slot.
+    # A radio command is refused (busy) and does not replace the held slot —
+    # but the sender still gets a reply, not silence (there's no dashboard
+    # to read the command_busy SSE event from out in the field).
     msg = IncomingMessage(sender_key="abc123", text="/lora survey", timestamp=1)
-    assert await engine._handle_message(msg) is None
+    busy_reply = await engine._handle_message(msg)
+    assert busy_reply is not None
+    assert "STILL WORKING" in busy_reply
     assert engine._command_task is held
 
     gate.set()

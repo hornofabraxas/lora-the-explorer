@@ -82,7 +82,11 @@ async def check_now(db) -> dict:
             "update_available": bool(latest) and is_newer(latest, __version__),
         })
     except Exception as exc:
-        log.debug("Update check failed: %s", exc)
+        # The app runs at INFO level by default, so this must not be `debug`
+        # — a `debug`-level failure here is invisible in `docker logs`, which
+        # is exactly where a container owner would look to see why "Check
+        # now" failed (DNS, TLS, GitHub rate limiting, etc.).
+        log.warning("Update check failed: %s", exc)
         result["error"] = str(exc)
     await db.set_setting(SETTING_CACHE, json.dumps(result))
     return result

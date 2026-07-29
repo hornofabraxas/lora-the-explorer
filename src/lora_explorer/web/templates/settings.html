@@ -650,7 +650,7 @@
                         Up to date.
                     {% endif %}
                 {% elif update_check and not update_check.ok %}
-                    Last check failed — try again below.
+                    Last check failed{% if update_check.error %}: {{ update_check.error }}{% endif %} — try again below.
                 {% else %}
                     No check has run yet.
                 {% endif %}
@@ -696,7 +696,11 @@
                     const data = await res.json();
                     if (!data.ok) {
                         result.className = 'save-result error';
-                        result.textContent = 'Check failed — try again later.';
+                        // Surface the actual failure (DNS, TLS, GitHub rate limit, etc.)
+                        // instead of a dead-end message — it's also logged server-side.
+                        result.textContent = data.error
+                            ? 'Check failed: ' + data.error
+                            : 'Check failed — try again later.';
                         return;
                     }
                     result.className = 'save-result';

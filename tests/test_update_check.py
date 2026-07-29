@@ -94,6 +94,21 @@ async def test_check_now_never_raises_on_network_failure(db, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_check_now_logs_failure_at_warning(db, monkeypatch, caplog):
+    """The app runs at INFO by default (main.py), so a debug-level log here
+    is invisible in `docker logs` — exactly where someone troubleshooting a
+    failed "Check now" click would look."""
+    import logging
+    _patch_client(monkeypatch, raise_exc=Exception("Temporary failure in name resolution"))
+    with caplog.at_level(logging.INFO, logger="lora_explorer.update_check"):
+        await update_check.check_now(db)
+    assert any(
+        r.levelno >= logging.WARNING and "Temporary failure in name resolution" in r.getMessage()
+        for r in caplog.records
+    )
+
+
+@pytest.mark.asyncio
 async def test_check_now_caches_result(db, monkeypatch):
     _patch_client(monkeypatch, json_data={"tag_name": "v9.9.9", "html_url": "https://example"})
     await update_check.check_now(db)

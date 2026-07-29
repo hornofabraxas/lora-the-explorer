@@ -298,6 +298,46 @@ async def test_setup_home_flow(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_staking_claim_survives_first_survey(tmp_path):
+    """The setup wizard awards "Staking Claim" against the placeholder
+    "pending" player key, before any radio key is known. The first survey
+    re-keys that player row to the real radio key — the postcard must move
+    with it, or the badge reverts to unearned right after setup completes."""
+    from lora_explorer.web.app import create_app
+    zero_config = {
+        "connection_type": "wifi", "companion_host": "", "companion_port": 4000,
+        "home_lat": 0, "home_lon": 0, "db_path": str(tmp_path / "setup2.db"),
+    }
+    db = Database(db_path=zero_config["db_path"])
+    adapter = MockRadioAdapter()
+    engine = GameEngine(adapter=adapter, home_lat=0, home_lon=0, db=db)
+    adapter.engine = engine
+    a = create_app(engine, db, zero_config, radio=adapter)
+    await db.connect()
+    await db.set_setting("password_hash", hash_password("testpass123"))
+    secret = _get_secret(zero_config["db_path"])
+    a.state._test_session_cookie = create_session_cookie(secret)
+    try:
+        await engine.start()
+        status, _, _ = await _post(a, "/setup/home", data={"lat": "33.45", "lon": "-112.07"})
+        assert status == 303
+
+        adapter.mock_position = (33.45, -112.07)
+        await adapter.simulate_message("/lora survey", sender="realkey123")
+
+        player = await db.get_first_player()
+        assert player["key"] == "realkey123"
+        postcards = await db.get_all_postcards(player["key"])
+        assert any(
+            p["class"] == "Field Training" and p["description"] == "Staking Claim"
+            for p in postcards
+        )
+    finally:
+        await engine.stop()
+        await db.close()
+
+
+@pytest.mark.asyncio
 async def test_dashboard_with_player(app, engine, adapter):
     await adapter.simulate_message("/lora survey")
     status, body = await _get(app, "/")
@@ -1631,6 +1671,21 @@ async def test_settings_shows_update_available_banner_from_cache(app, db):
     # guards against (latest_version is already "vX.Y.Z" from GitHub).
     assert "<strong>v9.9.9 is available.</strong>" in body
     assert "vv9.9.9" not in body
+
+
+@pytest.mark.asyncio
+async def test_settings_shows_update_check_error_from_cache(app, db):
+    """A failed check must surface *why* it failed, not just that it failed —
+    a container owner troubleshooting "Check now" needs the actual reason
+    (DNS, TLS, GitHub rate limit, etc.), not a dead-end message."""
+    import time
+    await db.set_setting("update_check_cache", json.dumps({
+        "ok": False, "error": "[Errno -3] Temporary failure in name resolution",
+        "checked_at": int(time.time()),
+    }))
+    status, body = await _get(app, "/settings")
+    assert status == 200
+    assert "Last check failed: [Errno -3] Temporary failure in name resolution" in body
 
 
 @pytest.mark.asyncio

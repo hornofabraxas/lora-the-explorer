@@ -358,6 +358,15 @@ class Database:
             await self._execute(
                 "UPDATE players SET key = ? WHERE key = 'pending'", (key,)
             )
+            # The web setup wizard awards "Staking Claim" against the
+            # placeholder "pending" key before the real radio key is known
+            # (see engine.set_home). Re-key that postcard along with the
+            # player row, or it's orphaned under "pending" and the badge
+            # reverts to unearned the moment the first survey arrives.
+            await self._execute(
+                "UPDATE postcards SET player_key = ? WHERE player_key = 'pending'",
+                (key,),
+            )
             result = dict(existing)
             result["key"] = key
             return result

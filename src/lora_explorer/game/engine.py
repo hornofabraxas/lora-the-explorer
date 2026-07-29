@@ -853,7 +853,16 @@ class GameEngine:
             cmd_name = _COMMAND_DISPLAY_NAMES[cmd.type]
             if self._command_task and not self._command_task.done():
                 self._publish_event("command_busy", {"command": cmd_name})
-                return None
+                # command_busy only reaches the web dashboard's SSE feed — the
+                # player out in the field holding the spyglass would otherwise
+                # get total silence and assume the send failed. A GPS exchange
+                # can run up to ~90s, so a re-sent command landing in that
+                # window needs its own radio-side reply.
+                return (
+                    "STILL WORKING\n"
+                    "Processing your last command.\n"
+                    "Try again in a moment."
+                )
             self._publish_event("cmd_received", {"command": cmd_name})
             self._command_task = asyncio.create_task(
                 self._process_command_async(msg, cmd)
