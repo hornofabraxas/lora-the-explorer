@@ -855,10 +855,10 @@ async def test_camp_multiplier_matches_gdd(engine):
 async def test_auto_promote_single_rank(adapter, engine, db):
     await db.get_or_create_player("abc123", 40.0, -105.0)
     await db._execute(
-        "UPDATE players SET xp = 200, provisions = 50 WHERE key = ?",
+        "UPDATE players SET xp = 600, provisions = 50 WHERE key = ?",
         ("abc123",),
     )
-    promotions = await engine._auto_promote("abc123", 1, 200)
+    promotions = await engine._auto_promote("abc123", 1, 600)
     assert len(promotions) == 1
     assert promotions[0]["level"] == 2
     assert promotions[0]["name"] == "Novice"
@@ -1182,8 +1182,10 @@ async def test_passive_provisions_multiple_posts_sum(adapter, engine, db):
 @pytest.mark.asyncio
 async def test_survey_auto_promotes(adapter, engine, db):
     await db.get_or_create_player("abc123", 40.0, -105.0)
+    # Sit just below the Scout threshold (rank 5 = 2900 XP) so a single survey
+    # tips the player over into a promotion.
     await db._execute(
-        "UPDATE players SET rank_level = 4, xp = 490 WHERE key = ?",
+        "UPDATE players SET rank_level = 4, xp = 2850 WHERE key = ?",
         ("abc123",),
     )
     response = await adapter.simulate_message("/lora survey")
@@ -1195,7 +1197,7 @@ async def test_survey_auto_promotes(adapter, engine, db):
 async def test_survey_no_rank_notification_below_threshold(adapter, engine, db):
     await db.get_or_create_player("abc123", 40.0, -105.0)
     # Sit mid-rank with a comfortable gap to the next threshold (rank 5→6 is
-    # ~400 XP, well above a single survey's ~150) so this survey won't promote.
+    # ~1500 XP, well above a single survey's ~150) so this survey won't promote.
     await db._execute(
         "UPDATE players SET rank_level = 5, xp = 500 WHERE key = ?",
         ("abc123",),

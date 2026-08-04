@@ -161,10 +161,19 @@ _COMMAND_DISPLAY_NAMES = {
 _BACKGROUND_COMMANDS = frozenset(_COMMAND_DISPLAY_NAMES)
 DAILY_SURVEY_WARNING_THRESHOLD = 40
 
-# XP milestones — levels between are linearly interpolated
+# XP milestones — levels between are linearly interpolated.
+#
+# Curve tuned so early progression feeds mechanics gradually instead of
+# firehosing them (was: ~5 surveys → level 5). At ~100-115 XP per new-hex
+# survey: ~5 surveys → rank 2, ~28 → rank 5 (Scout / Contracts), and ~70 →
+# rank 8 (Charter License → PvP), i.e. a dedicated player (~10 surveys/day
+# with an outpost) unlocks PvP within their first week. Per-survey XP,
+# provisions and Survey Marks are unchanged — only the thresholds moved.
+# Existing players never de-level: _auto_promote only ratchets rank upward.
 _XP_MILESTONES = {
-    1: 0, 5: 500, 10: 2500, 15: 7000, 20: 15000,
-    25: 25000, 30: 40000, 35: 60000, 40: 85000, 45: 120000, 50: 160000,
+    1: 0, 2: 500, 3: 1150, 5: 2900, 8: 7500, 10: 11500,
+    15: 23000, 20: 38000, 25: 56000, 30: 78000, 35: 103000,
+    40: 128000, 45: 150000, 50: 170000,
 }
 
 _RANK_NAMES = [
