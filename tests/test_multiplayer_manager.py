@@ -469,6 +469,9 @@ async def test_register_anchors_push_cursor_excluding_past_surveys(manager, db):
     assert manager._last_push_at >= before
     # Persisted, so a restart keeps the anchor.
     assert await manager._get_last_push_time() >= before
+    # Display name is persisted locally so bug-report diagnostics can surface it
+    # offline, without a leaderboard round-trip.
+    assert await manager.display_name() == "Newcomer"
 
     # The next bundle from that cursor carries zero of the historical surveys.
     bundle = await build_bundle(db, manager._last_push_at, force=True)

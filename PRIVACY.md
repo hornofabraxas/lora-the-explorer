@@ -118,9 +118,11 @@ until you choose to send it, and you can see the whole payload first.
 
 The diagnostic snapshot contains only: app version, install method, OS and architecture, Python
 version, connection *type* (wifi/usb/ble — never the host/address), whether the companion is
-connected, and whether multiplayer is registered/enabled. It **never** includes your location,
-home coordinates, H3 hex IDs, node or radio keys, display name, logs, or webhook URLs. An optional
-contact field is yours to fill in (or leave blank) if you want a reply.
+connected, and whether multiplayer is registered/enabled. **If (and only if) you have joined the
+war ledger**, it also includes your **multiplayer username and player ID** — both already
+assigned by / shared with the multiplayer service — so the maintainer can look up your account to
+help. It **never** includes your location, home coordinates, H3 hex IDs, node or radio keys, logs,
+or webhook URLs. An optional contact field is yours to fill in (or leave blank) if you want a reply.
 
 ---
 

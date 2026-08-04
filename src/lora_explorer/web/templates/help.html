@@ -91,19 +91,24 @@
 <section class="doc-section" id="report-a-problem">
     <h3 class="doc-section-title">🐞 Report a Problem</h3>
     <p>Found a bug or have feedback? Describe what happened below, then either copy
-       the report or open a pre-filled GitHub issue. A small, non-sensitive
-       diagnostic snapshot (shown below) is attached so we can reproduce it.</p>
-    <p class="doc-hint">🔒 This form <strong>never sends anything on its own</strong> — you choose where it
-       goes. The snapshot contains no location, node keys, names, or logs.</p>
+       the report or open a pre-filled GitHub issue.</p>
+    <p class="doc-hint">🔒 This form <strong>never sends anything on its own</strong> — you choose where it goes.
+       Along with what you type, the report attaches a small diagnostic snapshot so we can reproduce the issue:
+       the app version, install method, your OS and CPU architecture, Python version, companion connection
+       <em>type</em> (wifi/usb/ble — never the address), and whether the companion is connected.
+       {% if diagnostics.multiplayer_registered %}Because you've joined the war ledger, it also includes your
+       <strong>multiplayer username and player&nbsp;ID</strong> so we can look up your account to help.{% else %}It does
+       <strong>not</strong> include your location, node keys, names, or logs.{% endif %}
+       The exact values are shown below — expand to see everything before you send it.</p>
 
     <label for="br-desc">What happened?</label>
     <textarea id="br-desc" rows="4" placeholder="What you expected, what actually happened, and how to reproduce it."></textarea>
 
-    <label for="br-contact">Contact handle <small>(optional — e.g. your Discord name, if you'd like a reply)</small></label>
-    <input type="text" id="br-contact" maxlength="64" placeholder="Leave blank to stay anonymous">
+    <label for="br-contact">Contact / Username <small>(optional — how to reach you for a follow-up)</small></label>
+    <input type="text" id="br-contact" maxlength="64" placeholder="e.g. your Discord name">
 
-    <details style="margin: 0.75rem 0;">
-        <summary style="cursor: pointer;">Diagnostics that will be attached</summary>
+    <details style="margin: 0.75rem 0;" open>
+        <summary style="cursor: pointer;">Exact diagnostics that will be attached</summary>
         <pre id="br-diag" style="white-space: pre-wrap; margin-top: 0.5rem;">—</pre>
     </details>
 
@@ -121,7 +126,7 @@
         var diag = {{ diagnostics | tojson }};
         var ISSUE_URL = {{ issue_url | tojson }};
         function diagLines() {
-            return [
+            var lines = [
                 'Version: ' + diag.version,
                 'Install: ' + diag.install,
                 'OS: ' + diag.os,
@@ -131,6 +136,11 @@
                 'Multiplayer: registered=' + (diag.multiplayer_registered ? 'yes' : 'no') +
                     ', pvp=' + (diag.pvp_enabled ? 'yes' : 'no')
             ];
+            if (diag.multiplayer_registered) {
+                lines.push('Multiplayer username: ' + (diag.multiplayer_username || '(unknown)'));
+                lines.push('Multiplayer player ID: ' + (diag.multiplayer_player_id || '(unknown)'));
+            }
+            return lines;
         }
         var pre = document.getElementById('br-diag');
         if (pre) pre.textContent = diagLines().join('\n');
@@ -140,7 +150,7 @@
             var contact = (document.getElementById('br-contact') || {}).value || '';
             var body = '**What happened?**\n' + (desc.trim() || '_(describe the problem here)_') + '\n\n';
             if (contact.trim()) body += '**Contact:** ' + contact.trim() + '\n\n';
-            body += '---\n_Diagnostics (auto-collected, no personal data):_\n' +
+            body += '---\n_Diagnostics (auto-collected):_\n' +
                 diagLines().map(function (l) { return '- ' + l; }).join('\n') + '\n';
             return body;
         }

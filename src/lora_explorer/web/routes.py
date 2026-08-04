@@ -1928,6 +1928,7 @@ async def help_page(request: Request):
     # pubkeys, node/display names, hosts, or logs. The app itself sends nothing;
     # the player is the transport. Keep this list conservative.
     companion = await radio.get_companion_status() if radio else {}
+    mp_registered = bool(mp_manager and mp_manager.registered)
     diagnostics = {
         "version": __version__,
         "install": install_method(),
@@ -1935,9 +1936,18 @@ async def help_page(request: Request):
         "python": platform.python_version(),
         "connection_type": config.get("connection_type", "unknown"),
         "companion_connected": bool(companion.get("connected")),
-        "multiplayer_registered": bool(mp_manager and mp_manager.registered),
+        "multiplayer_registered": mp_registered,
         "pvp_enabled": bool(mp_manager and getattr(mp_manager, "pvp_enabled", False)),
     }
+    # When the player has joined the war ledger, include their multiplayer
+    # identity so the maintainer can look them up to troubleshoot. Both are
+    # already shared with / assigned by the multiplayer service; the player_id
+    # is the canonical key on the Worker. Only added when registered.
+    if mp_registered:
+        diagnostics["multiplayer_username"] = (
+            await mp_manager.display_name()
+        ) or "(unknown — registered before this was recorded)"
+        diagnostics["multiplayer_player_id"] = mp_manager.player_id or ""
 
     return await _template(request, "help.html", {
         "player": player,

@@ -767,14 +767,20 @@ async def multiplayer_restore_hp():
 
 @app.get("/help")
 async def help_page(request: Request):
+    # ?mp=1 previews the diagnostics for a war-ledger member (adds username + id)
+    mp = request.query_params.get("mp") == "1"
+    diagnostics = {
+        "version": "0.9.3", "install": "docker",
+        "os": "Linux 6.6.0 (x86_64)", "python": "3.12.4",
+        "connection_type": "wifi", "companion_connected": True,
+        "multiplayer_registered": mp, "pvp_enabled": mp,
+    }
+    if mp:
+        diagnostics["multiplayer_username"] = "Wandering Rhea"
+        diagnostics["multiplayer_player_id"] = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
     return templates.TemplateResponse(request, "help.html", {
         **COMMON, "nav_active": "help",
-        "diagnostics": {
-            "version": "0.9.3", "install": "docker",
-            "os": "Linux 6.6.0 (x86_64)", "python": "3.12.4",
-            "connection_type": "wifi", "companion_connected": True,
-            "multiplayer_registered": False, "pvp_enabled": False,
-        },
+        "diagnostics": diagnostics,
         "issue_url": "https://github.com/hornofabraxas/lora-the-explorer/issues/new",
         "discord_url": "https://discord.gg/EHXemsA2SS",
     })

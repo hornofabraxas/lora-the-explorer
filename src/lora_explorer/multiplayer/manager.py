@@ -123,6 +123,12 @@ class MultiplayerManager:
     def player_id(self) -> str | None:
         return self._client._player_id
 
+    async def display_name(self) -> str | None:
+        """The name chosen at registration, persisted locally (see register()).
+        Used to surface the player's multiplayer identity in bug-report
+        diagnostics without a leaderboard round-trip. None if unrecorded."""
+        return (await self._load_settings()).get("mp_display_name")
+
     @property
     def pvp_enabled(self) -> bool:
         return self._pvp_enabled
@@ -736,6 +742,9 @@ class MultiplayerManager:
             self._client.set_credentials(result["player_id"], result["secret"])
             await self._save_setting("player_id", result["player_id"])
             await self._save_setting("secret", result["secret"])
+            # Persist the chosen name locally so it can be surfaced offline
+            # (e.g. in bug-report diagnostics) without a leaderboard round-trip.
+            await self._save_setting("mp_display_name", display_name)
             # Anchor the push cursor at registration time so only surveys made
             # AFTER joining multiplayer earn supply drops. Without this the first
             # push (the force-sync below) would run with since=0, replay the
