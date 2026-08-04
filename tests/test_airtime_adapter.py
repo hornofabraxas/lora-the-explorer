@@ -114,3 +114,58 @@ async def test_request_position_flood_suppressed_over_budget():
 
     assert res.failure == PositionFailure.TIMEOUT
     assert calls == []  # no flood ever went to the radio
+
+
+def _contact_event(contacts):
+    return SimpleNamespace(type=EventType.CONTACT_MSG_RECV, payload=contacts)
+
+
+@pytest.mark.asyncio
+async def test_find_contact_refreshes_on_miss():
+    """A contact absent from the cache — e.g. the sender we just received a
+    command from, learned by the firmware after our last sync — is resolved by
+    re-querying the companion, so the reply/telemetry path isn't silently lost."""
+    a = MeshCoreAdapter(connection_type="wifi", host="127.0.0.1")
+    a._mc = MagicMock()
+    a._contacts = {}  # cache miss
+    a._last_contact_refresh = 0  # past the miss debounce
+    a._mc.commands.get_contacts = AsyncMock(
+        return_value=_contact_event({NODE: {"adv_name": "R1", "public_key": NODE}})
+    )
+
+    contact = await a._find_contact_with_refresh(NODE)
+
+    assert contact is not None
+    assert contact["public_key"] == NODE
+    a._mc.commands.get_contacts.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_find_contact_no_refresh_within_debounce():
+    """A genuinely-absent contact re-queried moments ago isn't re-fetched again
+    inside the debounce window (keeps repeated sends from hammering the link)."""
+    import time as _t
+    a = MeshCoreAdapter(connection_type="wifi", host="127.0.0.1")
+    a._mc = MagicMock()
+    a._contacts = {}
+    a._last_contact_refresh = _t.time()  # just refreshed
+    a._mc.commands.get_contacts = AsyncMock(return_value=_contact_event({}))
+
+    contact = await a._find_contact_with_refresh(NODE)
+
+    assert contact is None
+    a._mc.commands.get_contacts.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_find_contact_hit_skips_refresh():
+    """A cache hit never queries the companion."""
+    a = MeshCoreAdapter(connection_type="wifi", host="127.0.0.1")
+    a._mc = MagicMock()
+    a._contacts = {NODE: {"adv_name": "R1", "public_key": NODE}}
+    a._mc.commands.get_contacts = AsyncMock()
+
+    contact = await a._find_contact_with_refresh(NODE)
+
+    assert contact is not None
+    a._mc.commands.get_contacts.assert_not_awaited()

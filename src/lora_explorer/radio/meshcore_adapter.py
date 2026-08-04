@@ -9,7 +9,13 @@ from .airtime import AirtimeGovernor, SAMPLE_MAX_AGE_S
 
 log = logging.getLogger(__name__)
 
-CONTACT_REFRESH_INTERVAL = 300
+# When a contact lookup MISSES, re-query the companion's contact list. A node we
+# need to reach — above all the sender we just received a command from — may have
+# been learned by the firmware since our last sync (CONTACT_MSG_RECV only fires
+# for senders the firmware already knows). get_contacts is a local companion
+# query with no mesh airtime, so re-sync eagerly; this short debounce only stops
+# a genuinely-absent key from re-querying on every retry in a tight window.
+CONTACT_MISS_REFRESH_INTERVAL = 5
 RECONNECT_BASE_DELAY = 2
 RECONNECT_MAX_DELAY = 60
 # Per-attempt telemetry timeouts. A cached ("last path") route should answer in
@@ -999,7 +1005,13 @@ class MeshCoreAdapter(RadioAdapter):
         contact = self._find_contact(key_prefix)
         if contact:
             return contact
-        if time.time() - self._last_contact_refresh > CONTACT_REFRESH_INTERVAL:
+        # Cache miss. The contact we need to address — typically the sender we're
+        # about to reply to — may have been added to the firmware after our last
+        # sync, so re-query (cheap, local, no mesh airtime). The short debounce
+        # keeps a truly-absent key from re-querying on every retry, but is small
+        # enough that a first-command-after-startup reply still resolves instead
+        # of going silent for the old 5-minute window.
+        if time.time() - self._last_contact_refresh > CONTACT_MISS_REFRESH_INTERVAL:
             await self._refresh_contacts()
             return self._find_contact(key_prefix)
         return None
