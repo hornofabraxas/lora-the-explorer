@@ -68,7 +68,7 @@ pushes a signed bundle. The complete contents are (see `src/lora_explorer/multip
 | Field | What it is |
 |---|---|
 | `display_name` | The name you chose at registration (sent once, at registration) |
-| `coarse_centroid` | Your base camp rounded to **0.1° (~11 km)** — the **only** geography ever sent |
+| `coarse_centroid` | Your base camp snapped to a **~0.75° grid (~50 mile / ~80 km cells)** — the **only** geography ever sent. Your true home is somewhere inside that ~50-mile cell; the reported point never reveals where |
 | `post_summaries` | Per Survey Post: an **opaque random token**, level, your custom name, charter time, ward/upkeep timestamps |
 | `survey_count`, `discoveries` | Counts only |
 | `active_title` | A label from a fixed in-game list |
@@ -116,7 +116,7 @@ Stored in a Cloudflare Durable Object:
 
 - A **random 128-bit player ID** (not derived from you or your hardware)
 - Your **display name** and chosen title
-- Your **coarse centroid** (~11 km) and when it last moved
+- Your **coarse centroid** (~50 mile grid) and when it last moved
 - Your Survey Posts as **opaque tokens**, plus level, name, and timing fields
 - Your multiplayer **item inventory, raid records, scout results, defence state, notifications**
 - A **shared secret** used to verify your server's requests
@@ -165,7 +165,7 @@ delete, or object to processing of your data. **Exercise any of them by contacti
 on [Discord](https://discord.gg/EHXemsA2SS).** Requests are handled personally, usually quickly —
 this is a hobby project run by one person, so please be patient and be aware there is no 24/7 desk.
 
-Because the service holds so little (a random ID, a name you invented, and an ~11 km centroid),
+Because the service holds so little (a random ID, a name you invented, and a ~50 mile-grid centroid),
 most requests can be satisfied by simply deleting your registration.
 
 ## 8. Age requirement

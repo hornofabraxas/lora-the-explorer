@@ -100,8 +100,8 @@ base camp coordinates, every survey's latitude and longitude, and every hex you'
 - **Don't expose the dashboard to the open internet** without authentication, and treat backup
   files as sensitive — a backup is your full location history.
 - **Single-player sends nothing anywhere.** No telemetry, no analytics, no phone-home.
-- **Multiplayer is opt-in** and sends only a ~11 km-rounded centroid plus opaque post tokens —
-  never your precise GPS, survey history, or real hex IDs.
+- **Multiplayer is opt-in** and sends only a coarse centroid snapped to a ~50 mile grid plus opaque
+  post tokens — never your precise GPS, survey history, or real hex IDs.
 - **The optional update check is opt-in and off by default** — a plain request to GitHub's public
   release list, no player data attached, never automatic unless you turn it on in Settings.
 - **The hosted multiplayer service is 18+.**
