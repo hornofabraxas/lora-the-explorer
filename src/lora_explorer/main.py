@@ -30,6 +30,21 @@ WEB_PORT = int(os.getenv("WEB_PORT", "1492"))
 WEB_HOST = os.getenv("HOST", "0.0.0.0")
 
 
+def browser_host(bind_host: str) -> str:
+    """Map a *bind* address to a host a browser can actually connect to.
+
+    ``0.0.0.0`` and ``::`` are wildcard bind addresses — they mean "listen on
+    every interface", not a reachable destination. On Linux/macOS a browser
+    typing ``0.0.0.0`` usually still resolves to loopback, but on Windows it
+    does not connect at all, so a fresh Windows install shows "can't reach this
+    page" at ``0.0.0.0:1492`` even though the server is bound and listening
+    (Taskwarrior task 10). Advertise loopback instead; the actual bind is
+    unchanged, so LAN/VPN access via the machine's real IP still works."""
+    if bind_host in ("0.0.0.0", "::", ""):
+        return "127.0.0.1"
+    return bind_host
+
+
 def get_env_config() -> dict:
     return {
         "connection_type": os.getenv("CONNECTION_TYPE", "wifi"),
@@ -150,7 +165,7 @@ async def run(on_ready=None) -> None:
 
     await engine.start()
     await multiplayer_manager.start()
-    log.info("LoRa the Explorer is running. Dashboard at http://%s:%d", WEB_HOST, WEB_PORT)
+    log.info("LoRa the Explorer is running. Dashboard at http://%s:%d", browser_host(WEB_HOST), WEB_PORT)
 
     web_task = asyncio.create_task(server.serve())
     web_task.add_done_callback(lambda _: stop_event.set())

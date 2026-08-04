@@ -80,7 +80,10 @@ class TrayApp:
         self._icon = None
 
     def _dashboard_url(self) -> str:
-        return f"http://{lora_main.WEB_HOST}:{lora_main.WEB_PORT}"
+        # WEB_HOST is the *bind* address (0.0.0.0 by default, so LAN/VPN devices
+        # can reach it) — but a browser can't connect to 0.0.0.0 on Windows, so
+        # open loopback instead (see main.browser_host / Taskwarrior task 10).
+        return f"http://{lora_main.browser_host(lora_main.WEB_HOST)}:{lora_main.WEB_PORT}"
 
     def _open_dashboard(self, icon=None, item=None) -> None:
         webbrowser.open(self._dashboard_url())
