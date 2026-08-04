@@ -1177,6 +1177,31 @@ async def test_passive_provisions_multiple_posts_sum(adapter, engine, db):
     assert len(result["posts"]) == 2
 
 
+# ── First Contact celebration flag ──
+
+@pytest.mark.asyncio
+async def test_first_survey_sets_first_contact_popup_flag(adapter, engine, db):
+    """The very first survey (which awards the First Contact postcard) arms the
+    one-time dashboard popup flag."""
+    assert await db.get_setting("pending_first_contact_popup") is None
+    await adapter.simulate_message("/lora survey")
+    await adapter.await_survey()
+    assert await db.get_setting("pending_first_contact_popup") == "1"
+
+
+@pytest.mark.asyncio
+async def test_later_surveys_do_not_rearm_first_contact_popup(adapter, engine, db):
+    """Once First Contact is earned, a later survey in a new hex must not
+    re-arm the popup (the dashboard clears it to '0' after showing it once)."""
+    await adapter.simulate_message("/lora survey")
+    await adapter.await_survey()
+    await db.set_setting("pending_first_contact_popup", "0")  # dashboard consumed it
+    adapter.mock_position = (40.2, -105.0)  # a different hex, still far from home
+    await adapter.simulate_message("/lora survey")
+    await adapter.await_survey()
+    assert await db.get_setting("pending_first_contact_popup") == "0"
+
+
 # ── Rank notification in survey ──
 
 @pytest.mark.asyncio

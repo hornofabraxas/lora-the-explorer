@@ -499,4 +499,23 @@
 </div>
 
 {% endif %}
+
+{% if show_first_contact %}
+{# One-time celebration when the player logs their very first survey. The flag #}
+{# is set server-side on the First Contact award and cleared on this render.   #}
+<script>
+    window.addEventListener('load', function () {
+        if (typeof loraAlert !== 'function') return;
+        loraAlert(null, {
+            title: '📡 First Contact Established',
+            okText: 'Onward, Explorer',
+            html:
+                '<p style="margin:0 0 0.75rem;">Welcome to the World\'s End Society. Your first survey is logged — the frontier just got a little smaller. 🎉</p>' +
+                '<p style="margin:0 0 0.75rem;"><strong>🪂 Supply Drops.</strong> Your reports don\'t stay on your spyglass. About once an hour the Society bundles up everything you\'ve logged and radios it back to headquarters — that bundle is a <strong>Supply Drop</strong>.</p>' +
+                '<p style="margin:0 0 0.75rem;">As your expedition grows, those drops start carrying rewards <em>back</em> to you: contract payouts and, once you join the war ledger, munitions for PvP. Rewards ride the <strong>next</strong> drop — not the instant you earn them — so keep surveying and watch the skies.</p>' +
+                '<p style="margin:0;">Track queued surveys and incoming crates on the <strong>Outposts</strong> page.</p>'
+        });
+    });
+</script>
+{% endif %}
 {% endblock %}

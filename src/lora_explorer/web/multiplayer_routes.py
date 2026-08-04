@@ -125,6 +125,8 @@ async def multiplayer_page(request: Request):
             "player_id": None,
             "leaderboard": [],
             "charter_license": False,
+            "pvp_ready": False,
+            "pvp_ready_reason": "Multiplayer is not configured on this server.",
         })
 
     leaderboard = []
@@ -245,6 +247,11 @@ async def multiplayer_page(request: Request):
         and player["rank_level"] >= CHARTER_MIN_LEVEL
         and player["base_camp_level"] >= CHARTER_MIN_CAMP
     )
+    # Registration is gated on full PvP readiness (Charter License + >=1 post),
+    # so the join form shows only when the player could actually enable PvP.
+    readiness = await manager.pvp_readiness()
+    pvp_ready = readiness["ready"]
+    pvp_ready_reason = readiness["reason"]
     if player:
         now = int(time.time())
         posts = await db.get_all_posts(player["key"])
@@ -263,6 +270,8 @@ async def multiplayer_page(request: Request):
         "enabled": True,
         "registered": manager.registered,
         "charter_license": charter_license,
+        "pvp_ready": pvp_ready,
+        "pvp_ready_reason": pvp_ready_reason,
         "player_id": manager.player_id,
         "pvp_enabled": manager.pvp_enabled,
         "leaderboard": leaderboard,
@@ -327,18 +336,13 @@ async def multiplayer_register(request: Request):
     if manager.registered:
         return _flash_redirect("/multiplayer", "Already registered", "error")
 
-    db = request.app.state.db
-    player = await db.get_first_player()
-    if not (
-        player
-        and player["rank_level"] >= CHARTER_MIN_LEVEL
-        and player["base_camp_level"] >= CHARTER_MIN_CAMP
-    ):
-        return _flash_redirect(
-            "/multiplayer",
-            "Obtain your Charter License first — see Society Commission on the Briefing page",
-            "error",
-        )
+    # Gate registration on the *same* readiness as enabling PvP (Charter
+    # License AND at least one Survey Post). Otherwise a player could register
+    # a name and start accruing PvP items while still unable to actually enable
+    # PvP — joining the war ledger as a target-less freeloader.
+    readiness = await manager.pvp_readiness()
+    if not readiness["ready"]:
+        return _flash_redirect("/multiplayer", readiness["reason"], "error")
 
     form = await request.form()
     display_name = str(form.get("display_name", "")).strip()

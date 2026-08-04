@@ -236,6 +236,8 @@ async def dashboard(request: Request):
     return templates.TemplateResponse(request, "dashboard.html", {
         **COMMON,
         "nav_active": "dashboard",
+        # Preview the one-time First Contact popup with ?first_contact=1
+        "show_first_contact": request.query_params.get("first_contact") == "1",
         "player": MOCK_PLAYER,
         "rank_name": "Trailblazer",
         "next_rank": {"level": 4},
@@ -591,11 +593,24 @@ async def stats(request: Request):
 async def multiplayer_page(request: Request):
     import time
     now = int(time.time())
+    # Preview the join-gate states: ?registered=0 shows the register screen;
+    # add &charter=1 to preview the "charter a post" step, else the earlier
+    # "earn your Charter License" step. Defaults to the registered warfront.
+    qp = request.query_params
+    registered = qp.get("registered") != "0"
+    has_charter = qp.get("charter") == "1"
     return templates.TemplateResponse(request, "multiplayer.html", {
         **COMMON,
         "nav_active": "multiplayer",
         "enabled": True,
-        "registered": True,
+        "registered": registered,
+        "pvp_ready": False,
+        "pvp_ready_reason": (
+            "Charter at least one Survey Post before enabling PvP"
+            if has_charter else
+            "Earn your Charter License first (reach the Charter checkpoint)"
+        ),
+        "charter_license": has_charter,
         "player_id": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
         "pvp_enabled": True,
         "attack_window_active": True,

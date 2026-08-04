@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
     <link rel="manifest" href="/static/manifest.json">
-    <link rel="stylesheet" href="/static/style.css?v=112">
+    <link rel="stylesheet" href="/static/style.css?v=113">
     <script defer src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script>
     // Thematic display names for multiplayer munitions. Mirror of
@@ -178,7 +178,10 @@
             lastFocus = document.activeElement;
             titleEl.textContent = opts.title || '';
             titleEl.style.display = opts.title ? '' : 'none';
-            bodyEl.textContent = opts.body || '';
+            // opts.html is trusted, template-authored markup (never user input);
+            // opts.body is plain text and the safe default everywhere else.
+            if (opts.html !== undefined) bodyEl.innerHTML = opts.html;
+            else bodyEl.textContent = opts.body || '';
             actions.innerHTML = '';
             return new Promise(function(resolve) {
                 resolver = resolve;
@@ -199,7 +202,7 @@
         }
         window.loraAlert = function(message, opts) {
             opts = opts || {};
-            return open({ title: opts.title || 'Notice', body: message,
+            return open({ title: opts.title || 'Notice', body: message, html: opts.html,
                 buttons: [{ label: opts.okText || 'OK', cls: 'game-btn-primary', value: true }] });
         };
         window.loraConfirm = function(message, opts) {

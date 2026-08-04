@@ -1590,6 +1590,9 @@ class GameEngine:
                 "First Contact", distance, None,
             )
             awarded.append(card)
+            # One-time flag: the dashboard shows a First Contact celebration
+            # popup (explaining Supply Drops) on the next load, then clears it.
+            await self._db.set_setting("pending_first_contact_popup", "1")
 
         if "Long Range" not in ft_descs and distance >= 1.0:
             card = await self._db.award_postcard(

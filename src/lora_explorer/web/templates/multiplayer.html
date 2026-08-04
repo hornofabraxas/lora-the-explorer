@@ -6,8 +6,15 @@
 <article>
     <header><h2>Join the Network</h2></header>
     <p>Register to compete on the global leaderboard, scout rival outposts, and wage PvP warfare.</p>
+    {% if not pvp_ready %}
+    {# Registration is gated on full PvP readiness so a player can't join the #}
+    {# war ledger and accrue PvP items before they're able to enable PvP.     #}
+    <p class="doc-hint">🔒 {{ pvp_ready_reason }}.</p>
     {% if not charter_license %}
-    <p class="doc-hint">Locked until you earn your Charter License — see Society Commission on the Briefing page.</p>
+    <p class="doc-hint">Earn your Charter License via the Society Commission on the Briefing page, then charter a Survey Post out in the field.</p>
+    {% else %}
+    <p class="doc-hint">Charter a Survey Post (≥3&nbsp;mi from home) from the Radio page — once you hold one, you can join the war ledger.</p>
+    {% endif %}
     {% else %}
     <form method="post" action="/api/multiplayer/register">
         <label for="display_name">Explorer Name</label>

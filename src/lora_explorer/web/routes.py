@@ -689,8 +689,16 @@ async def dashboard(request: Request):
     commission_done = sum(1 for s in commission_steps if s["done"])
     commission_total = len(commission_steps)
 
+    # One-time First Contact celebration: the survey engine sets this flag when
+    # it awards the First Contact postcard. Show the popup on the next dashboard
+    # load, then clear it so it only ever fires once.
+    show_first_contact = await db.get_setting("pending_first_contact_popup") == "1"
+    if show_first_contact:
+        await db.set_setting("pending_first_contact_popup", "0")
+
     return await _template(request, "dashboard.html", {
         "player": player,
+        "show_first_contact": show_first_contact,
         "dispatch": dispatch,
         "dispatch_msg": dispatch_msg,
         "rank_name": rank_name(player["rank_level"]),

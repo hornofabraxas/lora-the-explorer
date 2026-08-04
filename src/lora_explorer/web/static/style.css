@@ -1969,7 +1969,10 @@ a.item-main { text-decoration: none; }
 .floating-tip {
     position: absolute;
     z-index: 1000;
-    max-width: 240px;
+    /* Hug the content (so multi-line ladders don't wrap mid-rung) up to a cap
+       that still lets long prose tips wrap instead of running off-screen. */
+    width: max-content;
+    max-width: 340px;
     padding: 0.5rem 0.65rem;
     font-size: 0.72rem;
     line-height: 1.4;
