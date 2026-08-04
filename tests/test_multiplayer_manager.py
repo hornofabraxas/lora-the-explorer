@@ -84,6 +84,33 @@ async def test_enable_pvp_blocked_when_not_ready(manager, db):
     assert manager.pvp_enabled is False
 
 
+@pytest.mark.asyncio
+async def test_enable_pvp_syncs_outposts(manager, db):
+    # On enable, outposts must be pushed to the Worker automatically so the
+    # player doesn't have to run Force Sync from the Frontlines afterward.
+    await _charter_ready_player(db)
+    await db.create_post("k", "8a2a1072b59ffff", "Test Post")
+    manager.force_sync = AsyncMock(return_value={"ok": True})
+    result = await manager.enable_pvp()
+    assert result["ok"] is True
+    assert result["synced"] is True
+    assert manager.pvp_enabled is True
+    manager.force_sync.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_enable_pvp_survives_sync_failure(manager, db):
+    # A transient sync failure must not fail the toggle — PvP is already on
+    # locally and the background push loop will catch the outposts up.
+    await _charter_ready_player(db)
+    await db.create_post("k", "8a2a1072b59ffff", "Test Post")
+    manager.force_sync = AsyncMock(side_effect=RuntimeError("worker down"))
+    result = await manager.enable_pvp()
+    assert result["ok"] is True
+    assert result["synced"] is False
+    assert manager.pvp_enabled is True
+
+
 async def _funded_player(db, key="k", provisions=500, marks=100):
     await db.get_or_create_player(key, 40.0, -105.0)
     await db._execute(

@@ -166,7 +166,19 @@ class MultiplayerManager:
         await self._save_setting("pvp_enabled", "1")
         log.info("PvP enabled for player %s", self.player_id)
         self._engine._publish_event("multiplayer_pvp_enabled", {})
-        return {"ok": True}
+
+        # Push the player's outposts to the Worker right away so they're
+        # raidable/defendable the moment PvP turns on — no "now go run Force
+        # Sync from the Frontlines" step. Best-effort: PvP is already enabled
+        # locally, so a transient sync hiccup must not fail the toggle (the
+        # background push loop will catch up).
+        synced = False
+        try:
+            result = await self.force_sync()
+            synced = result is not None and result.get("ok", False)
+        except Exception:
+            log.exception("Post-enable outpost sync failed")
+        return {"ok": True, "synced": synced}
 
     async def force_sync(self) -> dict | None:
         if not self.registered:

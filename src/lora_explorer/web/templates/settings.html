@@ -498,7 +498,9 @@
             const data = await res.json();
             if (data.ok) {
                 result.className = 'save-result success';
-                result.textContent = 'PvP enabled! Reload to see updated status.';
+                result.textContent = data.synced
+                    ? 'PvP enabled and your outposts are synced to the Warfront! Reload to see updated status.'
+                    : 'PvP enabled! Your outposts will sync to the Warfront shortly. Reload to see updated status.';
                 btn.style.display = 'none';
             } else {
                 result.className = 'save-result error';
