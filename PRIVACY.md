@@ -108,6 +108,20 @@ policy governs what GitHub does with that request. See `src/lora_explorer/update
 This is unrelated to, and does not require, multiplayer registration — it works (or stays off) the
 same way whether or not you've ever registered for the war ledger.
 
+### Bug reports (not an outbound path — you send them yourself)
+
+Help → **Report a Problem** assembles a short, non-sensitive diagnostic snapshot alongside whatever
+you type. **The app never transmits it** — that is why it is not counted among the outbound paths
+above. You press **Copy report** (to paste wherever you like, e.g. our Discord) or **Open GitHub
+issue** (which opens a pre-filled issue in *your* browser, under *your* account). Nothing is sent
+until you choose to send it, and you can see the whole payload first.
+
+The diagnostic snapshot contains only: app version, install method, OS and architecture, Python
+version, connection *type* (wifi/usb/ble — never the host/address), whether the companion is
+connected, and whether multiplayer is registered/enabled. It **never** includes your location,
+home coordinates, H3 hex IDs, node or radio keys, display name, logs, or webhook URLs. An optional
+contact field is yours to fill in (or leave blank) if you want a reply.
+
 ---
 
 ## 4. What the multiplayer service stores (maintainer is the controller)

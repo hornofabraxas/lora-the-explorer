@@ -6,6 +6,7 @@ COPY src/ src/
 
 RUN pip install --no-cache-dir .
 
+ENV LORA_INSTALL_METHOD=docker
 ENV CONNECTION_TYPE=wifi
 ENV COMPANION_HOST=
 ENV COMPANION_PORT=4000

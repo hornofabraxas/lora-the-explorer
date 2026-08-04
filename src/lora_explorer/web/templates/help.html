@@ -87,5 +87,89 @@
     <h3 class="doc-section-title">🖼️ Postcards</h3>
     <p>Postcards are achievements earned by reaching milestones — distance surveyed, territories discovered, streaks maintained, posts held, and area covered. Each postcard class has 5 stars with increasing thresholds. Collect them all to prove your mastery of the world's edge.</p>
 </section>
+
+<section class="doc-section" id="report-a-problem">
+    <h3 class="doc-section-title">🐞 Report a Problem</h3>
+    <p>Found a bug or have feedback? Describe what happened below, then either copy
+       the report or open a pre-filled GitHub issue. A small, non-sensitive
+       diagnostic snapshot (shown below) is attached so we can reproduce it.</p>
+    <p class="doc-hint">🔒 This form <strong>never sends anything on its own</strong> — you choose where it
+       goes. The snapshot contains no location, node keys, names, or logs.</p>
+
+    <label for="br-desc">What happened?</label>
+    <textarea id="br-desc" rows="4" placeholder="What you expected, what actually happened, and how to reproduce it."></textarea>
+
+    <label for="br-contact">Contact handle <small>(optional — e.g. your Discord name, if you'd like a reply)</small></label>
+    <input type="text" id="br-contact" maxlength="64" placeholder="Leave blank to stay anonymous">
+
+    <details style="margin: 0.75rem 0;">
+        <summary style="cursor: pointer;">Diagnostics that will be attached</summary>
+        <pre id="br-diag" style="white-space: pre-wrap; margin-top: 0.5rem;">—</pre>
+    </details>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        <button type="button" id="br-copy" class="game-btn game-btn-primary">📋 Copy report</button>
+        <button type="button" id="br-github" class="game-btn game-btn-secondary">🐙 Open GitHub issue</button>
+    </div>
+    <p class="doc-hint" style="margin-top: 0.75rem;">
+        Prefer chat? Copy the report and paste it into our
+        <a href="{{ discord_url }}" target="_blank" rel="noopener">Discord</a> <code>#bug-reports</code> channel.
+    </p>
+
+    <script>
+    (function () {
+        var diag = {{ diagnostics | tojson }};
+        var ISSUE_URL = {{ issue_url | tojson }};
+        function diagLines() {
+            return [
+                'Version: ' + diag.version,
+                'Install: ' + diag.install,
+                'OS: ' + diag.os,
+                'Python: ' + diag.python,
+                'Connection: ' + diag.connection_type,
+                'Companion connected: ' + (diag.companion_connected ? 'yes' : 'no'),
+                'Multiplayer: registered=' + (diag.multiplayer_registered ? 'yes' : 'no') +
+                    ', pvp=' + (diag.pvp_enabled ? 'yes' : 'no')
+            ];
+        }
+        var pre = document.getElementById('br-diag');
+        if (pre) pre.textContent = diagLines().join('\n');
+
+        function buildReport() {
+            var desc = (document.getElementById('br-desc') || {}).value || '';
+            var contact = (document.getElementById('br-contact') || {}).value || '';
+            var body = '**What happened?**\n' + (desc.trim() || '_(describe the problem here)_') + '\n\n';
+            if (contact.trim()) body += '**Contact:** ' + contact.trim() + '\n\n';
+            body += '---\n_Diagnostics (auto-collected, no personal data):_\n' +
+                diagLines().map(function (l) { return '- ' + l; }).join('\n') + '\n';
+            return body;
+        }
+        function fallbackCopy(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.focus(); ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+        }
+        var copyBtn = document.getElementById('br-copy');
+        if (copyBtn) copyBtn.addEventListener('click', function () {
+            var text = buildReport();
+            function done() {
+                if (window.loraTip) loraTip('Report copied. Paste it into our Discord #bug-reports channel, or a GitHub issue.');
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+            } else { fallbackCopy(text); done(); }
+        });
+        var ghBtn = document.getElementById('br-github');
+        if (ghBtn) ghBtn.addEventListener('click', function () {
+            var desc = (document.getElementById('br-desc') || {}).value || '';
+            var title = 'Bug report' + (desc.trim() ? ': ' + desc.trim().split('\n')[0].slice(0, 60) : '');
+            var url = ISSUE_URL + '?title=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(buildReport());
+            window.open(url, '_blank', 'noopener');
+        });
+    })();
+    </script>
+</section>
 </div>
 {% endblock %}

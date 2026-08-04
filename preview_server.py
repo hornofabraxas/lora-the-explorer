@@ -769,6 +769,14 @@ async def multiplayer_restore_hp():
 async def help_page(request: Request):
     return templates.TemplateResponse(request, "help.html", {
         **COMMON, "nav_active": "help",
+        "diagnostics": {
+            "version": "0.9.3", "install": "docker",
+            "os": "Linux 6.6.0 (x86_64)", "python": "3.12.4",
+            "connection_type": "wifi", "companion_connected": True,
+            "multiplayer_registered": False, "pvp_enabled": False,
+        },
+        "issue_url": "https://github.com/hornofabraxas/lora-the-explorer/issues/new",
+        "discord_url": "https://discord.gg/EHXemsA2SS",
     })
 
 

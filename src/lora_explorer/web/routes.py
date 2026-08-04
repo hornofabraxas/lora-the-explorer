@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+import platform
 import time
 from datetime import datetime, timezone, timedelta
 
@@ -43,6 +44,7 @@ from ..game.engine import (
     multiplayer_item_name,
 )
 from ..game.hex_names import hex_name
+from ..paths import install_method
 from ..multiplayer.manager import BUNDLE_INTERVAL
 from ..radio.meshcore_adapter import TELEMETRY_TIMEOUT_FLOOD
 
@@ -1913,9 +1915,29 @@ async def scan_ble(request: Request):
 @router.get("/help", response_class=HTMLResponse)
 async def help_page(request: Request):
     db = request.app.state.db
+    config = request.app.state.config
+    radio = request.app.state.radio
+    mp_manager = getattr(request.app.state, "multiplayer_manager", None)
     player = await db.get_first_player()
     key = player["key"] if player else None
     discovered_relics = await db.get_discovered_relic_types(key) if key else set()
+
+    # Bug-report diagnostics: a deliberately minimal, non-sensitive snapshot the
+    # player can copy into a GitHub issue or Discord. Everything here is either
+    # environmental (version/OS) or a coarse boolean/type — NEVER coordinates,
+    # pubkeys, node/display names, hosts, or logs. The app itself sends nothing;
+    # the player is the transport. Keep this list conservative.
+    companion = await radio.get_companion_status() if radio else {}
+    diagnostics = {
+        "version": __version__,
+        "install": install_method(),
+        "os": f"{platform.system()} {platform.release()} ({platform.machine()})",
+        "python": platform.python_version(),
+        "connection_type": config.get("connection_type", "unknown"),
+        "companion_connected": bool(companion.get("connected")),
+        "multiplayer_registered": bool(mp_manager and mp_manager.registered),
+        "pvp_enabled": bool(mp_manager and getattr(mp_manager, "pvp_enabled", False)),
+    }
 
     return await _template(request, "help.html", {
         "player": player,
@@ -1924,6 +1946,9 @@ async def help_page(request: Request):
         "charter_min_dist": CHARTER_MIN_DISTANCE_MILES,
         "buried_cache_amount": BURIED_CACHE_AMOUNT,
         "discovered_relics": discovered_relics,
+        "diagnostics": diagnostics,
+        "issue_url": "https://github.com/hornofabraxas/lora-the-explorer/issues/new",
+        "discord_url": "https://discord.gg/EHXemsA2SS",
         "nav_active": "help",
     })
 

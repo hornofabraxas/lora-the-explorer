@@ -2,6 +2,22 @@ import os
 import sys
 
 
+def install_method() -> str:
+    """Best-effort label for how this instance was installed — surfaced in the
+    bug-report diagnostics so triage knows the runtime without asking. The
+    Docker image sets LORA_INSTALL_METHOD explicitly; otherwise we sniff a
+    PyInstaller freeze (Windows installer) or the Docker runtime marker, and
+    fall back to a plain source/pip run. Carries no personal data."""
+    explicit = os.environ.get("LORA_INSTALL_METHOD")
+    if explicit:
+        return explicit
+    if getattr(sys, "frozen", False):
+        return "windows-installer"
+    if os.path.exists("/.dockerenv"):
+        return "docker"
+    return "source/pip"
+
+
 def default_db_path() -> str:
     """Where the SQLite database lives when DB_PATH is not set.
 

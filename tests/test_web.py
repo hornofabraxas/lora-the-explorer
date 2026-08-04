@@ -797,6 +797,31 @@ async def test_help_page(app):
 
 
 @pytest.mark.asyncio
+async def test_help_page_has_bug_report_section(app):
+    status, body = await _get(app, "/help")
+    assert status == 200
+    assert "Report a Problem" in body
+    # Pre-filled GitHub issue target + the client-side diagnostics payload.
+    assert "issues/new" in body
+    assert '"install"' in body and '"version"' in body
+    # Guardrail: the diagnostics snapshot must not leak sensitive fields.
+    for leaked in ('"home_lat"', '"home_lon"', '"public_key"', '"pubkey"'):
+        assert leaked not in body
+
+
+def test_install_method_env_override(monkeypatch):
+    from lora_explorer.paths import install_method
+    monkeypatch.setenv("LORA_INSTALL_METHOD", "docker")
+    assert install_method() == "docker"
+
+
+def test_install_method_returns_known_label(monkeypatch):
+    from lora_explorer.paths import install_method
+    monkeypatch.delenv("LORA_INSTALL_METHOD", raising=False)
+    assert install_method() in ("source/pip", "docker", "windows-installer")
+
+
+@pytest.mark.asyncio
 async def test_integration_lifecycle(app, engine, adapter, db):
     """Full lifecycle: survey → view dashboard → upgrade camp → verify."""
     status, body = await _get(app, "/")
