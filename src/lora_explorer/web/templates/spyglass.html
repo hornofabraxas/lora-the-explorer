@@ -600,12 +600,11 @@ var refreshMap;
     }
 
     function itemLabel(t) {
-        if (t === 'probe') return 'Scout';
-        var parts = t.split('_');
-        if (parts.length < 2) return t.charAt(0).toUpperCase() + t.slice(1);
-        var kind = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-        var rarity = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
-        return kind + ' (' + rarity + ')';
+        // Use the shared thematic namer (base.html / engine.multiplayer_item_name)
+        // so the Supply Drop feed reads "Blasting Powder I", not the raw
+        // "attack_common" / generic "Attack (Common)".
+        if (window.mpItemName) return window.mpItemName(t).full;
+        return t;
     }
 
     // Relic drops arrive as raw type slugs (e.g. "vigor_tonic"); give them the

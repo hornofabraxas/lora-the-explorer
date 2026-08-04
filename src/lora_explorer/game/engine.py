@@ -400,7 +400,7 @@ async def generate_analysts_report(
     combat and supply events the player may have missed. Its shape:
         {"incoming": [{"post": str, "eta_min": int, "threat": str}, ...],
          "outgoing": {"target": str, "eta_min": int} | None,
-         "supply":   str | None}   # item summary, e.g. "2× Attack (Common)"
+         "supply":   str | None}   # item summary, e.g. "2× Blasting Powder I"
 
     Returns empty string if nothing actionable to report.
     """

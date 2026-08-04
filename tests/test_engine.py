@@ -1520,14 +1520,14 @@ async def test_analysts_report_outgoing_raid_and_supply_drop(db, engine):
     mp = {
         "incoming": [],
         "outgoing": {"target": "Rivalton", "eta_min": 34},
-        "supply": "2× Attack (Common), 1× Scout",
+        "supply": "2× Blasting Powder I, 1× Scout",
     }
     report = await generate_analysts_report(
         db, player, posts=[], contracts=[], ft_complete=True,
         strongbox_claimed=True, mp=mp,
     )
     assert "raiding party strikes Rivalton in ~34m" in report
-    assert "Latest supply drop brought 2× Attack (Common), 1× Scout" in report
+    assert "Latest supply drop brought 2× Blasting Powder I, 1× Scout" in report
 
 
 @pytest.mark.asyncio

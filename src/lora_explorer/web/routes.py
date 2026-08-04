@@ -69,7 +69,7 @@ def _item_label(item_type: str) -> str:
 
 
 def _supply_run_summary(drops: list[str]) -> str:
-    """'2× Attack (Common), 1× Scout' — the item breakdown for one run."""
+    """'2× Blasting Powder I, 1× Scout' — the item breakdown for one run."""
     if not drops:
         return "no items"
     counts: dict[str, int] = {}
