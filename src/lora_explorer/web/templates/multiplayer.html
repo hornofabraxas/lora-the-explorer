@@ -232,11 +232,12 @@
     {% set rivals = leaderboard | rejectattr('player_id', 'equalto', player_id) | list %}
     {% if rivals %}
 
-    {% if rivals|length > 3 %}
+    {% if rivals|length > 1 %}
     <div class="mp-warfront-controls" id="warfront-controls">
         <input type="search" id="warfront-search" class="mp-warfront-search" placeholder="🔍 Search explorers…" autocomplete="off">
         <div class="mp-warfront-bands" role="group" aria-label="Filter by scouted distance">
             <button type="button" class="mp-band-chip active" data-band="all">All</button>
+            <button type="button" class="mp-band-chip" data-band="scouted">📍 Scouted</button>
             <button type="button" class="mp-band-chip" data-band="nearby">🟢 ≤100 mi</button>
             <button type="button" class="mp-band-chip" data-band="regional">🟡 ≤500 mi</button>
             <button type="button" class="mp-band-chip" data-band="distant">🔴 500+ mi</button>
@@ -260,6 +261,7 @@
     <div class="mp-player-row" data-player-id="{{ p.player_id }}"
          data-name="{{ p.display_name | lower }}"
          data-band="{{ band }}" data-band-ord="{{ band_ord }}"
+         data-scouted="{{ 1 if dinfo.scouted else 0 }}"
          data-miles="{{ dinfo.miles if dinfo.miles is defined else 999999 }}"
          data-renown="{{ p.total_renown }}" data-posts="{{ p.post_count }}"
          data-rank="{{ loop.index }}">
@@ -900,7 +902,8 @@ function mpTitleInfo(label) {
     function apply() {
         // Filter first so paging counts only matches.
         const matches = rows.filter(r => {
-            const bandOk = band === 'all' || r.dataset.band === band;
+            const bandOk = band === 'all'
+                || (band === 'scouted' ? r.dataset.scouted === '1' : r.dataset.band === band);
             const nameOk = !query || (r.dataset.name || '').indexOf(query) !== -1;
             return bandOk && nameOk;
         });
@@ -960,7 +963,7 @@ function mpTitleInfo(label) {
         // Make sure the scouted row is within the current page before scrolling to it.
         const targetRow = restore.target ? list.querySelector('[data-player-id="' + CSS.escape(restore.target) + '"]') : null;
         if (targetRow) {
-            const idx = rows.filter(r => (band === 'all' || r.dataset.band === band) && (!query || (r.dataset.name || '').indexOf(query) !== -1))
+            const idx = rows.filter(r => (band === 'all' || (band === 'scouted' ? r.dataset.scouted === '1' : r.dataset.band === band)) && (!query || (r.dataset.name || '').indexOf(query) !== -1))
                              .sort(comparator).indexOf(targetRow);
             if (idx >= shown) shown = idx + 1;
         }
