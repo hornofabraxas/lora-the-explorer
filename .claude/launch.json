@@ -5,8 +5,7 @@
       "name": "preview",
       "runtimeExecutable": ".venv/bin/python",
       "runtimeArgs": ["preview_server.py"],
-      "port": 1493,
-      "cwd": "/Users/justin/Claude/lora-the-explorer"
+      "port": 1493
     }
   ]
 }

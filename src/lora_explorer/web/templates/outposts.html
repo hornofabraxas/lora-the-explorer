@@ -28,8 +28,13 @@
             <div class="basecamp-stat-label">XP Multiplier</div>
         </div>
         <div class="basecamp-stat">
+            {% if charter_license %}
             <div class="basecamp-stat-value">{{ posts|length }}/{{ post_limit }}</div>
             <div class="basecamp-stat-label">Post Slots</div>
+            {% else %}
+            <div class="basecamp-stat-value" data-tip="Earn your Charter License (Society Commission on the Briefing page) to charter Survey Posts.">🔒</div>
+            <div class="basecamp-stat-label">Post Slots</div>
+            {% endif %}
         </div>
         <div class="basecamp-stat">
             <div class="basecamp-stat-value">{{ total_prov_per_day }} 📦</div>

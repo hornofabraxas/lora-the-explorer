@@ -644,12 +644,27 @@ async def dashboard(request: Request):
             "done": ft_complete,
             "requirement": f"Complete {ft_total} training objectives ({ft_count}/{ft_total})",
             "unlocks": "Society Strongbox",
+            "tip": "Guided objectives that walk you through the core survey loop. "
+                   "Finish them all to crack open the Society Strongbox — a one-time "
+                   "starter cache of provisions and marks.",
         },
         {
             "name": "Scout Rank",
             "done": rl >= CONTRACTS_MIN_LEVEL,
             "requirement": f"Reach {rank_name(CONTRACTS_MIN_LEVEL)} (rank {CONTRACTS_MIN_LEVEL})",
             "unlocks": "Expedition Contracts",
+            "tip": "Earn XP from surveys to make Scout. Reaching it opens Expedition "
+                   "Contracts — rotating objectives on the Briefing page that pay bonus "
+                   "provisions and marks.",
+        },
+        {
+            "name": "Unlock Frontier Merchant",
+            "done": cl >= MERCHANT_MIN_CAMP_LEVEL,
+            "requirement": f"Upgrade to {camp_name(MERCHANT_MIN_CAMP_LEVEL)} (camp {MERCHANT_MIN_CAMP_LEVEL})",
+            "unlocks": "Frontier Merchant · weekly relic shop",
+            "tip": "Spend provisions and field notes to grow Base Camp. At "
+                   f"{camp_name(MERCHANT_MIN_CAMP_LEVEL)} the Frontier Merchant opens — "
+                   "a weekly shop where you trade marks for relics.",
         },
         {
             "name": "Obtain Charter License",
@@ -657,12 +672,9 @@ async def dashboard(request: Request):
             "requirement": f"Reach rank {CHARTER_MIN_LEVEL} + {camp_name(CHARTER_MIN_CAMP)} (camp {CHARTER_MIN_CAMP})",
             "unlocks": "Charter Survey Posts · +3 🪙 first-charter bonus · "
                        "PvP Combat unlocks (enable in Settings) after your first post",
-        },
-        {
-            "name": "Unlock Frontier Merchant",
-            "done": cl >= MERCHANT_MIN_CAMP_LEVEL,
-            "requirement": f"Upgrade to {camp_name(MERCHANT_MIN_CAMP_LEVEL)} (camp {MERCHANT_MIN_CAMP_LEVEL})",
-            "unlocks": "Frontier Merchant · weekly relic shop",
+            "tip": "The big one. Reach the required rank and Base Camp level to charter "
+                   "Survey Posts — permanent outposts you plant at real-world sites 3+ mi "
+                   "from home that boost nearby surveys. Also opens optional PvP.",
         },
     ]
     _current_seen = False
@@ -1357,6 +1369,7 @@ async def stats_page(request: Request):
 
     key = player["key"]
     hex_count = await db.count_discovered_hexes(key)
+    survey_count = await db.get_survey_count(key)
     post_count = await db.count_player_posts(key)
     streak = await db.get_survey_streak(key)
     max_distance = await db.get_max_distance(key)
@@ -1390,6 +1403,7 @@ async def stats_page(request: Request):
     return await _template(request, "stats.html", {
         "player": player,
         "hex_count": hex_count,
+        "survey_count": survey_count,
         "post_count": post_count,
         "streak": streak,
         "max_distance": max_distance,

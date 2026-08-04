@@ -1503,7 +1503,9 @@ async def test_dashboard_shows_contracts_at_level_5(app, engine, adapter, db):
     )
     status, body = await _get(app, "/")
     assert status == 200
-    assert "Expedition Contracts" in body
+    # Target the contracts section header, not the bare phrase — the Society
+    # Commission list also mentions "Expedition Contracts" as an unlock.
+    assert "📜 Expedition Contracts" in body
 
 
 @pytest.mark.asyncio
@@ -1513,7 +1515,8 @@ async def test_dashboard_hides_contracts_below_level_5(app, engine, adapter, db)
     await db._execute("UPDATE players SET rank_level = 4 WHERE key = ?", (key,))
     status, body = await _get(app, "/")
     assert status == 200
-    assert "Expedition Contracts" not in body
+    # The contracts section (not the commission unlock text) must stay hidden.
+    assert "📜 Expedition Contracts" not in body
 
 
 @pytest.mark.asyncio

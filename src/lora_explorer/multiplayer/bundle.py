@@ -8,6 +8,16 @@ from ..game.hex_names import hex_name
 
 log = logging.getLogger(__name__)
 
+# Grid step (degrees) the home centroid is snapped to before it leaves this
+# install. ~0.75° ≈ 50mi cells; true home lands within ~26mi of the reported
+# point. Keep this coarse — it is the only geography the Worker ever sees.
+COARSE_CENTROID_STEP_DEG = 0.75
+
+
+def _snap_coarse(value: float) -> float:
+    """Snap a coordinate to the coarse privacy grid (nearest ~0.75°)."""
+    return round(round(value / COARSE_CENTROID_STEP_DEG) * COARSE_CENTROID_STEP_DEG, 3)
+
 
 async def build_bundle(db, since_timestamp: int | None = None, force: bool = False) -> dict | None:
     player = await db.get_first_player()
@@ -68,10 +78,13 @@ async def build_bundle(db, since_timestamp: int | None = None, force: bool = Fal
             "grace_days": grace_days,
         })
 
-    # Coarse centroid (home location rounded to ~0.1°, ~11km) for raid
-    # travel-time distance. Coarser than exact GPS — stays within the privacy
-    # boundary while letting the Worker compute inter-player distance. That
-    # centroid is the ONLY geography in the bundle.
+    # Coarse centroid (home location snapped to a ~0.75° grid, ~50mi cells) for
+    # raid travel-time distance. Deliberately much coarser than exact GPS — a
+    # reported centroid places true home anywhere within ~26mi of it — so it
+    # stays well inside the privacy boundary while still letting the Worker
+    # compute inter-player distance. That centroid is the ONLY geography in the
+    # bundle. (Raid travel time only needs order-of-magnitude distance, so this
+    # coarsening costs nothing gameplay-wise.)
     bundle = {
         "survey_count": survey_count,
         "discoveries": discoveries,
@@ -84,8 +97,8 @@ async def build_bundle(db, since_timestamp: int | None = None, force: bool = Fal
     }
     if player.get("home_lat") is not None and player.get("home_lon") is not None:
         bundle["coarse_centroid"] = {
-            "lat": round(float(player["home_lat"]), 1),
-            "lng": round(float(player["home_lon"]), 1),
+            "lat": _snap_coarse(float(player["home_lat"])),
+            "lng": _snap_coarse(float(player["home_lon"])),
         }
     return bundle
 

@@ -2176,12 +2176,13 @@ dialog > article > header button[rel="prev"]:hover { color: #E8D5A3; }
 }
 .mp-title-picker select:hover { background-color: rgba(212, 160, 23, 0.12); }
 .mp-title-picker option { text-transform: none; }
-.mp-title-info {
+.mp-title-info, .commission-info {
     background: none; border: none; color: var(--pico-muted-color);
     cursor: pointer; padding: 0; margin: 0; width: auto;
     font-size: 0.8rem; line-height: 1; opacity: 0.6;
 }
-.mp-title-info:hover { opacity: 1; }
+.mp-title-info:hover, .commission-info:hover { opacity: 1; }
+.commission-info { margin-left: 0.3rem; vertical-align: middle; }
 .mp-warroom-rank {
     font-family: Georgia, "Times New Roman", serif;
     font-size: 2rem; font-weight: 700; color: #E8D5A3; line-height: 1; flex-shrink: 0;

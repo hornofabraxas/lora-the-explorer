@@ -293,21 +293,28 @@ async def dashboard(request: Request):
         "commission_steps": [
             {"name": "Field Training", "status": "done",
              "requirement": "Complete 6 training objectives (6/6)",
-             "unlocks": "Society Strongbox · 📦100 + Wardstone"},
+             "unlocks": "Society Strongbox · 📦100 + Wardstone",
+             "tip": "Guided objectives that walk you through the core survey loop. "
+                    "Finish them all to crack open the Society Strongbox — a one-time "
+                    "starter cache of provisions and marks."},
             {"name": "Scout Commission", "status": "done",
-             "requirement": "Reach Scout (rank 5)", "unlocks": "Expedition Contracts"},
-            {"name": "Charter License", "status": "current",
-             "requirement": "Reach rank 8 + Field Camp (camp 3)",
-             "unlocks": "Charter Survey Posts · +3 🪙 first-charter bonus"},
+             "requirement": "Reach Scout (rank 5)", "unlocks": "Expedition Contracts",
+             "tip": "Earn XP from surveys to make Scout. Reaching it opens Expedition "
+                    "Contracts — rotating objectives that pay bonus provisions and marks."},
             {"name": "Frontier Merchant", "status": "locked",
              "requirement": "Upgrade to Lodge (camp 5)",
-             "unlocks": "Frontier Merchant · weekly relic shop"},
-            {"name": "PvP Combat", "status": "locked",
-             "requirement": "Hold a Charter License + 1 Survey Post",
-             "unlocks": "Attack & defend Survey Posts"},
+             "unlocks": "Frontier Merchant · weekly relic shop",
+             "tip": "Spend provisions and field notes to grow Base Camp. At Lodge the "
+                    "Frontier Merchant opens — a weekly shop for trading marks for relics."},
+            {"name": "Charter License", "status": "current",
+             "requirement": "Reach rank 8 + Field Camp (camp 3)",
+             "unlocks": "Charter Survey Posts · +3 🪙 first-charter bonus",
+             "tip": "The big one. Reach the required rank and Base Camp level to charter "
+                    "Survey Posts — permanent outposts you plant at real-world sites 3+ mi "
+                    "from home that boost nearby surveys. Also opens optional PvP."},
         ],
         "commission_done": 2,
-        "commission_total": 5,
+        "commission_total": 4,
     })
 
 
@@ -442,6 +449,7 @@ async def outposts(request: Request):
             "relic_mastery": "Relic Mastery",
         },
         "posts": mock_posts,
+        "charter_license": True,
         "charter_prov_cost": 10,
         "charter_mark_cost": 3,
         "wardstone_relic": {"id": 99},
@@ -550,6 +558,7 @@ async def stats(request: Request):
         "nav_active": "achievements",
         "player": MOCK_PLAYER,
         "hex_count": 56,
+        "survey_count": 82,
         "area_sq_mi": 17.1,
         "max_distance": 4.7,
         "streak": 5,

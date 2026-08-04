@@ -64,6 +64,33 @@ async def test_build_bundle_with_surveys():
 
 
 @pytest.mark.asyncio
+async def test_build_bundle_coarse_centroid_is_snapped_for_privacy():
+    # Home leaves this install only as a ~0.75° grid centroid (~50mi cells), so
+    # the Worker never learns anything finer than the cell. Reported lat/lng must
+    # be exact multiples of the grid step and must hide the true sub-cell offset.
+    from lora_explorer.multiplayer.bundle import COARSE_CENTROID_STEP_DEG
+    surveys = [
+        {"hex_id": "hex_a", "is_discovery": 0, "provisions_earned": 10, "xp_earned": 5, "surveyed_at": 1000},
+    ]
+    db = make_mock_db(
+        player={"key": "player1", "home_lat": 33.412, "home_lon": -112.087},
+        surveys=surveys,
+    )
+    result = await build_bundle(db, since_timestamp=0)
+    centroid = result["coarse_centroid"]
+    step = COARSE_CENTROID_STEP_DEG
+    # Snapped to the grid: value / step is a whole number.
+    assert round(centroid["lat"] / step) * step == pytest.approx(centroid["lat"])
+    assert round(centroid["lng"] / step) * step == pytest.approx(centroid["lng"])
+    # Coarser than the exact home — never echoes the true coordinate back.
+    assert centroid["lat"] != 33.412
+    assert centroid["lng"] != -112.087
+    # And within half a cell of the true location (a valid snap, not garbage).
+    assert abs(centroid["lat"] - 33.412) <= step / 2
+    assert abs(centroid["lng"] - (-112.087)) <= step / 2
+
+
+@pytest.mark.asyncio
 async def test_build_bundle_includes_active_title():
     surveys = [
         {"hex_id": "hex_a", "is_discovery": 0, "provisions_earned": 10, "xp_earned": 5, "surveyed_at": 1000},

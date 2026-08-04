@@ -1140,6 +1140,11 @@ var refreshMap;
 
             if (focused) {
                 map.setView([focused.lat, focused.lng], 15);
+            } else if (window._locateHasFix && window._locateLastFix) {
+                // Locate already framed the operator on their live position — the
+                // hex fetch can resolve after the first GPS fix, so don't yank the
+                // map back out to a whole-territory fit. Keep it at street level.
+                map.setView(window._locateLastFix, Math.max(map.getZoom(), 15));
             } else if (hexes.length > 1) {
                 const bounds = hexes.map(h => [h.lat, h.lng]);
                 map.fitBounds(bounds, { padding: [30, 30] });
@@ -1294,6 +1299,7 @@ var refreshMap;
             following = true;
             lastFix = null;
             window._locateHasFix = false;
+            window._locateLastFix = null;
             if (window.updateAutoSurveyStatus) updateAutoSurveyStatus();
             showRecenter(false);
             clearBtnCues();
@@ -1333,6 +1339,7 @@ var refreshMap;
             }
             lastFix = {lat: ll[0], lng: ll[1]};
             window._locateHasFix = true;
+            window._locateLastFix = ll;
             if (window.updateAutoSurveyStatus) updateAutoSurveyStatus();
             if (window.noteMovementForIdle) noteMovementForIdle(ll[0], ll[1]);
             renderHere();

@@ -390,7 +390,9 @@
         <div class="commission-step {{ step.status }}">
             <span class="commission-icon">{% if step.status == 'done' %}✅{% elif step.status == 'current' %}▶{% else %}🔒{% endif %}</span>
             <div class="commission-body">
-                <div class="commission-name">{{ step.name }}</div>
+                <div class="commission-name">{{ step.name }}{% if step.tip %}
+                    <button type="button" class="commission-info" aria-label="About {{ step.name }}"
+                            data-tip="{{ step.tip }}">ⓘ</button>{% endif %}</div>
                 {% if step.status == 'done' %}
                 <div class="commission-sub done">Unlocked: {{ step.unlocks }}</div>
                 {% elif step.status == 'current' %}

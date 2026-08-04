@@ -188,7 +188,7 @@ say so explicitly in the PR — that boundary is the project's most important in
 
 ## License
 
-[MIT](LICENSE) © 2026 Justin Walls. Third-party credits in [NOTICE](NOTICE).
+[MIT](LICENSE) © 2026 hornofabraxas. Third-party credits in [NOTICE](NOTICE).
 
 **LoRa®** is a registered trademark of Semtech Corporation. This project is independent and
 unaffiliated — not endorsed by or associated with Semtech, the LoRa Alliance, or MeshCore. The name
