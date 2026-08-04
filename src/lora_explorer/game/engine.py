@@ -753,6 +753,24 @@ class GameEngine:
         log.info("Cached %d mesh repeaters", len(repeaters))
         return len(repeaters)
 
+    @staticmethod
+    def _match_contact(contacts: dict, key: str) -> dict | None:
+        """Find a companion contact by sender key, tolerating a prefix match.
+
+        Incoming messages carry a pubkey *prefix* (`msg.sender_key`) while the
+        companion's contacts are keyed by full public key, so a direct
+        `contacts.get(key)` usually misses — which is how a node's friendly
+        name ends up falling back to the raw hex prefix. Match either
+        direction so the real `adv_name` is found."""
+        contact = contacts.get(key)
+        if contact is not None:
+            return contact
+        return next(
+            (c for k, c in contacts.items()
+             if k.startswith(key) or key.startswith(k)),
+            None,
+        )
+
     async def reconcile_known_node_names(self) -> int:
         """Refresh stored spyglass display names from the companion's contacts.
 
@@ -768,15 +786,9 @@ class GameEngine:
         updated = 0
         for node in await self._db.get_known_nodes():
             key = node["key"]
-            contact = contacts.get(key)
-            if contact is None:
-                # known_nodes stores the sender-key prefix; contacts are keyed
-                # by full public key. Match either direction.
-                contact = next(
-                    (c for k, c in contacts.items()
-                     if k.startswith(key) or key.startswith(k)),
-                    None,
-                )
+            # known_nodes stores the sender-key prefix; contacts are keyed by
+            # full public key. Match either direction.
+            contact = self._match_contact(contacts, key)
             if not contact:
                 continue
             new_name = contact.get("adv_name")
@@ -837,10 +849,16 @@ class GameEngine:
             del self._recent_messages[k]
 
         contacts = self._adapter.get_contacts()
-        contact = contacts.get(msg.sender_key, {})
-        node_name = contact.get("adv_name", msg.sender_key[:8])
-        if node_name:
-            await self._db.upsert_known_node(msg.sender_key, node_name)
+        contact = self._match_contact(contacts, msg.sender_key)
+        adv_name = contact.get("adv_name") if contact else None
+        if adv_name:
+            # We know the friendly advertised name — store it.
+            await self._db.upsert_known_node(msg.sender_key, adv_name)
+        else:
+            # No contact/name yet: register the node under its key prefix so it
+            # appears in the selectors, but don't clobber a name already
+            # reconciled from the companion's contacts.
+            await self._db.touch_known_node(msg.sender_key, msg.sender_key[:8])
 
         # A charter-naming reply is only valid while a charter is pending.
         if cmd.type == CommandType.CHARTER_NAME and msg.sender_key not in self._pending_charters:

@@ -83,7 +83,7 @@
                 <button type="button" class="pc-tip" data-tip="{{ pc.tooltip }}" aria-label="{{ pc.class }} tier details">ⓘ</button>
             </div>
             <div class="pc-achieved">
-                {% if pc.earned_stars > 0 %}{{ pc.earned_desc }}{% else %}<span class="pc-unearned">Locked — reach: {{ pc.next_desc }}</span>{% endif %}
+                {% if pc.earned_stars > 0 %}{{ pc.earned_desc }}{% else %}<span class="pc-unearned"><span class="pc-lock" aria-label="Locked" title="Locked">🔒</span> {{ pc.next_desc }}</span>{% endif %}
             </div>
             {% if pc.complete %}
             <div class="pc-title-line">

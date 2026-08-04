@@ -191,7 +191,9 @@
                     actions.appendChild(el);
                 });
                 overlay.classList.add('open');
-                var primary = actions.lastElementChild;
+                // Focus the affirmative button by class, not DOM position, so
+                // callers can reorder the buttons without losing sensible focus.
+                var primary = actions.querySelector('.game-btn-primary, .game-btn-danger') || actions.lastElementChild;
                 if (primary) primary.focus();
             });
         }
@@ -202,10 +204,14 @@
         };
         window.loraConfirm = function(message, opts) {
             opts = opts || {};
-            return open({ title: opts.title || 'Confirm', body: message, buttons: [
+            var buttons = [
                 { label: opts.cancelText || 'Cancel', cls: 'game-btn-secondary', value: false },
                 { label: opts.confirmText || 'Confirm', cls: opts.danger ? 'game-btn-danger' : 'game-btn-primary', value: true }
-            ] });
+            ];
+            // reverseButtons puts the affirmative action first (left); focus
+            // still lands on it via the class-based lookup in open().
+            if (opts.reverseButtons) buttons.reverse();
+            return open({ title: opts.title || 'Confirm', body: message, buttons: buttons });
         };
         window.loraTip = function(message) {
             return open({ title: '', body: message,

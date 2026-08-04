@@ -338,7 +338,7 @@
             </table>
             {% endif %}
             <button class="game-btn game-btn-secondary game-btn-sm scout-btn" data-target="{{ p.player_id }}" style="margin-top: 0.5rem;">
-                {% if scouted %}🔭 Re-scout (refresh snapshot){% else %}🔭 Scout (reveal levels &amp; ages){% endif %}
+                {% if scouted %}🔭 Scout (Refresh){% else %}🔭 Scout (reveal levels &amp; ages){% endif %}
             </button>
             {% else %}
             <p class="mp-muted" style="font-size: 0.85em;">No Survey Posts.</p>
@@ -456,7 +456,7 @@ document.querySelectorAll('.scout-btn').forEach(btn => {
             await loraAlert('No Scouts available. Earn more by surveying!');
             return;
         }
-        if (!await loraConfirm('Use a Scout to reveal this player\'s posts?', { confirmText: 'Scout' })) return;
+        if (!await loraConfirm('Use a Scout to reveal this player\'s posts?', { confirmText: 'Scout', reverseButtons: true })) return;
         this.disabled = true;
         this.textContent = '⏳';
         const res = await fetch('/api/multiplayer/scout', {

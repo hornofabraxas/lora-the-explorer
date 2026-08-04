@@ -1161,6 +1161,21 @@ class Database:
             (key, name, now, name, now),
         )
 
+    async def touch_known_node(self, key: str, fallback_name: str) -> None:
+        """Record that we heard from a node, updating last_seen only.
+
+        Inserts with `fallback_name` (the raw key prefix) if the node is new,
+        but on conflict updates *only* last_seen — preserving any friendly
+        name already reconciled from the companion's contacts. This stops a
+        transient contact-lookup miss from clobbering a good display name back
+        to the raw key prefix (which reads like a MAC address)."""
+        now = int(time.time())
+        await self._execute(
+            "INSERT INTO known_nodes (key, name, last_seen) VALUES (?, ?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET last_seen = ?",
+            (key, fallback_name, now, now),
+        )
+
     async def rename_known_node(self, key: str, name: str) -> None:
         """Update a known node's display name without touching last_seen.
 
