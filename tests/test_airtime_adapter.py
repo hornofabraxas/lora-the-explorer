@@ -169,3 +169,18 @@ async def test_find_contact_hit_skips_refresh():
 
     assert contact is not None
     a._mc.commands.get_contacts.assert_not_awaited()
+
+
+def test_build_contact_uri_matches_app_scanner_format():
+    """The add-contact URI must be the app's structured URL form, not the
+    meshcore lib's raw-hex export blob (which the QR scanner rejects)."""
+    from lora_explorer.radio.meshcore_adapter import _build_contact_uri
+
+    pk = "9cd8fcf22a47333b591d96a2b848b73f457b1bb1a3ea2453a885f9e5787765b1"
+    assert _build_contact_uri(pk, "Example Contact") == (
+        "meshcore://contact/add?name=Example+Contact"
+        f"&public_key={pk}&type=1"
+    )
+    # Empty name still yields a valid URI; no public key yields nothing.
+    assert _build_contact_uri(pk, "").endswith(f"public_key={pk}&type=1")
+    assert _build_contact_uri("", "Base Camp") is None

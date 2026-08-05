@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+from urllib.parse import quote_plus
 from meshcore import MeshCore, EventType
 from .adapter import RadioAdapter, IncomingMessage, MessageHandler, PositionResult, PositionFailure
 from .airtime import AirtimeGovernor, SAMPLE_MAX_AGE_S
@@ -56,6 +57,30 @@ D_LEARNED_MIN_MILES = 0.15
 D_LEARNED_MAX_MILES = 1.0
 
 TELEMETRY_LOG_MAX_ENTRIES = 200
+
+
+# MeshCore contact `type` in the add-contact URI. A Base Camp node is a plain
+# companion node from a spyglass's point of view. (2=Repeater, 3=Room, 4=Sensor.)
+CONTACT_TYPE_COMPANION = 1
+
+
+def _build_contact_uri(public_key: str, name: str) -> str | None:
+    """The node's shareable contact card in the exact URL form the MeshCore app's
+    add-contact QR scanner expects:
+
+        meshcore://contact/add?name=<url-encoded>&public_key=<64 hex>&type=1
+
+    Built purely from self-info — no companion round-trip. NB this is *not* the
+    `meshcore://<raw-hex>` string the `meshcore` lib's export_contact() returns;
+    that firmware-serial blob is for the serial import path and the app rejects
+    it as an invalid QR. Returns None without a public key (the one hard
+    requirement)."""
+    if not public_key:
+        return None
+    return (
+        f"meshcore://contact/add?name={quote_plus(name or '')}"
+        f"&public_key={public_key}&type={CONTACT_TYPE_COMPANION}"
+    )
 
 
 def _fmt_uptime(secs) -> str:
@@ -945,31 +970,11 @@ class MeshCoreAdapter(RadioAdapter):
         per-player survey cadence off. Delegates to the airtime governor."""
         return self._governor.congested()
 
-    async def _export_contact_uri_locked(self) -> str | None:
-        """Fetch the node's own shareable contact card as a `meshcore://…` URI.
-        EXPORT_CONTACT is a local companion query (it returns the node's advert
-        card — key, timestamp, flags, name — not a mesh broadcast, unlike
-        SHARE_CONTACT), so it costs no radio airtime. Must be called with
-        auto-fetch already paused — it does not manage the pause itself."""
-        if not self._mc:
-            return None
-        try:
-            result = await self._mc.commands.export_contact()
-        except Exception:
-            log.debug("Contact URI export failed", exc_info=True)
-            return None
-        if not result or result.type == EventType.ERROR:
-            return None
-        return (result.payload or {}).get("uri")
-
     async def get_contact_uri(self) -> str | None:
         if not self._mc:
             return None
-        await self._pause_auto_fetch()
-        try:
-            return await self._export_contact_uri_locked()
-        finally:
-            await self._resume_auto_fetch()
+        si = self._mc.self_info or {}
+        return _build_contact_uri(si.get("public_key", ""), si.get("name", ""))
 
     async def _sample_airtime_now(self) -> None:
         """Feed the governor one fresh cumulative-counter snapshot from local
@@ -1054,14 +1059,15 @@ class MeshCoreAdapter(RadioAdapter):
             status["node_name"] = si.get("name", "")
             if si.get("public_key"):
                 status["public_key"] = si["public_key"]
+                # The add-contact URI the app's QR scanner expects — built from
+                # self-info, no companion round-trip.
+                status["contact_uri"] = _build_contact_uri(
+                    si["public_key"], si.get("name", ""),
+                )
         await self._pause_auto_fetch()
         try:
             # All of the following are local companion queries — no radio
             # airtime, no mesh round-trip — so they're cheap to poll here.
-            # The node's own contact card, as the `meshcore://…` URI the app's
-            # add-contact scanner expects (the QR must encode this, not the bare
-            # public key). Local export, so no airtime.
-            status["contact_uri"] = await self._export_contact_uri_locked()
             try:
                 radio = await self._mc.commands.get_stats_radio()
                 if radio and radio.type != EventType.ERROR:
