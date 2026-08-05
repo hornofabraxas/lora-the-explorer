@@ -1,0 +1,34 @@
+{# Reusable Base Camp → spyglass linking widget: the meshcore://contact/add QR
+   plus a copyable contact link. Expects `companion` (from get_companion_status,
+   carrying .contact_uri and optionally .public_key) in the render context, and
+   the page must load /static/qrcode.min.js. Renders only when a contact_uri is
+   present — callers handle the connected-but-no-uri and disconnected cases. #}
+{% if companion and companion.contact_uri %}
+<div style="display: flex; gap: 0.75rem; align-items: flex-start; flex-wrap: wrap;">
+    <div style="flex: 1 1 12rem; min-width: 10rem;">
+        <small style="opacity: 0.6;">Base Camp contact link</small><br>
+        <code class="js-contact-uri" style="font-size: 0.72rem; word-break: break-all; user-select: all;" title="{{ companion.contact_uri }}">{{ companion.contact_uri[:16] }}…{{ companion.contact_uri[-6:] }}</code>
+        <button type="button" class="game-btn game-btn-secondary game-btn-sm" onclick="navigator.clipboard.writeText('{{ companion.contact_uri }}').then(function(){var b=event.target;var t=b.textContent;b.textContent='Copied';setTimeout(function(){b.textContent=t;},1500);})" style="display: inline-block; margin: 0.25rem 0 0;">Copy link</button>
+        {% if companion.public_key %}<br><small style="opacity: 0.45;">Key {{ companion.public_key[:8] }}…</small>{% endif %}
+    </div>
+    <div class="js-contact-qr" data-key="{{ companion.contact_uri }}" style="flex: 0 0 auto; background: #fff; padding: 0.4rem; border-radius: 0.4rem; line-height: 0; width: 7rem; height: 7rem;" title="Scan to add Base Camp as a contact"></div>
+</div>
+<script>
+(function() {
+    document.querySelectorAll('.js-contact-qr').forEach(function(box) {
+        if (box.dataset.rendered || typeof qrcode === 'undefined' || !box.dataset.key) return;
+        box.dataset.rendered = '1';
+        try {
+            var qr = qrcode(0, 'M');
+            qr.addData(box.dataset.key);
+            qr.make();
+            box.innerHTML = qr.createSvgTag({ cellSize: 3, margin: 0, scalable: true });
+            var svg = box.querySelector('svg');
+            if (svg) { svg.style.width = '100%'; svg.style.height = '100%'; }
+        } catch (e) {
+            box.style.display = 'none';
+        }
+    });
+})();
+</script>
+{% endif %}

@@ -133,6 +133,9 @@
     .postcard-popup-inner .popup-close:hover { opacity: 1; }
 </style>
 {% endif %}
+{% if not player and not needs_setup %}
+<script src="/static/qrcode.min.js?v=1"></script>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -185,8 +188,20 @@
     </script>
     {% else %}
     <article>
-        <header><h2>Awaiting First Survey</h2></header>
-        <p>No explorer has checked in yet. Head out with your spyglass and send <code>/lora survey</code> to begin your journey.</p>
+        <header><h2>Link Your Spyglass</h2></header>
+        <p style="margin-top: 0;">Base camp is established. One step left: pair the handheld <strong>spyglass</strong> you'll carry into the field with your base camp node.</p>
+        {% if companion and companion.connected and companion.contact_uri %}
+        <ol style="margin: 0 0 1rem; padding-left: 1.25rem; line-height: 1.7;">
+            <li>On your spyglass's MeshCore app, open <strong>Contacts → Add</strong> and <strong>scan the QR</strong> below (or paste the contact link).</li>
+            <li>From the spyglass, send <code>/lora survey</code> to the new <strong>Base Camp</strong> contact.</li>
+            <li>Watch this page — your first report unlocks <strong>📡 First Contact</strong> and your dashboard.</li>
+        </ol>
+        {% include "_spyglass_link.html" %}
+        {% elif companion and companion.connected %}
+        <p>Base camp is connected but didn't return a shareable contact link{% if companion.public_key %} — add it on your spyglass manually by key: <code style="font-size: 0.72rem; word-break: break-all; user-select: all;">{{ companion.public_key }}</code>{% endif %}, then send <code>/lora survey</code> from the spyglass.</p>
+        {% else %}
+        <p>Your base camp companion isn't connected right now. Reconnect it on the <a href="/settings">Settings</a> page, then return here to link your spyglass.</p>
+        {% endif %}
     </article>
     {% endif %}
 {% else %}

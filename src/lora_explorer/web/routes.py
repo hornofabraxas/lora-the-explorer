@@ -501,9 +501,13 @@ async def dashboard(request: Request):
 
     if not player:
         needs_setup = config["home_lat"] == 0 and config["home_lon"] == 0
-        return await _template(request, "dashboard.html", {
-            "player": None, "needs_setup": needs_setup, "nav_active": "dashboard",
-        })
+        ctx = {"player": None, "needs_setup": needs_setup, "nav_active": "dashboard"}
+        # Home set but no player row yet means no spyglass has ever checked in,
+        # so surface the linking card (QR + contact link). Only fetch companion
+        # status in this narrow pre-link window — established players skip it.
+        if not needs_setup and radio and not await db.get_known_nodes():
+            ctx["companion"] = await radio.get_companion_status()
+        return await _template(request, "dashboard.html", ctx)
 
     key = player["key"]
 

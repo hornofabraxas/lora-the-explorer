@@ -241,7 +241,7 @@ async def _post_json(app, path: str, json_body: dict | None = None) -> tuple[int
 async def test_dashboard_no_player(app):
     status, body = await _get(app, "/")
     assert status == 200
-    assert "Awaiting First Survey" in body
+    assert "Link Your Spyglass" in body
 
 
 @pytest.mark.asyncio
@@ -825,7 +825,7 @@ def test_install_method_returns_known_label(monkeypatch):
 async def test_integration_lifecycle(app, engine, adapter, db):
     """Full lifecycle: survey → view dashboard → upgrade camp → verify."""
     status, body = await _get(app, "/")
-    assert "Awaiting First Survey" in body
+    assert "Link Your Spyglass" in body
 
     await adapter.simulate_message("/lora survey")
 
