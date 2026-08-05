@@ -11,9 +11,9 @@
     <p>Send these as messages to your companion node via the MeshCore app.</p>
     <dl class="doc-defs">
         <dt><code>/lora survey</code></dt>
-        <dd>Survey your current location. Earns XP and 📦 provisions. Discovering a new territory earns bonus rewards and 🪙 survey marks. You can survey each territory once per day (resets at 00:00 UTC).</dd>
+        <dd>Survey your current location. Every survey earns XP, 📦 provisions, and 🪙 survey marks; discovering a new territory pays bonus rewards on top. One survey per territory per day, up to 50 surveys a day (resets 00:00 UTC).</dd>
         <dt><code>/lora charter</code></dt>
-        <dd>Begin constructing a Survey Post at your current location. Costs 📦{{ charter_prov_cost }} provisions and 🪙{{ charter_mark_cost }} survey marks. Must be at least {{ charter_min_dist }} miles from Base Camp. You'll be prompted to name your outpost.</dd>
+        <dd>Begin constructing a Survey Post at your current location. Requires a Charter License — rank {{ charter_min_level }} and Base Camp Level {{ charter_min_camp }} ({{ charter_min_camp_name }}). Costs 📦{{ charter_prov_cost }} provisions and 🪙{{ charter_mark_cost }} survey marks, in a discovered territory at least {{ charter_min_dist }} miles from Base Camp. You'll be prompted to name your outpost.</dd>
         <dt><code>/lora upkeep</code></dt>
         <dd>Perform upkeep on a Survey Post at your current location — free, but you must physically be there. Restores the post to full income and resets its ruin timer. Surveying past a post no longer maintains it; only upkeep does.</dd>
     </dl>
@@ -22,7 +22,7 @@
 <section class="doc-section">
     <h3 class="doc-section-title">🧭 Core Loop</h3>
     <ol>
-        <li><strong>Survey</strong> — explore new territories to earn XP and provisions.</li>
+        <li><strong>Survey</strong> — explore new territories to earn XP and provisions. Surveying on consecutive days builds Momentum (+5% XP per day, up to +25%); miss a day and it drops a tier.</li>
         <li><strong>Upgrade Base Camp</strong> — spend provisions to increase your XP multiplier and Survey Post capacity.</li>
         <li><strong>Charter Survey Posts</strong> — plant outposts in distant territories for passive provision income.</li>
         <li><strong>Upkeep</strong> — visit your Survey Posts to keep them out of ruin and earning full income.</li>
@@ -33,16 +33,16 @@
     <h3 class="doc-section-title">💰 Currencies</h3>
     <dl class="doc-defs">
         <dt>📦 Provisions</dt>
-        <dd>Earned from surveys. Spent on Base Camp upgrades, chartering Survey Posts, and upgrading and reinforcing Survey Posts.</dd>
+        <dd>Earned from surveys and passive Survey Post income. Spent on Base Camp upgrades, chartering, and upgrading and reinforcing Survey Posts.</dd>
         <dt>🪙 Survey Marks</dt>
-        <dd>Earned from discovering new territories. Spent on chartering Survey Posts and launching PvP attacks.</dd>
+        <dd>Earned from every survey — more when you discover new territory. Spent on chartering Survey Posts, Frontier Merchant PvP Supplies, and launching PvP raids.</dd>
     </dl>
 </section>
 
 <section class="doc-section">
     <h3 class="doc-section-title">🚩 Survey Posts</h3>
     <p>Survey Posts are remote outposts that passively generate 📦 provisions. Higher-level posts and posts further from Base Camp generate more. A post pays full income for 10 days after upkeep, then its income fades to nothing over the next week — falling into ruin.</p>
-    <p>Ruin never destroys a post or costs it levels; a ruined post simply earns nothing until you visit. Restore full income by physically performing <code>/lora upkeep</code> on-site (free). On PvP posts, the web Repair button restores battle-damaged Health for provisions.</p>
+    <p>Ruin never destroys a post or costs it levels — a ruined post just earns nothing until you visit. Restore it with a free on-site <code>/lora upkeep</code>. (On PvP posts, the web Repair button restores battle-damaged Health for provisions.)</p>
 </section>
 
 <section class="doc-section">
@@ -75,17 +75,23 @@
 
 <section class="doc-section">
     <h3 class="doc-section-title">📜 Expedition Contracts</h3>
-    <p>After completing Field Training, the Society offers weekly Expedition Contracts. Two contracts are available each week, randomly drawn from a pool. Spend provisions to accept a contract, then complete the objective before the week ends to earn survey marks or a rare relic — the priciest contracts can even award a tier-IV combat munition when PvP is enabled. Uncompleted contracts expire — provisions are not refunded.</p>
+    <p>Once you reach rank {{ contracts_min_level }} ({{ contracts_min_rank_name }}), the Society offers two weekly Expedition Contracts, randomly drawn from a pool. Spend provisions to accept one, then complete its objective before the week ends (Monday 00:00 UTC) to earn survey marks or a rare relic — the priciest can even award a tier-IV combat munition when PvP is enabled. Uncompleted contracts expire; provisions are not refunded.</p>
 </section>
 
 <section class="doc-section">
     <h3 class="doc-section-title">🛒 Frontier Merchant</h3>
-    <p>At Base Camp Level 5 (Lodge), a travelling merchant sets up shop. Purchase relics you've previously discovered using provisions. All purchases are limited to once per week and reset on Monday UTC. Prices are steep — the merchant deals in convenience, not charity.</p>
+    <p>At Base Camp Level {{ merchant_min_camp }} ({{ merchant_camp_name }}), a travelling merchant sets up shop. Buy relics you've previously discovered with provisions, plus a rotating pair of PvP Supplies (attack and defense munitions) for survey marks. Stock is limited per item each week and resets Monday 00:00 UTC.</p>
 </section>
 
 <section class="doc-section">
     <h3 class="doc-section-title">🖼️ Postcards</h3>
-    <p>Postcards are achievements earned by reaching milestones — distance surveyed, territories discovered, streaks maintained, posts held, and area covered. Each postcard class has 5 stars with increasing thresholds. Collect them all to prove your mastery of the world's edge.</p>
+    <p>Postcards are achievements earned by reaching milestones — distance surveyed, territories discovered, streaks maintained, posts held, and area covered — each class with 5 stars of rising thresholds. A separate Field Training set onboards new explorers; completing it opens the Society Strongbox for 📦200 provisions and a relic.</p>
+</section>
+
+<section class="doc-section">
+    <h3 class="doc-section-title">⚔️ Multiplayer (PvP)</h3>
+    <p>Entirely optional. Register with the war ledger, then enable PvP once you hold a Charter License and at least one Survey Post. On the Warfront you scout rivals — spend a probe to reveal a post's level, age, and defenses — then dispatch attack munitions on a raid. Raids travel 1–12 hours by distance, and each target has a 24-hour cooldown.</p>
+    <p>Defend by installing defense items on your posts or spending a 🛡️ Wardstone to make one dormant (unraidable) for up to 30 days. Renown — earned from each post's level and how long you hold it — sets your rank on the leaderboard. Only a coarse ~50-mile location and opaque post tokens ever leave your server.</p>
 </section>
 
 <section class="doc-section" id="report-a-problem">
