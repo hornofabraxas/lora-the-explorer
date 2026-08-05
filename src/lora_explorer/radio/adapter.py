@@ -79,6 +79,12 @@ class RadioAdapter(ABC):
     async def get_companion_status(self) -> dict:
         return {"connected": False}
 
+    async def get_contact_uri(self) -> str | None:
+        """The companion's own shareable contact card as a `meshcore://…` URI —
+        the format the MeshCore app's add-contact scanner expects. None when the
+        adapter can't produce one."""
+        return None
+
     def get_contacts(self) -> dict:
         return {}
 

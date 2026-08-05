@@ -945,6 +945,32 @@ class MeshCoreAdapter(RadioAdapter):
         per-player survey cadence off. Delegates to the airtime governor."""
         return self._governor.congested()
 
+    async def _export_contact_uri_locked(self) -> str | None:
+        """Fetch the node's own shareable contact card as a `meshcore://…` URI.
+        EXPORT_CONTACT is a local companion query (it returns the node's advert
+        card — key, timestamp, flags, name — not a mesh broadcast, unlike
+        SHARE_CONTACT), so it costs no radio airtime. Must be called with
+        auto-fetch already paused — it does not manage the pause itself."""
+        if not self._mc:
+            return None
+        try:
+            result = await self._mc.commands.export_contact()
+        except Exception:
+            log.debug("Contact URI export failed", exc_info=True)
+            return None
+        if not result or result.type == EventType.ERROR:
+            return None
+        return (result.payload or {}).get("uri")
+
+    async def get_contact_uri(self) -> str | None:
+        if not self._mc:
+            return None
+        await self._pause_auto_fetch()
+        try:
+            return await self._export_contact_uri_locked()
+        finally:
+            await self._resume_auto_fetch()
+
     async def _sample_airtime_now(self) -> None:
         """Feed the governor one fresh cumulative-counter snapshot from local
         companion queries (no radio airtime). Must be called with auto-fetch
@@ -1032,6 +1058,10 @@ class MeshCoreAdapter(RadioAdapter):
         try:
             # All of the following are local companion queries — no radio
             # airtime, no mesh round-trip — so they're cheap to poll here.
+            # The node's own contact card, as the `meshcore://…` URI the app's
+            # add-contact scanner expects (the QR must encode this, not the bare
+            # public key). Local export, so no airtime.
+            status["contact_uri"] = await self._export_contact_uri_locked()
             try:
                 radio = await self._mc.commands.get_stats_radio()
                 if radio and radio.type != EventType.ERROR:
