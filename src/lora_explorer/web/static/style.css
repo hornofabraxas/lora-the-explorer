@@ -661,7 +661,11 @@ table mark {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    align-items: stretch;
+    /* Each card sizes to its own content (tops aligned) rather than stretching to
+       the taller one — stretching forced the shorter Supply Drops card to grow and
+       left a big dead gap in its middle. Uneven bottoms read far cleaner than
+       wasted space. */
+    align-items: flex-start;
     gap: 1rem;
     margin-bottom: 1rem;
 }
@@ -1137,13 +1141,10 @@ table mark {
 .supplydrop-card .basecamp-emblem { border-color: #5A8296; }
 .supplydrop-card .basecamp-name { color: #9CC4D6; }
 .supplydrop-log {
-    margin-top: auto;
+    margin-top: 0.7rem;
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    /* Reserve the height of a full (3-run) log so the card holds a stable height
-       whether it has 0 or 3 drops — keeps it level with the Base Camp card. */
-    min-height: 4.9rem;
 }
 .supplydrop-run {
     display: flex;
@@ -1201,8 +1202,6 @@ button.supplydrop-run-drops.has-drops:active {
     text-align: center;
     opacity: 0.5;
     padding: 0.4rem 0;
-    /* Center within the reserved min-height when there are no runs. */
-    margin: auto 0;
 }
 
 .basecamp-progress-row {
