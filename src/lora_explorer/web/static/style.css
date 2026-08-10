@@ -1091,12 +1091,10 @@ table mark {
     letter-spacing: 0.04em;
     opacity: 0.5;
 }
-/* Perk unlocks ladder — fills the Base Camp card's mid-section so it reads as
-   full next to the (clamped) Supply Drops card. */
+/* Perk unlocks ladder. The stats block (.basecamp-summary) already carries the
+   divider + spacing below itself, so this sits directly under it — no second
+   border/margin, which previously stacked into a ~47px dead band. */
 .basecamp-perks {
-    margin-top: 0.7rem;
-    padding-top: 0.55rem;
-    border-top: 1px solid rgba(139, 115, 85, 0.15);
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
