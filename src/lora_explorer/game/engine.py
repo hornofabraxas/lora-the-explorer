@@ -240,7 +240,7 @@ BASE_CAMP_TABLE = {
 
 CAMP_PERK_DESCRIPTIONS = {
     "merchant": "Unlocks the Frontier Merchant",
-    "upkeep_grace": "Outposts hold 3 extra days before ruin",
+    "upkeep_grace": "Outposts hold 1 extra day before ruin",
     "relic_boost": "+5% relic drop rate",
 }
 
@@ -266,10 +266,10 @@ RENOWN_AGE_BONUS_PER_DAY = 0.5
 # After that it sits "in ruin" earning nothing. It never loses levels and is
 # never destroyed. Only a physical /lora upkeep (from the post's own hex) resets
 # the timer — surveying past it does NOT. Camp 7 grants +UPKEEP_GRACE_BONUS_DAYS.
-RUIN_GRACE_DAYS = 10
-RUIN_RAMP_DAYS = 7
+RUIN_GRACE_DAYS = 6
+RUIN_RAMP_DAYS = 4
 UPKEEP_GRACE_CAMP = 7
-UPKEEP_GRACE_BONUS_DAYS = 3
+UPKEEP_GRACE_BONUS_DAYS = 1
 
 BURIED_CACHE_AMOUNT = 50
 # Warding: a wardstone puts an outpost dormant (no income, no ruin, raid-immune)

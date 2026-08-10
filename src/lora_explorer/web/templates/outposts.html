@@ -153,7 +153,7 @@
                 id="post-chip-{{ post.id }}">
                 {%- if post.warded %}Warded {{ post.warded_days_left | round(0, 'ceil') | int }}d
                 {%- elif post.ruin_status == 'ruined' %}In ruin
-                {%- elif post.ruin_status == 'fading' %}Fading
+                {%- elif post.ruin_status == 'fading' %}Upkeep · {{ post.days_until_ruined | round(0, 'ceil') | int }}d
                 {%- else %}Stable{% endif %}
             </span>
         </div>
@@ -190,23 +190,24 @@
         </div>
         {% else %}
         {% set total = post.upkeep_total_days or 1 %}
-        {% set green_pct = ([post.full_days_left / total * 100, 0] | max) %}
-        {% set ruin_pct = ([(post.days_until_ruined - post.full_days_left) / total * 100, 0] | max) %}
-        {# Slim runway: green grace segment + red ruin window, draining right-to-
-           left as time passes. Kept thin so it never reads as a second Health bar. #}
+        {% set left_pct = ([[post.days_until_ruined / total * 100, 0] | max, 100] | min) %}
+        {# One thin drain meter tied to the days remaining — empties left as time
+           passes, recolouring green→amber→red. A single bar (not two segments)
+           so it reads as a timer, never as a second Health bar. #}
         <div class="upkeep-runway">
-            <span class="upkeep-runway-icon" aria-hidden="true">🕒</span>
-            <div class="cond-track upkeep-track">
-                <div class="upkeep-seg upkeep-ruin" style="width: {{ ruin_pct }}%;"></div>
-                <div class="upkeep-seg upkeep-safe" style="width: {{ green_pct }}%;"></div>
-            </div>
-            <span class="upkeep-runway-text
+            <span class="upkeep-runway-label
                 {%- if post.ruin_status == 'ruined' %} is-bad{% elif post.ruin_status == 'fading' %} is-warn{% endif %}">
-                {%- if post.ruin_status == 'ruined' %}In ruin
-                {%- else %}{{ post.days_until_ruined | round(0, 'floor') | int }}d runway{% endif %}
+                {%- if post.ruin_status == 'ruined' %}In ruin — no income
+                {%- elif post.ruin_status == 'fading' %}Fading · {{ post.days_until_ruined | round(0, 'ceil') | int }}d to ruin
+                {%- else %}Full income · {{ post.days_until_ruined | round(0, 'floor') | int }}d left{% endif %}
             </span>
             <button type="button" class="cond-info" aria-label="How upkeep &amp; ruin work"
-                    data-tip="Income stays full while the green runway lasts, then fades through the red ruin window until the outpost sits idle — provisions and renown both. Visit the outpost in person and send /lora upkeep to refill it.">ⓘ</button>
+                    data-tip="Income stays full while the bar is green, then fades as it drains through amber to empty — provisions and renown both. Visit the outpost in person and send /lora upkeep to refill it.">ⓘ</button>
+        </div>
+        <div class="cond-track upkeep-track">
+            <div class="cond-fill upkeep-fill
+                {%- if post.ruin_status == 'ruined' %} bad{% elif post.ruin_status == 'fading' %} warn{% else %} good{% endif %}"
+                style="width: {{ left_pct }}%;"></div>
         </div>
         {% endif %}
 

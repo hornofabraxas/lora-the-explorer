@@ -409,15 +409,15 @@ async def outposts(request: Request):
         {
             "id": 1, "name": "Hilltop Watch", "level": 2, "hex_name": "Sunset Bluff",
             "hex_id": "hex_05", "distance": 3.2, "prov_per_day": 4, "prov_per_day_full": 4, "renown_per_day": 27, "renown_per_day_full": 27, "renown_base": 6, "renown_age_bonus": 21,
-            "ruin_status": "stable", "income_factor": 1.0, "full_days_left": 6.0,
-            "days_until_ruined": 13.0, "upkeep_total_days": 17,
+            "ruin_status": "stable", "income_factor": 1.0, "full_days_left": 4.0,
+            "days_until_ruined": 8.0, "upkeep_total_days": 10,
             "ruin_frozen": False, "warded": False, "upgrade_cost": 30,
         },
         {
             "id": 3, "name": "Lone Mesa", "level": 3, "hex_name": "Windbitten Rise",
             "hex_id": "hex_07", "distance": 5.1, "prov_per_day": 3, "prov_per_day_full": 6, "renown_per_day": 7, "renown_per_day_full": 13, "renown_base": 9, "renown_age_bonus": 4,
             "ruin_status": "fading", "income_factor": 0.5, "full_days_left": 0.0,
-            "days_until_ruined": 3.5, "upkeep_total_days": 17,
+            "days_until_ruined": 2.0, "upkeep_total_days": 10,
             "ruin_frozen": False, "warded": False, "upgrade_cost": 80,
         },
         {
@@ -452,7 +452,7 @@ async def outposts(request: Request):
         },
         "camp_perks": [
             {"level": 4, "desc": "Unlocks the Frontier Merchant", "unlocked": True},
-            {"level": 7, "desc": "Outposts hold 3 extra days before ruin", "unlocked": False},
+            {"level": 7, "desc": "Outposts hold 1 extra day before ruin", "unlocked": False},
             {"level": 10, "desc": "+5% relic drop rate", "unlocked": False},
         ],
         "posts": mock_posts,

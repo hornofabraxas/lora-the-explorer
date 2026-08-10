@@ -1885,22 +1885,22 @@ a.item-main { text-decoration: none; }
 }
 .post-income-label .cond-info { opacity: 0.5; }
 
-/* Slim upkeep runway — the drain timer, kept thin so it never reads as a second
-   Health bar. Green grace + red ruin window sit inside the standard 6px track. */
+/* Upkeep runway — a plain-language label above one thin drain meter. Kept thin
+   so it never reads as a second Health bar; the label carries the "what & when". */
 .upkeep-runway {
     display: flex;
     align-items: center;
     gap: 0.4rem;
+    margin-bottom: 0.25rem;
 }
-.upkeep-runway-icon { font-size: 0.75rem; opacity: 0.6; }
-.upkeep-runway-text {
-    font-size: 0.7rem;
+.upkeep-runway-label {
+    font-size: 0.72rem;
     letter-spacing: 0.02em;
-    opacity: 0.75;
+    opacity: 0.8;
     white-space: nowrap;
 }
-.upkeep-runway-text.is-warn { color: var(--status-warn); opacity: 0.95; }
-.upkeep-runway-text.is-bad { color: var(--status-bad); opacity: 0.95; }
+.upkeep-runway-label.is-warn { color: var(--status-warn); opacity: 0.95; }
+.upkeep-runway-label.is-bad { color: var(--status-bad); opacity: 0.95; }
 .upkeep-runway .cond-info { margin-left: 0; }
 
 /* Defenses slot — the installed-item control lives on its own labelled row now,
@@ -1959,12 +1959,13 @@ a.item-main { text-decoration: none; }
     pointer-events: none;
     white-space: nowrap;
 }
-/* Upkeep runway: a fixed-scale bar (grace + ruin ramp). Green = time at full
-   income, red = the ruin ramp window; both drain toward the left as time passes. */
-.upkeep-track { display: flex; }
-.upkeep-seg { height: 100%; transition: width 0.3s; }
-.upkeep-safe { background: var(--status-good); }
-.upkeep-ruin { background: var(--status-bad); }
+/* Upkeep runway: one fixed-scale meter (grace + ruin ramp) that drains left as
+   the days-remaining fall, recolouring good→warn→bad via the shared .cond-fill.
+   Sits as a direct child of the flex-column .post-condition, so cancel the
+   .cond-track `flex:1` (which would otherwise stretch it on the vertical axis and
+   collapse its 6px height to 0). */
+.upkeep-track { flex: 0 0 auto; height: 6px; }
+.upkeep-fill { transition: width 0.3s, background 0.3s; }
 
 /* Upkeep-mechanic help affordance next to the label. */
 .cond-info {
