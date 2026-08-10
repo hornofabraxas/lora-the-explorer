@@ -1087,6 +1087,34 @@ table mark {
     letter-spacing: 0.04em;
     opacity: 0.5;
 }
+/* Perk unlocks ladder — fills the Base Camp card's mid-section so it reads as
+   full next to the (clamped) Supply Drops card. */
+.basecamp-perks {
+    margin-top: 0.7rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid rgba(139, 115, 85, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.basecamp-perk {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+}
+.basecamp-perk-mark { flex: 0 0 auto; font-size: 0.8rem; }
+.basecamp-perk-desc { flex: 1; }
+.basecamp-perk-req {
+    flex: 0 0 auto;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    opacity: 0.5;
+}
+.basecamp-perk.is-locked .basecamp-perk-desc { opacity: 0.5; }
+.basecamp-perk.is-unlocked .basecamp-perk-mark { color: var(--status-good, #6fbf73); }
+
 .basecamp-upgrade {
     margin-top: auto;
     padding-top: 0.6rem;
@@ -1113,6 +1141,9 @@ table mark {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    /* Reserve the height of a full (3-run) log so the card holds a stable height
+       whether it has 0 or 3 drops — keeps it level with the Base Camp card. */
+    min-height: 4.9rem;
 }
 .supplydrop-run {
     display: flex;
@@ -1170,6 +1201,8 @@ button.supplydrop-run-drops.has-drops:active {
     text-align: center;
     opacity: 0.5;
     padding: 0.4rem 0;
+    /* Center within the reserved min-height when there are no runs. */
+    margin: auto 0;
 }
 
 .basecamp-progress-row {
@@ -1954,13 +1987,14 @@ a.item-main { text-decoration: none; }
 }
 .cond-info:hover, .cond-info:focus { opacity: 0.95; }
 
-/* Installed-item slot content — sits in the labelled "Defenses" row, left-
-   aligned against the bar column (the row's .cond-label owns the left gutter). */
+/* Installed-item slot content — sits in the labelled "Defenses" row, centered
+   under the Health bar's track (the row's .cond-label owns the left gutter, so
+   this column spans exactly the bar above it). */
 .cond-fort {
     flex: 1;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     gap: 0.4rem;
     flex-wrap: wrap;
 }

@@ -874,6 +874,17 @@ async def outposts_page(request: Request):
     next_camp_level = current + 1
     next_camp_info = BASE_CAMP_TABLE.get(next_camp_level)
     post_limit = max_posts_for_camp(current)
+    # Perk milestones for the Base Camp card's unlocks ladder (fills the card so
+    # it stays symmetric with the taller Supply Drops card). Ordered by level.
+    camp_perks = [
+        {
+            "level": lvl,
+            "desc": CAMP_PERK_DESCRIPTIONS.get(info["perk"], info["perk"]),
+            "unlocked": current >= lvl,
+        }
+        for lvl, info in sorted(BASE_CAMP_TABLE.items())
+        if info.get("perk")
+    ]
 
     posts = await db.get_all_posts(key)
     engine = request.app.state.engine
@@ -975,6 +986,7 @@ async def outposts_page(request: Request):
         "next_camp_level": next_camp_level,
         "next_camp_name": camp_name(next_camp_level) if next_camp_info else None,
         "post_limit": post_limit,
+        "camp_perks": camp_perks,
         "charter_license": charter_license,
         "total_prov_per_day": total_prov_per_day,
         "renown_per_level": RENOWN_PER_DAY_PER_LEVEL,

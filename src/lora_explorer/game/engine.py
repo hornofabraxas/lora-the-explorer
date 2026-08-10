@@ -244,7 +244,12 @@ CAMP_PERK_DESCRIPTIONS = {
     "relic_boost": "+5% relic drop rate",
 }
 
-POST_UPGRADE_COST = {2: 40, 3: 80, 4: 160, 5: 320}
+# Provisions to reach each post level (paid from the same currency surveys earn).
+# A maxed post is a permanent 1.5x on BOTH XP and provisions at its hex, drives
+# renown/leaderboard, and gates defensive HP — so it's priced as a real, repeated
+# (up to MAX_SURVEY_POSTS) provision sink rather than a few surveys' pocket change.
+# Steepened from the old {40,80,160,320} (600 total) which maxed inside one session.
+POST_UPGRADE_COST = {2: 80, 3: 200, 4: 450, 5: 900}  # 1630 total to max
 MAX_POST_LEVEL = 5
 
 # Renown mirrors the Worker's model (lora-worker src/logic/renown.ts): each post

@@ -450,6 +450,11 @@ async def outposts(request: Request):
             "wardstone_craft": "Wardstone Crafting",
             "relic_mastery": "Relic Mastery",
         },
+        "camp_perks": [
+            {"level": 4, "desc": "Unlocks the Frontier Merchant", "unlocked": True},
+            {"level": 7, "desc": "Outposts hold 3 extra days before ruin", "unlocked": False},
+            {"level": 10, "desc": "+5% relic drop rate", "unlocked": False},
+        ],
         "posts": mock_posts,
         "charter_license": True,
         "charter_prov_cost": 10,

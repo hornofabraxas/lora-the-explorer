@@ -42,6 +42,20 @@
         </div>
     </div>
 
+    {# Perk unlocks ladder — fills the card so it stays level with the taller
+       Supply Drops card, and shows what higher camp levels grant. #}
+    {% if camp_perks %}
+    <div class="basecamp-perks">
+        {% for perk in camp_perks %}
+        <div class="basecamp-perk {{ 'is-unlocked' if perk.unlocked else 'is-locked' }}">
+            <span class="basecamp-perk-mark">{{ '✓' if perk.unlocked else '🔒' }}</span>
+            <span class="basecamp-perk-desc">{{ perk.desc }}</span>
+            <span class="basecamp-perk-req">{% if not perk.unlocked %}Lv {{ perk.level }}{% endif %}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% if next_camp_info %}
     <div class="basecamp-upgrade">
         {% set xp_gain = ((next_camp_info.mult - camp_info.mult) * 100) | round(0, 'common') | int %}

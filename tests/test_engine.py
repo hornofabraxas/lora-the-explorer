@@ -984,7 +984,7 @@ async def test_post_upgrade_success(adapter, engine, db):
     result = await engine.upgrade_post("abc123", post["id"])
     assert result["success"] is True
     assert result["new_level"] == 2
-    assert result["cost"] == 40
+    assert result["cost"] == 80
 
 
 @pytest.mark.asyncio
