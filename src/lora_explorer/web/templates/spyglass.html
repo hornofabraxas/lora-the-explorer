@@ -630,10 +630,10 @@ var refreshMap;
         } else if (type === 'gps_request') {
             return {text: cmd + ' ' + progressDots('gps_request') + ' awaiting signal', cls: 'feed-dim', progress: true};
         } else if (type === 'gps_triangulating') {
-            var modeTag = d.mode === 'last_path' ? 'known route' : 'scanning mesh';
+            var modeTag = d.mode === 'last_path' ? 'last path' : 'flooding';
             var label;
             if (d.fallback) {
-                label = 'known route lost — scanning mesh';
+                label = 'last path unsuccessful — flooding';
             } else if (d.attempt > 1) {
                 label = 'retriangulating [' + modeTag + ']';
             } else {
@@ -681,7 +681,7 @@ var refreshMap;
         } else if (type === 'contract_complete') {
             return {text: d.label + ' — ' + d.reward, cls: 'feed-success'};
         } else if (type === 'route_lost') {
-            return {text: 'Known route lost — scanning mesh', cls: 'feed-dim'};
+            return {text: 'Last path unsuccessful — flooding', cls: 'feed-dim'};
         } else if (type === 'multiplayer_items_received') {
             var counts = {};
             (d.items || []).forEach(function(i) { counts[i.type] = (counts[i.type] || 0) + 1; });
