@@ -917,11 +917,20 @@ class MultiplayerManager:
 
         settings = await self._load_settings()
         rank = self._my_rank(players) if players else None
+        # Renown + field size gate the rank-based titles (see titles.py). Both
+        # come straight from the leaderboard the rank was read from, so they can
+        # never disagree with it.
+        mine = next(
+            (p for p in (players or []) if p.get("player_id") == self.player_id), None
+        )
+        my_renown = float(mine.get("total_renown", 0)) if mine else 0.0
         eligible = evaluate_multiplayer_titles(
             rank=rank,
             raids_won=await self._count_raids_won(),
             raids_repelled=int(settings.get("raids_repelled", "0") or 0),
             scouts=await self._count_scouts(),
+            my_renown=my_renown,
+            field_size=len(players or []),
         )
         earned = {t for t in settings.get("earned_titles", "").split(",") if t}
         new_ids = eligible - earned

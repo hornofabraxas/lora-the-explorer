@@ -365,11 +365,14 @@ async def test_salvage_worker_failure_does_not_credit(manager, db):
 
 @pytest.mark.asyncio
 async def test_check_multiplayer_titles_awards_rank_one(manager, db):
-    # Registered as a known player sitting at #1 on the leaderboard.
+    # Registered as a known player sitting at #1 on the leaderboard. The field is
+    # 4+ deep and "me" clears the renown floor, so both rank gates pass.
     manager._client._player_id = "me"
     leaderboard = [
         {"player_id": "me", "total_renown": 999},
         {"player_id": "rival", "total_renown": 100},
+        {"player_id": "third", "total_renown": 80},
+        {"player_id": "fourth", "total_renown": 60},
     ]
     new_ids = await manager.check_multiplayer_titles(leaderboard)
     assert set(new_ids) == {"warlord", "vanguard"}
