@@ -216,13 +216,14 @@ async def multiplayer_page(request: Request):
         )
         for p in (leaderboard or [])
     }
-    # Warfront rival-detail payload, shipped as one compact JSON blob so the
-    # browser builds each rival's posts table lazily on expand rather than the
-    # server rendering ~N hidden tables into the page. The roster stays fully
-    # searchable/sortable (row headers are still server-rendered); this only
-    # defers the per-rival detail body, which cuts page weight and DOM node count
-    # sharply at high player counts. Mirrors the old inline table logic: scouted
-    # rivals carry level/age, unscouted ones carry null (rendered as '?').
+    # Warfront rival-detail payload: still one entry per rival (so transfer size
+    # and this loop remain O(N players)), but shipped as a compact JSON blob the
+    # browser turns into a posts table only on expand, instead of the server
+    # rendering ~N hidden tables into the page. The main win is DOM node count at
+    # load (headers only until a row is opened); the blob is also smaller than the
+    # equivalent rendered HTML, but the data volume itself is unchanged. Roster
+    # stays fully searchable/sortable (headers are server-rendered). Mirrors the
+    # old inline table: scouted rivals carry level/age, unscouted ones null ('?').
     rival_details = {}
     for p in (leaderboard or []):
         pid = p.get("player_id")

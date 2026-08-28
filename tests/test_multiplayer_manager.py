@@ -441,6 +441,35 @@ async def test_poll_status_active_raid_without_object_still_wakes(manager, db):
 
 
 @pytest.mark.asyncio
+async def test_poll_status_resolved_raid_does_not_pin_floor(manager, db):
+    """A resolved own raid (whose active_raid_id may still linger) must NOT
+    schedule a wake — a past arrives_at would otherwise pin the loop to the 30s
+    floor until the Worker clears the id, defeating event-driven polling."""
+    manager._client.get_status = AsyncMock(return_value={
+        "ok": True,
+        "defense": {"ok": True, "posts": []},
+        "raid": {"ok": True, "active_raid_id": "r1",
+                 "raid": {"raid_id": "r1", "status": "resolved",
+                          "arrives_at": int(time.time()) - 100}},
+    })
+    assert await manager._poll_status() is None
+
+
+@pytest.mark.asyncio
+async def test_poll_status_landed_incoming_raid_does_not_pin_floor(manager, db):
+    """An inbound raid the Worker still lists with a non-positive ETA (landed but
+    not yet dropped) must not schedule a tight wake either."""
+    manager._client.get_status = AsyncMock(return_value={
+        "ok": True,
+        "defense": {"ok": True, "posts": [
+            {"post_token": "h", "incoming_raids": [{"raid_id": "r9", "eta_seconds": 0}]},
+        ]},
+        "raid": {"ok": True, "active_raid_id": None, "raid": None},
+    })
+    assert await manager._poll_status() is None
+
+
+@pytest.mark.asyncio
 async def test_poll_status_returns_incoming_raid_arrival(manager, db):
     """An inbound raid returns its projected arrival (now + eta_seconds)."""
     before = int(time.time())

@@ -731,19 +731,31 @@ class MultiplayerManager:
             for post in defense.get("posts", []):
                 for raid in post.get("incoming_raids", []):
                     eta = raid.get("eta_seconds")
-                    # Fall back to `now` (→ poll again at the floor) if an inbound
-                    # raid somehow lacks an ETA, so we can't stall on it.
-                    _consider(now + max(0, int(eta)) if eta is not None else now)
+                    # Only schedule a wake for a raid still genuinely in flight.
+                    # A landed raid the Worker hasn't yet dropped (eta<=0/missing)
+                    # is resolved on the next status read anyway (resolveDueRaids),
+                    # so scheduling it would just spin the loop at the floor —
+                    # leave those to the idle baseline.
+                    if eta is not None and int(eta) > 0:
+                        _consider(now + int(eta))
 
         raid_result = status.get("raid") or {}
         if raid_result.get("ok"):
             raid = raid_result.get("raid")
-            if raid_result.get("active_raid_id"):
-                # arrives_at is authoritative; `now` is a defensive fallback so a
-                # live raid always schedules a wake (poll again at the floor) even
-                # if the raid object or its arrives_at is missing.
-                _consider((raid or {}).get("arrives_at") or now)
-            if raid and raid.get("status") == "resolved":
+            raid_status = raid.get("status") if raid else None
+            if raid_status == "in_flight":
+                # Wake at arrival to catch the outcome. `now` is a defensive
+                # fallback if the field is missing on a live raid.
+                _consider(raid.get("arrives_at") or now)
+            elif raid_result.get("active_raid_id") and raid is None:
+                # An active raid the read returned no body for — re-check soon
+                # rather than assume idle (shouldn't normally happen).
+                _consider(now)
+            # A resolved raid is reconciled once and must NOT schedule a wake:
+            # active_raid_id can linger past resolution, and scheduling on a past
+            # arrives_at would pin the loop to the 30s floor until the Worker
+            # clears it — the opposite of what event-driven polling is for.
+            if raid_status == "resolved":
                 await self._reconcile_resolved_raid(raid, now)
 
         return next_event_at
