@@ -788,6 +788,13 @@ async def help_page(request: Request):
         "diagnostics": diagnostics,
         "issue_url": "https://github.com/hornofabraxas/lora-the-explorer/issues/new",
         "discord_url": "https://discord.gg/EHXemsA2SS",
+        # Mirror engine.py ruin constants (RUIN_GRACE_DAYS / RUIN_RAMP_DAYS /
+        # UPKEEP_GRACE_CAMP / UPKEEP_GRACE_BONUS_DAYS) so the Survey Posts section
+        # renders. The real /help route sources these from the engine directly.
+        "ruin_grace_days": 6,
+        "ruin_ramp_days": 4,
+        "upkeep_grace_camp": 7,
+        "upkeep_grace_bonus": 1,
     })
 
 

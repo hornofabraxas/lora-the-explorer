@@ -41,7 +41,7 @@
 
 <section class="doc-section">
     <h3 class="doc-section-title">🚩 Survey Posts</h3>
-    <p>Survey Posts are remote outposts that passively generate 📦 provisions. Higher-level posts and posts further from Base Camp generate more. A post pays full income for 10 days after upkeep, then its income fades to nothing over the next week — falling into ruin.</p>
+    <p>Survey Posts are remote outposts that passively generate 📦 provisions. Higher-level posts and posts further from Base Camp generate more. A post pays full income for {{ ruin_grace_days }} days after upkeep ({{ ruin_grace_days + upkeep_grace_bonus }} at Base Camp {{ upkeep_grace_camp }}), then its income fades to nothing over the next {{ ruin_ramp_days }} days — falling into ruin.</p>
     <p>Ruin never destroys a post or costs it levels — a ruined post just earns nothing until you visit. Restore it with a free on-site <code>/lora upkeep</code>. (On PvP posts, the web Repair button restores battle-damaged Health for provisions.)</p>
 </section>
 
