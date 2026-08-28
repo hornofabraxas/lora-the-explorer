@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from ..game.titles import POSTCARD_TITLE_MEANINGS, TITLE_MEANINGS
+from ..game.hex_names import hex_name
 from ..game.engine import (
     MULTIPLAYER_SHOP_CATALOG,
     MULTIPLAYER_ITEM_SALVAGE,
@@ -215,6 +216,43 @@ async def multiplayer_page(request: Request):
         )
         for p in (leaderboard or [])
     }
+    # Warfront rival-detail payload, shipped as one compact JSON blob so the
+    # browser builds each rival's posts table lazily on expand rather than the
+    # server rendering ~N hidden tables into the page. The roster stays fully
+    # searchable/sortable (row headers are still server-rendered); this only
+    # defers the per-rival detail body, which cuts page weight and DOM node count
+    # sharply at high player counts. Mirrors the old inline table logic: scouted
+    # rivals carry level/age, unscouted ones carry null (rendered as '?').
+    rival_details = {}
+    for p in (leaderboard or []):
+        pid = p.get("player_id")
+        if not pid or pid == manager.player_id:
+            continue
+        scouted_rows = cached_scouts.get(pid)
+        if scouted_rows:
+            raw_rows, is_scouted = scouted_rows, True
+        else:
+            raw_rows = p.get("posts") or [
+                {"post_token": t} for t in p.get("post_tokens", [])
+            ]
+            is_scouted = False
+        posts = [
+            {
+                "token": row.get("post_token"),
+                "label": row.get("name") or hex_name(row.get("post_token") or ""),
+                "level": row.get("level") if is_scouted else None,
+                "age_days": row.get("age_days") if is_scouted else None,
+            }
+            for row in raw_rows
+        ]
+        rival_details[pid] = {
+            "name": p.get("display_name", ""),
+            "scouted": is_scouted,
+            "scout_age": scout_ages.get(pid, "unknown"),
+            "post_count": p.get("post_count", 0),
+            "posts": posts,
+        }
+
     defense_data = await manager.get_defense() if manager.registered else {}
     defense_posts = {p["post_token"]: p for p in defense_data.get("posts", [])} if defense_data.get("ok") else {}
     inbound_count = sum(len(p.get("incoming_raids", [])) for p in defense_posts.values())
@@ -288,6 +326,7 @@ async def multiplayer_page(request: Request):
         "now_ts": int(time.time()),
         "active_raid": active_raid,
         "raid_cooldowns": raid_cooldowns,
+        "rival_details": rival_details,
         "can_attack": can_attack,
         "own_post_names": own_post_names,
         "last_sync_at": manager._last_push_at,

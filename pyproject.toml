@@ -1,6 +1,6 @@
 [project]
 name = "lora-the-explorer"
-version = "0.3.1"
+version = "0.3.2"
 description = "A location-based exploration RPG played over LoRa mesh radio"
 license = "MIT"
 requires-python = ">=3.12"

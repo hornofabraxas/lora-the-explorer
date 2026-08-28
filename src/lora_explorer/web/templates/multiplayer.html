@@ -292,67 +292,9 @@
             </div>
             <span class="mp-expand-icon" id="icon-{{ p.player_id }}">▶</span>
         </div>
-        <div class="mp-player-detail" id="detail-{{ p.player_id }}" style="display: none;">
-            {% set scouted = cached_scouts.get(p.player_id) %}
-            {# Scouted and unscouted rivals share one table so the card keeps its
-               shape either way — unscouted rows just carry '?' where the scouted
-               numbers would be. Scouted rows come from the cached snapshot;
-               otherwise prefer the richer `posts` (token + custom name) and fall
-               back to bare post tokens. #}
-            {% set ns = namespace(rows=[]) %}
-            {% if scouted %}
-                {% set ns.rows = scouted %}
-            {% else %}
-                {% set ns.rows = p.get('posts') or [] %}
-                {% if not ns.rows %}
-                    {% for hex_id in p.get('post_tokens', []) %}
-                    {% set ns.rows = ns.rows + [{'post_token': hex_id}] %}
-                    {% endfor %}
-                {% endif %}
-            {% endif %}
-            {% if p.post_count > 0 %}
-            <div class="mp-scout-stale">
-                {% if scouted %}🔭 Scouted snapshot · <span class="mp-muted">{{ scout_ages.get(p.player_id, 'unknown') }}</span>
-                {% else %}🔭 Unscouted · <span class="mp-muted">levels &amp; ages hidden</span>{% endif %}
-            </div>
-            {% if ns.rows %}
-            <table role="grid" class="mp-posts-table">
-                <thead><tr><th>Survey Post</th><th>Level</th><th>Age</th>{% if pvp_enabled and can_attack %}<th>Actions</th>{% endif %}</tr></thead>
-                <tbody>
-                {% for post in ns.rows %}
-                {% set post_label = post.name or hex_name(post.post_token) %}
-                <tr>
-                    <td>{{ post_label }}</td>
-                    <td>{% if scouted %}Lv.{{ post.level }}{% else %}<span class="mp-muted">?</span>{% endif %}</td>
-                    <td>{% if scouted %}{{ post.age_days }}d{% else %}<span class="mp-muted">?</span>{% endif %}</td>
-                    {% if pvp_enabled and can_attack %}
-                    {% set cooldown_until = raid_cooldowns.get(post.post_token) %}
-                    <td>
-                        {% if cooldown_until and cooldown_until > now_ts %}
-                        <span class="mp-cooldown-badge" data-cooldown-until="{{ cooldown_until }}"
-                              title="This post was raided recently — on cooldown">⏳ …</span>
-                        {% else %}
-                        <button class="game-btn game-btn-secondary game-btn-sm attack-btn"
-                            data-target-player="{{ p.player_id }}"
-                            data-target-post="{{ post.post_token }}"
-                            data-target-name="{{ p.display_name }}"
-                            data-post-name="{{ post_label }}"
-                            title="{% if scouted %}Attack this post{% else %}Attack blind{% endif %}">⚔️ Raid</button>
-                        {% endif %}
-                    </td>
-                    {% endif %}
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            {% endif %}
-            <button class="game-btn game-btn-secondary game-btn-sm scout-btn" data-target="{{ p.player_id }}" style="margin-top: 0.5rem;">
-                {% if scouted %}🔭 Scout (Refresh){% else %}🔭 Scout (reveal levels &amp; ages){% endif %}
-            </button>
-            {% else %}
-            <p class="mp-muted" style="font-size: 0.85em;">No Survey Posts.</p>
-            {% endif %}
-        </div>
+        {# Body is built lazily on first expand from #rival-detail-data (see the
+           Warfront script) so the page doesn't ship ~N hidden posts tables. #}
+        <div class="mp-player-detail" id="detail-{{ p.player_id }}" data-loaded="0" style="display: none;"></div>
     </div>
     {% endif %}
     {% endfor %}
@@ -442,23 +384,92 @@
 })();
 </script>
 
+<script id="rival-detail-data" type="application/json">{{ (rival_details or {}) | tojson }}</script>
+<script id="warfront-config" type="application/json">{{ {'pvp_enabled': pvp_enabled or false, 'can_attack': can_attack or false, 'cooldowns': raid_cooldowns or {}} | tojson }}</script>
 <script>
+var RIVAL_DETAILS = {};
+var WF_CONFIG = {};
+try { RIVAL_DETAILS = JSON.parse(document.getElementById('rival-detail-data').textContent || '{}'); } catch (e) {}
+try { WF_CONFIG = JSON.parse(document.getElementById('warfront-config').textContent || '{}'); } catch (e) {}
+
+// Escapes for BOTH text and (double/single-quoted) attribute contexts — rival
+// names/post labels are attacker-controlled and get interpolated into data-*
+// attributes below, so quotes must be escaped too (textContent/innerHTML would
+// leave " and ' intact, allowing attribute breakout).
+function mpEsc(s) {
+    return (s === null || s === undefined ? '' : String(s))
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Build one rival's posts-table body from the shipped JSON (mirrors the old
+// server-rendered table) the first time the row is expanded. Keeps the page from
+// carrying ~N hidden tables at high player counts.
+function buildRivalDetail(id, detail) {
+    const d = RIVAL_DETAILS[id];
+    // Defensive: a row with no matching detail record (e.g. a rival the Worker
+    // sent without a usable id) still gets a body rather than expanding to blank.
+    if (!d) { detail.innerHTML = '<p class="mp-muted" style="font-size: 0.85em;">Details unavailable.</p>'; return; }
+    if (!d.post_count) { detail.innerHTML = '<p class="mp-muted" style="font-size: 0.85em;">No Survey Posts.</p>'; return; }
+    const showActions = !!(WF_CONFIG.pvp_enabled && WF_CONFIG.can_attack);
+    const now = Math.floor(Date.now() / 1000);
+    const cooldowns = WF_CONFIG.cooldowns || {};
+    let html = '<div class="mp-scout-stale">' + (d.scouted
+        ? '🔭 Scouted snapshot · <span class="mp-muted">' + mpEsc(d.scout_age) + '</span>'
+        : '🔭 Unscouted · <span class="mp-muted">levels &amp; ages hidden</span>') + '</div>';
+    if (d.posts && d.posts.length) {
+        html += '<table role="grid" class="mp-posts-table"><thead><tr><th>Survey Post</th><th>Level</th><th>Age</th>'
+            + (showActions ? '<th>Actions</th>' : '') + '</tr></thead><tbody>';
+        d.posts.forEach(function(post) {
+            html += '<tr><td>' + mpEsc(post.label) + '</td>'
+                + '<td>' + (d.scouted ? 'Lv.' + mpEsc(post.level) : '<span class="mp-muted">?</span>') + '</td>'
+                + '<td>' + (d.scouted ? mpEsc(post.age_days) + 'd' : '<span class="mp-muted">?</span>') + '</td>';
+            if (showActions) {
+                const cd = cooldowns[post.token];
+                if (cd && cd > now) {
+                    html += '<td><span class="mp-cooldown-badge" data-cooldown-until="' + cd
+                        + '" title="This post was raided recently — on cooldown">⏳ …</span></td>';
+                } else {
+                    html += '<td><button class="game-btn game-btn-secondary game-btn-sm attack-btn"'
+                        + ' data-target-player="' + mpEsc(id) + '"'
+                        + ' data-target-post="' + mpEsc(post.token) + '"'
+                        + ' data-target-name="' + mpEsc(d.name) + '"'
+                        + ' data-post-name="' + mpEsc(post.label) + '"'
+                        + ' title="' + (d.scouted ? 'Attack this post' : 'Attack blind') + '">⚔️ Raid</button></td>';
+                }
+            }
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+    }
+    html += '<button class="game-btn game-btn-secondary game-btn-sm scout-btn" data-target="' + mpEsc(id)
+        + '" style="margin-top: 0.5rem;">'
+        + (d.scouted ? '🔭 Scout (Refresh)' : '🔭 Scout (reveal levels &amp; ages)') + '</button>';
+    detail.innerHTML = html;
+    if (typeof window.refreshCooldownBadges === 'function') window.refreshCooldownBadges();
+}
+
 function togglePlayer(id) {
     const detail = document.getElementById('detail-' + id);
     const icon = document.getElementById('icon-' + id);
+    if (!detail) return;
     if (detail.style.display === 'none') {
+        if (detail.dataset.loaded === '0') { buildRivalDetail(id, detail); detail.dataset.loaded = '1'; }
         detail.style.display = 'block';
-        icon.classList.add('open');
+        if (icon) icon.classList.add('open');
     } else {
         detail.style.display = 'none';
-        icon.classList.remove('open');
+        if (icon) icon.classList.remove('open');
     }
 }
 
-document.querySelectorAll('.scout-btn').forEach(btn => {
-    btn.addEventListener('click', async function() {
-        const target = this.dataset.target;
-        const originalLabel = this.innerHTML;
+// Delegated so lazily-built rival details (buildRivalDetail) are covered too.
+document.addEventListener('click', async function(ev) {
+    const btn = ev.target.closest('.scout-btn');
+    if (!btn) return;
+    {
+        const target = btn.dataset.target;
+        const originalLabel = btn.innerHTML;
         const items = await fetch('/api/multiplayer/items').then(r => r.json());
         const probes = (items.items || []).filter(i => i.item_type === 'probe' && !i.used);
         if (!probes.length) {
@@ -466,8 +477,8 @@ document.querySelectorAll('.scout-btn').forEach(btn => {
             return;
         }
         if (!await loraConfirm('Use a Scout to reveal this player\'s posts?', { confirmText: 'Scout', reverseButtons: true })) return;
-        this.disabled = true;
-        this.textContent = '⏳';
+        btn.disabled = true;
+        btn.textContent = '⏳';
         const res = await fetch('/api/multiplayer/scout', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -490,10 +501,10 @@ document.querySelectorAll('.scout-btn').forEach(btn => {
             location.reload();
         } else {
             await loraAlert('Scout failed: ' + (data.error || 'unknown'));
-            this.disabled = false;
-            this.innerHTML = originalLabel;
+            btn.disabled = false;
+            btn.innerHTML = originalLabel;
         }
-    });
+    }
 });
 
 const raidModal = document.getElementById('raid-modal');
@@ -575,8 +586,6 @@ async function updateRaidPreview() {
 // a fresh Attack button needs the row re-rendered without the cooldown, which
 // only the server can decide, so we just reload once it clears.
 (function () {
-    const badges = document.querySelectorAll('.mp-cooldown-badge');
-    if (!badges.length) return;
     function fmtCooldown(secs) {
         const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
         if (h > 0) return `⏳ ${h}h ${m}m`;
@@ -584,9 +593,11 @@ async function updateRaidPreview() {
         return '⏳ <1m';
     }
     let reloaded = false;
+    // Re-query each tick so badges built lazily on row expand (buildRivalDetail)
+    // are covered, not just the ones present at page load.
     function update() {
         const now = Math.floor(Date.now() / 1000);
-        badges.forEach(b => {
+        document.querySelectorAll('.mp-cooldown-badge').forEach(b => {
             const remaining = parseInt(b.dataset.cooldownUntil, 10) - now;
             if (remaining <= 0) {
                 if (!reloaded) { reloaded = true; location.reload(); }
@@ -595,15 +606,19 @@ async function updateRaidPreview() {
             b.textContent = fmtCooldown(remaining);
         });
     }
+    window.refreshCooldownBadges = update;
     update();
     setInterval(update, 60000);
 })();
 
-document.querySelectorAll('.attack-btn').forEach(btn => {
-    btn.addEventListener('click', async function() {
-        raidCtx = { player: this.dataset.targetPlayer, post: this.dataset.targetPost };
+// Delegated so lazily-built rival details (buildRivalDetail) are covered too.
+document.addEventListener('click', async function(ev) {
+    const btn = ev.target.closest('.attack-btn');
+    if (!btn) return;
+    {
+        raidCtx = { player: btn.dataset.targetPlayer, post: btn.dataset.targetPost };
         document.getElementById('raid-title').textContent =
-            `Raid ${this.dataset.targetName}'s "${this.dataset.postName}"`;
+            `Raid ${btn.dataset.targetName}'s "${btn.dataset.postName}"`;
         const box = document.getElementById('raid-preview');
         box.className = 'mp-preview';
         box.textContent = 'Select items to see the projected outcome.';
@@ -634,7 +649,7 @@ document.querySelectorAll('.attack-btn').forEach(btn => {
             }));
         }
         raidModal.showModal();
-    });
+    }
 });
 
 document.getElementById('raid-cancel').addEventListener('click', () => raidModal.close());

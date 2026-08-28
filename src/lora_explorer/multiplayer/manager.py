@@ -20,22 +20,34 @@ log = logging.getLogger(__name__)
 # Poll cadences (seconds). These govern steady-state Worker/DO request volume, so
 # they're the scaling dials — tune here as the player base grows (players can't and
 # shouldn't set these; left to them they'd all poll as fast as possible). Rough
-# per-install-per-day request cost ≈ 86400/interval for each loop.
+# per-install-per-day request cost ≈ 86400/interval for each fixed loop.
 #
-# How often local game state is bundled up and pushed to the Worker. Drives
-# gameplay sync (surveys → renown, item drops), so kept tight; ~24/day, negligible.
-BUNDLE_INTERVAL = 3600
-# Combined defense+raid status poll while *engaged* (own raid in flight or an
-# inbound raid detected) — the reaction loop, kept responsive.
-POLL_INTERVAL_ACTIVE = 60
-# ...and while idle. The dominant steady-state cost and the main scaling dial.
-# Raids travel ≥1h (TRAVEL_MIN_SECONDS on the Worker), so even a 20-minute idle
-# cadence still leaves ~40+ minutes of warning before the closest possible raid
-# lands; the hourly bundle and 6h cron are further backstops. Raise this first if
-# request volume needs to come down.
-POLL_INTERVAL_IDLE = 1200
-# The leaderboard changes slowly (renown accrues over days); hourly is plenty fresh.
-LEADERBOARD_INTERVAL = 3600
+# How often local game state is bundled up and pushed to the Worker (surveys →
+# renown, item drops). Renown accrues over days and drops aren't time-sensitive,
+# so 2h is imperceptible; ~12/day.
+BUNDLE_INTERVAL = 7200
+# Idle baseline for the defense+raid status poll — the steady-state floor. Raids
+# travel ≥1h (TRAVEL_MIN_SECONDS on the Worker), so a 30-minute idle cadence still
+# leaves ~30 min of warning before the *closest* possible raid lands (most travel
+# far longer, up to 12h), and a raised boost lasts 12h so it's live at impact. The
+# bundle and 6h cron are further backstops. ~48/day.
+POLL_INTERVAL_IDLE = 1800
+# The status poll is *event-driven*, not a fixed fast cadence: the only thing that
+# happens at a precise, already-known instant is a raid landing (its arrives_at),
+# whose outcome we want to notify on promptly. So instead of blind-polling every
+# minute for the whole ≥1h flight, the loop wakes once just after the nearest
+# in-flight raid's arrival to catch it (the Worker resolves due raids on read),
+# then falls back to idle. New *incoming* raids are still caught at the idle
+# baseline — fine, given ≥1h travel. This collapses the old "engaged" burst (dozens
+# of polls per siege) to ~1 poll per raid, while firing the ping right at impact.
+#   POLL_ARRIVAL_MARGIN — wake this many seconds *after* arrives_at, so the Worker
+#                         has passed the arrival and will resolve the raid on read.
+#   POLL_MIN_INTERVAL   — floor, so an imminent/overdue arrival can't spin the loop.
+POLL_ARRIVAL_MARGIN = 20
+POLL_MIN_INTERVAL = 30
+# The leaderboard changes slowly (renown accrues over days) and the Worker caches
+# it 6h, so a 2h poll is still fresher than the rebuild; ~12/day.
+LEADERBOARD_INTERVAL = 7200
 
 
 class MultiplayerManager:
@@ -685,37 +697,53 @@ class MultiplayerManager:
         }.get(outcome, f"Your raid on {target} has returned.")
         await self._send_notification(verb, now)
 
-    async def _poll_status(self) -> bool:
+    async def _poll_status(self) -> int | None:
         """One combined poll of defense state + the player's own raid (a single
-        /api/status request). Applies the same defense-change detection and raid
-        reconciliation the two separate polls used to. Returns True while the
-        player is *engaged* — a raid in flight or an inbound raid detected — so the
-        loop holds the fast cadence; False lets it fall back to the idle cadence."""
+        /api/status request), applying defense-change detection and raid
+        reconciliation.
+
+        Returns the epoch-seconds arrival time of the *soonest* in-flight raid
+        (own or inbound) so the loop can wake once at that impact to notify on the
+        outcome, then fall back to idle. Returns None when nothing is in flight."""
         now = int(time.time())
         status = await self._client.get_status()
         self._note_worker_result(status)
         if not status.get("ok"):
-            return False
+            return None
 
-        engaged = False
+        next_event_at: int | None = None
+
+        def _consider(ts) -> None:
+            nonlocal next_event_at
+            if ts is None:
+                return
+            ts = int(ts)
+            if next_event_at is None or ts < next_event_at:
+                next_event_at = ts
 
         defense = status.get("defense") or {}
         if defense.get("ok"):
             await self._detect_defense_changes(defense, now)
             await self._cache_put("defense", json.dumps(defense), now)
             for post in defense.get("posts", []):
-                if post.get("incoming_raids"):
-                    engaged = True
+                for raid in post.get("incoming_raids", []):
+                    eta = raid.get("eta_seconds")
+                    # Fall back to `now` (→ poll again at the floor) if an inbound
+                    # raid somehow lacks an ETA, so we can't stall on it.
+                    _consider(now + max(0, int(eta)) if eta is not None else now)
 
         raid_result = status.get("raid") or {}
         if raid_result.get("ok"):
-            if raid_result.get("active_raid_id"):
-                engaged = True
             raid = raid_result.get("raid")
+            if raid_result.get("active_raid_id"):
+                # arrives_at is authoritative; `now` is a defensive fallback so a
+                # live raid always schedules a wake (poll again at the floor) even
+                # if the raid object or its arrives_at is missing.
+                _consider((raid or {}).get("arrives_at") or now)
             if raid and raid.get("status") == "resolved":
                 await self._reconcile_resolved_raid(raid, now)
 
-        return engaged
+        return next_event_at
 
     async def get_cached_defense(self) -> dict | None:
         """The last defense snapshot the poll loop stored, tagged with the time
@@ -788,8 +816,14 @@ class MultiplayerManager:
             interval = POLL_INTERVAL_IDLE
             try:
                 if self.registered and self._pvp_enabled:
-                    engaged = await self._poll_status()
-                    interval = POLL_INTERVAL_ACTIVE if engaged else POLL_INTERVAL_IDLE
+                    next_event_at = await self._poll_status()
+                    if next_event_at is not None:
+                        # Wake just after the nearest raid lands to catch its
+                        # outcome, but never sooner than the floor nor later than
+                        # the idle baseline (which still catches new incoming
+                        # raids in the meantime).
+                        until = next_event_at + POLL_ARRIVAL_MARGIN - int(time.time())
+                        interval = max(POLL_MIN_INTERVAL, min(POLL_INTERVAL_IDLE, until))
             except Exception:
                 log.exception("Status poll error")
             await asyncio.sleep(interval)

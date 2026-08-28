@@ -401,34 +401,49 @@ async def test_repelled_raids_award_bulwark(manager, db):
 
 
 @pytest.mark.asyncio
-async def test_poll_status_idle_returns_not_engaged(manager, db):
-    """A quiet status poll (no in-flight or inbound raid) reports not-engaged so
-    the loop falls back to the idle cadence, and makes exactly one request."""
+async def test_poll_status_idle_returns_no_pending_event(manager, db):
+    """A quiet status poll (no in-flight or inbound raid) returns None so the loop
+    stays on the idle cadence, and makes exactly one request."""
     manager._client.get_status = AsyncMock(return_value={
         "ok": True,
         "defense": {"ok": True, "posts": [{"post_token": "h", "incoming_raids": []}]},
         "raid": {"ok": True, "active_raid_id": None, "raid": None},
     })
-    engaged = await manager._poll_status()
-    assert engaged is False
+    assert await manager._poll_status() is None
     manager._client.get_status.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_poll_status_engaged_on_inflight_raid(manager, db):
-    """An in-flight own raid keeps the loop on the fast cadence."""
+async def test_poll_status_returns_inflight_raid_arrival(manager, db):
+    """An in-flight own raid returns its arrival time so the loop wakes at impact."""
+    arrives = int(time.time()) + 3600
     manager._client.get_status = AsyncMock(return_value={
         "ok": True,
         "defense": {"ok": True, "posts": []},
         "raid": {"ok": True, "active_raid_id": "r1",
-                 "raid": {"raid_id": "r1", "status": "in_flight"}},
+                 "raid": {"raid_id": "r1", "status": "in_flight", "arrives_at": arrives}},
     })
-    assert await manager._poll_status() is True
+    assert await manager._poll_status() == arrives
 
 
 @pytest.mark.asyncio
-async def test_poll_status_engaged_on_incoming_raid(manager, db):
-    """An inbound raid on any post keeps the loop on the fast cadence."""
+async def test_poll_status_active_raid_without_object_still_wakes(manager, db):
+    """active_raid_id present but no raid object must still schedule a wake (poll
+    again soon), not silently fall back to the idle cadence."""
+    before = int(time.time())
+    manager._client.get_status = AsyncMock(return_value={
+        "ok": True,
+        "defense": {"ok": True, "posts": []},
+        "raid": {"ok": True, "active_raid_id": "r1", "raid": None},
+    })
+    result = await manager._poll_status()
+    assert result is not None and result >= before
+
+
+@pytest.mark.asyncio
+async def test_poll_status_returns_incoming_raid_arrival(manager, db):
+    """An inbound raid returns its projected arrival (now + eta_seconds)."""
+    before = int(time.time())
     manager._client.get_status = AsyncMock(return_value={
         "ok": True,
         "defense": {"ok": True, "posts": [
@@ -436,14 +451,15 @@ async def test_poll_status_engaged_on_incoming_raid(manager, db):
         ]},
         "raid": {"ok": True, "active_raid_id": None, "raid": None},
     })
-    assert await manager._poll_status() is True
+    result = await manager._poll_status()
+    assert result is not None and before + 1800 <= result <= int(time.time()) + 1800
 
 
 @pytest.mark.asyncio
-async def test_poll_status_failure_is_not_engaged(manager, db):
+async def test_poll_status_failure_returns_none(manager, db):
     """A failed status request degrades to the idle cadence, not a fast spin."""
     manager._client.get_status = AsyncMock(return_value={"ok": False, "error": "boom"})
-    assert await manager._poll_status() is False
+    assert await manager._poll_status() is None
 
 
 @pytest.mark.asyncio
@@ -617,7 +633,6 @@ async def test_poll_status_sets_update_required_from_worker_426(manager, db):
     manager._client.get_status = AsyncMock(return_value={
         "ok": False, "update_required": True, "min_version": "0.5.0",
     })
-    engaged = await manager._poll_status()
-    assert engaged is False
+    assert await manager._poll_status() is None
     assert manager.update_required is True
     assert manager.min_client_version == "0.5.0"
