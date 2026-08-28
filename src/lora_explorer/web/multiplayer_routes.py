@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 
 from ..game.titles import POSTCARD_TITLE_MEANINGS, TITLE_MEANINGS
 from ..game.hex_names import hex_name
+from ..game.names import name_is_blocked
 from ..game.engine import (
     MULTIPLAYER_SHOP_CATALOG,
     MULTIPLAYER_ITEM_SALVAGE,
@@ -388,6 +389,11 @@ async def multiplayer_register(request: Request):
     display_name = str(form.get("display_name", "")).strip()
     if not display_name or len(display_name) > 32:
         return _flash_redirect("/multiplayer", "Name must be 1-32 characters", "error")
+    # Instant local feedback; the Worker enforces the same denylist authoritatively.
+    if name_is_blocked(display_name):
+        return _flash_redirect(
+            "/multiplayer", "That name isn't allowed. Please choose another.", "error"
+        )
 
     # The hosted war ledger is 18+ (see TERMS.md). The checkbox is `required` in
     # the form, but enforce it here too so the age confirmation can't be skipped

@@ -13,6 +13,7 @@ from .commands import parse_command, CommandType, ParsedCommand
 from .database import Database
 from .geo import distance_between
 from .hex_names import hex_name
+from .names import name_is_blocked
 from ..radio.adapter import RadioAdapter, IncomingMessage, PositionFailure, PositionResult
 
 log = logging.getLogger(__name__)
@@ -1317,6 +1318,11 @@ class GameEngine:
             return "CHARTER EXPIRED\nHex mismatch.\nNo resources spent."
 
         name = cmd.args.strip()[:30]
+        # Reject a denylisted name BEFORE clearing the pending charter or spending
+        # anything, so the player can just resend /lora <name> with another. See
+        # game/names.py; the Worker enforces the same list for multiplayer.
+        if name_is_blocked(name):
+            return "NAME NOT ALLOWED\nThat name isn't allowed.\nSend /lora <name> to try another."
         del self._pending_charters[msg.sender_key]
 
         charter_prov, charter_marks = self._charter_costs()
@@ -1882,6 +1888,8 @@ class GameEngine:
         name = name.strip()[:30]
         if not name:
             return {"ok": False, "error": "Name cannot be empty"}
+        if name_is_blocked(name):
+            return {"ok": False, "error": "That name isn't allowed. Please choose another."}
         old_name = post["name"]
         await self._db.rename_post(post_id, name)
         await self._db.log_activity(player_key, "rename", f'Renamed "{old_name}" → "{name}"')
