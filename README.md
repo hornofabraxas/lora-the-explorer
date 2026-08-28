@@ -1,63 +1,92 @@
 # LoRa the Explorer
 
-A location-based exploration game you play over long-range **LoRa radio**, with no cell service or
-internet needed out in the field.
+A location-based exploration RPG you play over long-range **LoRa radio**. Walk out into the real
+world, survey the ground you cover, build a network of outposts, and grow from a lone surveyor into a
+ranked member of the World's End Society.
 
-You carry a small handheld LoRa device (your "spyglass"), walk out into the real world, and radio
-survey commands back to a game server you run yourself at home. The server tracks the territory you
-discover, the outposts you build, and, if you choose, pits your outposts against other explorers'.
+It runs as a small, self-hosted web app that is happy on a Raspberry Pi or any always-on computer,
+and installs three ways: **Docker**, a **Windows installer**, or **from source** (Python 3.12+).
 
-No cell signal. No app store. No account with anyone. Just a radio, a map, and somewhere to walk.
+**Single-player is the whole game.** Surveying, outposts, upgrades, weekly contracts, the merchant,
+relics, achievements, and ranks all work on their own and send nothing to anyone. **Multiplayer is
+entirely opt-in:** join the shared war ledger to appear on a leaderboard, scout rival explorers, and
+raid their outposts, sharing only a coarse, roughly 50-mile location.
 
 > **The setting:** the World's End Society, a guild of surveyors mapping what is left of the world.
 
 ## A look around
 
-The game is played from a phone-friendly web dashboard on your own network. The tabs run left to
+The dashboard is phone-friendly and installs to your home screen like an app. Its tabs run left to
 right along the bottom: Briefing, Radio, Outposts, Ledger, and Multiplayer.
 
 <table>
   <tr>
     <td width="25%"><img src="docs/screenshots/briefing.png" alt="Briefing tab"><br><sub><b>Briefing.</b> Your home screen: currencies, the daily dispatch, your rank, the merchant, and contracts.</sub></td>
-    <td width="25%"><img src="docs/screenshots/radio1.png" alt="Radio console"><br><sub><b>Radio.</b> The live feed and the Survey, Charter, and Upkeep commands you send from the field.</sub></td>
+    <td width="25%"><img src="docs/screenshots/radio1.png" alt="Radio console"><br><sub><b>Radio.</b> The live feed and the Survey, Charter, and Upkeep actions you use in the field.</sub></td>
     <td width="25%"><img src="docs/screenshots/radio2.png" alt="Live map"><br><sub><b>Map.</b> The territory you have discovered and the mesh repeaters around you.</sub></td>
     <td width="25%"><img src="docs/screenshots/outpost1.png" alt="Outposts base camp"><br><sub><b>Outposts.</b> Grow your base camp to unlock perks, slots, and bigger rewards.</sub></td>
   </tr>
   <tr>
-    <td width="25%"><img src="docs/screenshots/outpost2.png" alt="Survey posts"><br><sub><b>Survey Posts.</b> Outposts that earn for you passively, if you keep them maintained.</sub></td>
+    <td width="25%"><img src="docs/screenshots/outpost2.png" alt="Survey posts"><br><sub><b>Survey Posts.</b> Outposts that earn for you passively, as long as you keep them maintained.</sub></td>
     <td width="25%"><img src="docs/screenshots/ledger.png" alt="Ledger"><br><sub><b>Ledger.</b> Your expedition stats and the achievements you have unlocked.</sub></td>
     <td width="25%"><img src="docs/screenshots/multiplayer1.png" alt="Multiplayer hub"><br><sub><b>Multiplayer.</b> Your standing on the shared war ledger and your outpost defenses.</sub></td>
     <td width="25%"><img src="docs/screenshots/multiplayer2.png" alt="Warfront"><br><sub><b>Warfront.</b> Scout rival explorers and raid their outposts. Distances stay deliberately coarse.</sub></td>
   </tr>
 </table>
 
-## How it works
+## How you play
+
+You explore in the real world and manage everything else from the dashboard. There are two ways to
+take an action in the field, and you can mix them freely.
+
+**From the dashboard (recommended).** Carry your phone with your spyglass and use the **Radio tab** to
+Survey, Charter, or Upkeep with a tap. This is the lightest on the mesh: the only thing that crosses
+the radio is the quick GPS exchange between your server and your spyglass (about two messages over the
+air). The tap and the result travel over your home network, so this needs your phone to be able to
+reach your server.
+
+**Radio-only (the off-grid fallback).** When you have no connection to your server at all, send the
+same actions as plain text messages straight from your spyglass over the mesh (`/lora survey`, and so
+on). Now everything crosses the radio: your command in, the GPS exchange, and the reply back out. That
+is roughly twice the mesh traffic (around five messages over the air), but it needs nothing except the
+radio.
 
 ```
-Your spyglass ──LoRa radio──> companion node ──> game server ──> web dashboard
-   (in the field)               (at home)        (your computer or Pi)
+Dashboard (recommended):  phone tap ─(home network)─> server ─(LoRa: GPS only)─> spyglass
+Radio-only (fallback):    spyglass ─(LoRa: command, GPS, reply)─> companion node ─> server
 ```
 
-You send `/lora survey` from the field. The server figures out where you are from your device's GPS,
-works out which territory you are standing in, and pays out rewards. Everything else, like maps,
-upgrades, the merchant, and multiplayer, happens on the web dashboard, because radio bandwidth is
-precious and only the commands that need to prove your location go over the air.
+Either way, the server works out which territory your GPS puts you in, pays out the rewards, and
+updates the dashboard. Only the actions that need to prove your location ever touch the radio;
+everything else (maps, upgrades, the merchant, multiplayer) happens on the dashboard.
 
-## Features
+## What you can do
 
-- **Survey the real world.** Walk somewhere, survey it, and claim that territory. Every survey earns
-  rewards, and reaching somewhere new pays a bonus on top. Each territory is about a third of a
-  square mile.
-- **Build outposts.** Set up permanent Survey Posts at real locations away from home. Level them up
-  and keep them tended, or watch them fall into ruin.
-- **Progress systems.** Ranks, daily streaks, achievements, weekly expedition contracts, a rotating
-  merchant, and rare relics you dig up while surveying.
-- **A dashboard that looks the part.** A retro radio-set interface with a live event feed, a map of
-  the ground you have covered, and the mesh repeaters near you.
-- **Optional multiplayer.** Join the shared war ledger to appear on a leaderboard, scout rivals, and
-  raid their outposts. Entirely opt-in. See [Privacy](#privacy--your-data).
-- **Light to run.** A small Python app with a local database and no external services. It is happy on
-  a Raspberry Pi, and runs just as well on any computer.
+**Explore and earn**
+
+- **Survey** the territory you are standing in. Every survey earns provisions and survey marks, and
+  reaching somewhere new pays a discovery bonus. Territories are about a third of a square mile each.
+- **Keep a streak going.** Surveying on consecutive days builds Momentum for an XP bonus.
+- **Dig up relics** while surveying: instant supply caches, a tonic that clears your survey
+  cooldowns, and a wardstone that shields an outpost.
+
+**Build and grow**
+
+- **Charter Survey Posts:** permanent outposts at real locations away from home that earn provisions
+  passively. Level them up, and run **upkeep** on site to keep them out of ruin.
+- **Upgrade your Base Camp** through ten levels to raise your XP multiplier, unlock more outpost
+  slots, and open perks like the Frontier Merchant.
+- **Climb the ranks,** complete weekly **Expedition Contracts**, chase 25 **postcard achievements**
+  that award display titles, and spend at the **Frontier Merchant** as it restocks each week.
+
+**Optional multiplayer (opt-in)**
+
+- **Join the war ledger** to appear on a **renown leaderboard** built from the outposts you hold.
+- **Scout rivals** to reveal an outpost's strength, then **raid** it with attack munitions.
+- **Defend** your own outposts with defensive items or a wardstone that makes one dormant and
+  unraidable for a while.
+- **Earn combat titles** like Warlord for topping the Warfront. Only a coarse location and anonymous
+  outpost tokens ever leave your server.
 
 ## Getting started
 
@@ -108,12 +137,14 @@ python -m venv .venv && .venv/bin/pip install -e ".[dev]"
 ### First run
 
 Open `http://localhost:1492` and follow the setup wizard. It walks you through choosing a password
-(or single sign-on), connecting your companion radio, and dropping a pin for your home base. After
-that, head outside and send your first `/lora survey`.
+(or single sign-on), connecting your companion radio, and dropping a pin for your home base. On your
+phone, use your browser's "Add to Home Screen" to install the dashboard like an app. Then head
+outside and take your first survey.
 
-## Commands
+## Field commands
 
-Sent from your spyglass over the radio:
+The Radio tab does these with a tap, and is the usual way to play. You can also send them as plain
+text from your spyglass when you are playing radio-only:
 
 | Command | What it does |
 |---|---|
