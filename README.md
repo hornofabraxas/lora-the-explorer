@@ -34,22 +34,24 @@ right along the bottom: Briefing, Radio, Outposts, Ledger, and Multiplayer.
   </tr>
 </table>
 
-## How you play
+## How to play
 
-You explore in the real world and manage everything else from the dashboard. There are two ways to
-take an action in the field, and you can mix them freely.
+You explore in the real world and manage everything else from the dashboard. In the field you carry
+your **spyglass** (your handheld LoRa device with GPS) and, usually, your phone. There are two ways to
+take an action, and you can mix them freely.
 
-**From the dashboard (recommended).** Carry your phone with your spyglass and use the **Radio tab** to
-Survey, Charter, or Upkeep with a tap. This is the lightest on the mesh: the only thing that crosses
-the radio is the quick GPS exchange between your server and your spyglass (about two messages over the
-air). The tap and the result travel over your home network, so this needs your phone to be able to
-reach your server.
+**From the dashboard (recommended).** Carry your phone alongside your spyglass and use the **Radio
+tab** to Survey, Charter, or Upkeep with a tap. This is the lightest on the mesh: the only thing that
+crosses the radio is the quick GPS exchange between your server and your spyglass (about two messages
+over the air). The tap and the result travel over your home network, so this needs your phone to be
+able to reach your server.
 
 **Radio-only (the off-grid fallback).** When you have no connection to your server at all, send the
 same actions as plain text messages straight from your spyglass over the mesh (`/lora survey`, and so
 on). Now everything crosses the radio: your command in, the GPS exchange, and the reply back out. That
-is roughly twice the mesh traffic (around five messages over the air), but it needs nothing except the
-radio.
+is roughly twice the mesh traffic (around five messages over the air), but it needs nothing but the
+radio. Either way, the app paces and budgets its own transmissions to stay a light, well-behaved
+neighbour on your local mesh (see [Responsible LoRa mesh usage](#responsible-lora-mesh-usage)).
 
 ```
 Dashboard (recommended):  phone tap ─(home network)─> server ─(LoRa: GPS only)─> spyglass
@@ -60,15 +62,15 @@ Either way, the server works out which territory your GPS puts you in, pays out 
 updates the dashboard. Only the actions that need to prove your location ever touch the radio;
 everything else (maps, upgrades, the merchant, multiplayer) happens on the dashboard.
 
-## What you can do
+## Game mechanics
 
 **Explore and earn**
 
 - **Survey** the territory you are standing in. Every survey earns provisions and survey marks, and
   reaching somewhere new pays a discovery bonus. Territories are about a third of a square mile each.
 - **Keep a streak going.** Surveying on consecutive days builds Momentum for an XP bonus.
-- **Dig up relics** while surveying: instant supply caches, a tonic that clears your survey
-  cooldowns, and a wardstone that shields an outpost.
+- **Uncover relics** while surveying: rare artifacts, hidden until you find them, each with its own
+  use to discover.
 
 **Build and grow**
 
@@ -82,9 +84,11 @@ everything else (maps, upgrades, the merchant, multiplayer) happens on the dashb
 **Optional multiplayer (opt-in)**
 
 - **Join the war ledger** to appear on a **renown leaderboard** built from the outposts you hold.
-- **Scout rivals** to reveal an outpost's strength, then **raid** it with attack munitions.
-- **Defend** your own outposts with defensive items or a wardstone that makes one dormant and
-  unraidable for a while.
+- **Scout rivals** to reveal an outpost's strength, then **raid** it with attack munitions. The
+  Warfront is **global**: you can attack any explorer on the ledger, anywhere. Distance sets a raid's
+  travel time, so a nearby target is struck quickly while a distant one gets far more warning of your
+  incoming attack.
+- **Defend** your own outposts with defensive gear, or make one dormant and unraidable for a time.
 - **Earn combat titles** like Warlord for topping the Warfront. Only a coarse location and anonymous
   outpost tokens ever leave your server.
 
@@ -92,16 +96,13 @@ everything else (maps, upgrades, the merchant, multiplayer) happens on the dashb
 
 ### What you'll need
 
-- **A companion radio node running MeshCore.** This is the base station at home that receives your
-  radio messages. It connects to the game server over Wi-Fi, USB, or Bluetooth. A Heltec V3 or
-  similar works well.
-- **A handheld LoRa device with GPS** to carry in the field (your "spyglass"), such as a ThinkNode
-  M1, with location sharing turned on.
+- **A companion radio node on the MeshCore network** (running MeshCore or a compatible firmware such
+  as ZephCore). This is the base station at home that receives your radio messages, connected to the
+  game server over Wi-Fi, USB, or Bluetooth. A Heltec V3 or similar works well.
+- **A handheld LoRa device with GPS** to carry in the field (your **spyglass**), also on the MeshCore
+  network, such as a ThinkNode M1, with location sharing turned on.
 - **Somewhere to run the game server.** Any always-on computer or a Raspberry Pi. On Windows you do
   not need anything extra (see the Windows option below).
-
-> Built for MeshCore. Meshtastic is not supported yet. The radio layer is designed so support could
-> be added later without a rewrite.
 
 ### Install
 
@@ -199,6 +200,29 @@ version in place.
 check that is off by default. Both are a plain request to GitHub's public release list with no
 personal data attached. If you play multiplayer and the service has moved past what your version can
 talk to, you will see an "Update required" banner. Local play keeps working either way.
+
+## Responsible LoRa mesh usage
+
+LoRa mesh airtime is a shared, finite resource, and this game is built to be a light, well-behaved
+neighbour on whatever mesh you run it on. The app manages its own radio use for you, with several
+safeguards working together:
+
+- **A per-explorer survey cooldown.** Successful surveys are spaced at least 35 seconds apart, which
+  is about as fast as a mesh round-trip can answer anyway.
+- **Base-station-wide flood spacing.** Flooded messages from all your explorers are serialised at
+  least 20 seconds apart, so several spyglasses reporting in at once cannot bunch up.
+- **A rolling transmit budget.** The app tracks its own share of airtime and holds back new floods
+  when its transmissions pass roughly 1% over a 10-minute window, well under common "busy channel"
+  thresholds.
+- **Cheap-route-first messaging.** Replies and location requests try a cached direct route before
+  falling back to a flood, since a flooded text message is the single most expensive packet.
+- **Zero-airtime housekeeping.** Map, status, and repeater lookups on the dashboard query your local
+  companion only and never touch the air.
+- **Throttled alerts.** Incoming-raid alerts sent over the radio are rate-limited so they cannot spam
+  the mesh.
+
+These are automatic and adaptive: the app reads live airtime signals from your companion node and
+backs off on its own. There is nothing to configure.
 
 ## Community
 
