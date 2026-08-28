@@ -1,8 +1,8 @@
 # LoRa the Explorer
 
-A location-based exploration RPG you play over long-range **LoRa radio**. Walk out into the real
-world, survey the ground you cover, build a network of outposts, and grow from a lone surveyor into a
-ranked member of the World's End Society.
+A location-based exploration RPG played over the **MeshCore** LoRa radio network, with single-player
+and opt-in global multiplayer modes. Walk out into the real world, survey the ground you cover, build
+a network of outposts, and grow from a lone surveyor into a ranked member of the World's End Society.
 
 The game is a small, self-hosted web app, happy on a Raspberry Pi or any always-on computer, and it
 installs three ways: **Docker**, a **Windows installer**, or **from source** (Python 3.12+).
@@ -14,11 +14,8 @@ raid their outposts, sharing only a coarse, roughly 50-mile location.
 
 > [!IMPORTANT]
 > This is not a standalone app. The machine running the game server needs **its own companion LoRa
-> radio node** wired to it (on the MeshCore network), and you carry a **second handheld LoRa device**
-> in the field. That radio hardware is an unusual requirement for a web app, so it is worth knowing
-> before you start. See [What you'll need](#what-youll-need).
-
-> The setting: the World's End Society, a guild of surveyors mapping what is left of the world.
+> radio node** connected to it (on the MeshCore network), and you carry a **second, portable LoRa
+> device** in the field. See [What you'll need](#what-youll-need).
 
 ---
 
@@ -47,7 +44,7 @@ right along the bottom: Briefing, Radio, Outposts, Ledger, and Multiplayer.
 ## How to play
 
 You explore in the real world and manage everything else from the dashboard. In the field you carry
-your **spyglass** (your handheld LoRa device with GPS) and, usually, your phone. There are two ways to
+your **spyglass** (your portable LoRa device with GPS) and, usually, your phone. There are two ways to
 take an action, and you can mix them freely.
 
 **From the dashboard (recommended).** Carry your phone alongside your spyglass and use the **Radio
@@ -113,7 +110,7 @@ everything else (maps, upgrades, the merchant, multiplayer) happens on the dashb
 - **A companion radio node on the MeshCore network** (running MeshCore or a compatible firmware such
   as ZephCore). This is the base station at home that receives your radio messages, connected to the
   game server over Wi-Fi, USB, or Bluetooth. A Heltec V3 or similar works well.
-- **A handheld LoRa device with GPS** to carry in the field (your **spyglass**), also on the MeshCore
+- **A portable LoRa device with GPS** to carry in the field (your **spyglass**), also on the MeshCore
   network, such as a ThinkNode M1, with location sharing turned on.
 - **Somewhere to run the game server.** Any always-on computer or a Raspberry Pi. On Windows you do
   not need anything extra (see the Windows option below).
