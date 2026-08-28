@@ -2,11 +2,12 @@
 {% block title %}Radio — LoRa the Explorer{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&display=swap" />
+<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
+<script src="/static/vendor/leaflet/leaflet.js"></script>
 <style>
+    /* Inline-SVG icons (self-hosted, replacing the Tabler webfont): size to the
+       parent's font-size and inherit colour via stroke=currentColor. */
+    .svg-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -0.125em; flex: none; }
     #map {
         height: calc(100vh - 150px);
         min-height: 400px;
@@ -202,7 +203,7 @@
         transition: opacity 0.2s, border-color 0.2s;
     }
     .map-mode-btn:hover { opacity: 1; border-color: #D4A017; }
-    .map-mode-btn i { font-size: 0.95rem; line-height: 1; }
+    .map-mode-btn i, .map-mode-btn .svg-icon { font-size: 0.95rem; line-height: 1; }
     /* --- Auto-Survey control on the radio face: a switch with a pilot lamp
        that shows live state the way a real handheld's indicator LED would. --- */
     .auto-survey-bar {
@@ -303,14 +304,14 @@
         box-shadow: 0 0 0 2px rgba(76,175,80,0.65), 0 0 12px rgba(76,175,80,0.4),
                     inset 0 1px 0 rgba(139,115,85,0.2) !important;
     }
-    .radio-device .radio-btn.ctx-survey-known i { color: #6fd47a !important; }
+    .radio-device .radio-btn.ctx-survey-known i, .radio-device .radio-btn.ctx-survey-known .svg-icon { color: #6fd47a !important; }
 
     .radio-device .radio-btn.ctx-survey-cooldown {
         border-color: #5C6BC0 !important;
         box-shadow: 0 0 0 2px rgba(92,107,192,0.65), 0 0 12px rgba(92,107,192,0.4),
                     inset 0 1px 0 rgba(139,115,85,0.2) !important;
     }
-    .radio-device .radio-btn.ctx-survey-cooldown i { color: #9aa6e8 !important; }
+    .radio-device .radio-btn.ctx-survey-cooldown i, .radio-device .radio-btn.ctx-survey-cooldown .svg-icon { color: #9aa6e8 !important; }
 
     .radio-device .radio-btn.ctx-upkeep-due {
         border-color: #e8c547 !important;
@@ -345,7 +346,7 @@
         cursor: pointer;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     }
-    .recenter-btn i { font-size: 0.85rem; }
+    .recenter-btn i, .recenter-btn .svg-icon { font-size: 0.85rem; }
     .recenter-btn:hover { background: rgba(45, 40, 32, 0.95); }
     .recenter-btn[hidden] { display: none; }
 </style>
@@ -375,14 +376,14 @@
                     <span>Repeaters</span>
                 </label>
                 <button class="map-mode-btn" id="toggle-dark" type="button" aria-label="Toggle map theme">
-                    <i class="ti ti-moon"></i>
+                    <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z"/></svg>
                 </button>
             </div>
         </div>
         <div class="map-wrapper">
         <div id="map"></div>
         <button id="recenter-btn" class="recenter-btn" hidden aria-label="Recenter on your position">
-            <i class="ti ti-current-location"></i> Recenter
+            <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0 -16 0"/><path d="M12 2l0 2"/><path d="M12 20l0 2"/><path d="M20 12l2 0"/><path d="M2 12l2 0"/></svg> Recenter
         </button>
         <div class="radio-col">
         <div class="radio-device">
@@ -405,21 +406,21 @@
                 <div class="radio-btn-group">
                     <button onclick="runCommand('survey', this)" class="radio-btn" title="Survey" data-cmd="survey"
                         {% if not companion_connected or not selected_node %}disabled{% endif %}>
-                        <i class="ti ti-telescope"></i>
+                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 21l6 -5l6 5"/><path d="M12 13v8"/><path d="M3.294 13.678l.166 .281c.52 .88 1.624 1.265 2.605 .91l14.242 -5.165a1.023 1.023 0 0 0 .565 -1.456l-2.62 -4.705a1.087 1.087 0 0 0 -1.447 -.42l-.056 .032l-12.694 7.618c-1.02 .613 -1.357 1.897 -.76 2.905z"/><path d="M14 5l3 5.5"/></svg>
                     </button>
                     <div class="radio-btn-label">Survey</div>
                 </div>
                 <div class="radio-btn-group">
                     <button onclick="runCommand('charter', this)" class="radio-btn" title="Charter" data-cmd="charter"
                         {% if not companion_connected or not selected_node %}disabled{% endif %}>
-                        <i class="ti ti-flag"></i>
+                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9z"/><path d="M5 21v-7"/></svg>
                     </button>
                     <div class="radio-btn-label">Charter</div>
                 </div>
                 <div class="radio-btn-group">
                     <button onclick="runCommand('upkeep', this)" class="radio-btn" title="Upkeep" data-cmd="upkeep"
                         {% if not companion_connected or not selected_node or post_count == 0 %}disabled{% endif %}>
-                        <i class="ti ti-hammer"></i>
+                        <svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.414 10l-7.383 7.418a2.091 2.091 0 0 0 0 2.967a2.11 2.11 0 0 0 2.976 0l7.407 -7.385"/><path d="M18.121 15.293l2.586 -2.586a1 1 0 0 0 0 -1.414l-7.586 -7.586a1 1 0 0 0 -1.414 0l-2.586 2.586a1 1 0 0 0 0 1.414l7.586 7.586a1 1 0 0 0 1.414 0z"/></svg>
                     </button>
                     <div class="radio-btn-label">Upkeep</div>
                 </div>
@@ -428,7 +429,7 @@
             <div class="radio-tuner">
                 <div class="radio-tuner-label">◈ Spyglass</div>
                 <div class="spyglass-selector">
-                    <button class="spyglass-nav" onclick="cycleNode(-1)" aria-label="Previous spyglass"><i class="ti ti-chevron-left"></i></button>
+                    <button class="spyglass-nav" onclick="cycleNode(-1)" aria-label="Previous spyglass"><svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6l6 6"/></svg></button>
                     <div class="spyglass-display" id="spyglass-display">
                         {% if nodes and selected_node %}
                             {% for node in nodes %}{% if node.key == selected_node %}{{ node.name }}{% endif %}{% endfor %}
@@ -438,7 +439,7 @@
                             No signal
                         {% endif %}
                     </div>
-                    <button class="spyglass-nav" onclick="cycleNode(1)" aria-label="Next spyglass"><i class="ti ti-chevron-right"></i></button>
+                    <button class="spyglass-nav" onclick="cycleNode(1)" aria-label="Next spyglass"><svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6l-6 6"/></svg></button>
                 </div>
                 <select id="node-select" style="display:none;">
                     {% if not nodes %}
@@ -867,8 +868,8 @@ var refreshMap;
     // Show the icon of the mode you'll switch TO — sun in dark mode, moon in light.
     function syncModeBtn() {
         darkToggle.innerHTML = isDark
-            ? '<i class="ti ti-sun"></i>'
-            : '<i class="ti ti-moon"></i>';
+            ? '<svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"/><path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7"/></svg>'
+            : '<svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z"/></svg>';
         darkToggle.title = isDark ? 'Switch to light map' : 'Switch to dark map';
     }
     syncModeBtn();

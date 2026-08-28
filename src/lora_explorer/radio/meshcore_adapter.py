@@ -27,6 +27,7 @@ RECONNECT_MAX_DELAY = 60
 TELEMETRY_TIMEOUT_LAST_PATH = 15
 TELEMETRY_TIMEOUT_FLOOD = 35
 
+
 # Automatic routing: a cached ("last path") firmware route breaks when the
 # spyglass leaves the coverage cell of its entry repeater — a DISTANCE effect,
 # not a time one (30s in a car ≈ 10min on foot ≈ the same drift). So we decide
@@ -1050,11 +1051,21 @@ class MeshCoreAdapter(RadioAdapter):
     def get_contacts(self) -> dict:
         return dict(self._contacts)
 
-    async def get_companion_status(self) -> dict:
-        if not self._mc:
+    async def get_companion_status(self, include_stats: bool = True) -> dict:
+        """Companion status for the dashboard.
+
+        ``include_stats=False`` returns just the basic identity assembled from
+        cached self-info (connected / node name / contact URI) with no device
+        round-trip at all — instant, so a page render never blocks on the mesh.
+        Callers that want the live radio/core/battery counters (which can take up
+        to the library's per-command timeout each on a slow link) pass
+        ``include_stats=True`` and should do so off the page-render path (e.g. an
+        async fetch that hydrates the panel)."""
+        mc = self._mc
+        if not mc:
             return {"connected": False, "configured": self._configured}
         status: dict = {"connected": True, "connection": self._connection_desc()}
-        si = self._mc.self_info
+        si = mc.self_info
         if si:
             status["node_name"] = si.get("name", "")
             if si.get("public_key"):
@@ -1064,48 +1075,11 @@ class MeshCoreAdapter(RadioAdapter):
                 status["contact_uri"] = _build_contact_uri(
                     si["public_key"], si.get("name", ""),
                 )
+        if not include_stats:
+            return status
         await self._pause_auto_fetch()
         try:
-            # All of the following are local companion queries — no radio
-            # airtime, no mesh round-trip — so they're cheap to poll here.
-            try:
-                radio = await self._mc.commands.get_stats_radio()
-                if radio and radio.type != EventType.ERROR:
-                    p = radio.payload
-                    status["noise_floor"] = p.get("noise_floor")
-                    status["last_rssi"] = p.get("last_rssi")
-                    status["last_snr"] = p.get("last_snr")
-                    status["tx_air_secs"] = p.get("tx_air_secs")
-                    status["rx_air_secs"] = p.get("rx_air_secs")
-            except Exception:
-                log.exception("Failed to get radio stats")
-            try:
-                core = await self._mc.commands.get_stats_core()
-                if core and core.type != EventType.ERROR:
-                    p = core.payload
-                    status["uptime_secs"] = p.get("uptime_secs")
-                    status["errors"] = p.get("errors")
-                    status["queue_len"] = p.get("queue_len")
-                    # Core stats also carry battery; prefer it and skip get_bat.
-                    if p.get("battery_mv") is not None:
-                        status["battery_mv"] = p.get("battery_mv")
-            except Exception:
-                log.exception("Failed to get core stats")
-            try:
-                packets = await self._mc.commands.get_stats_packets()
-                if packets and packets.type != EventType.ERROR:
-                    p = packets.payload
-                    status["recv"] = p.get("recv")
-                    status["recv_errors"] = p.get("recv_errors")
-            except Exception:
-                log.exception("Failed to get packet stats")
-            if "battery_mv" not in status:
-                try:
-                    bat = await self._mc.commands.get_bat()
-                    if bat and bat.type != EventType.ERROR:
-                        status["battery_mv"] = bat.payload.get("battery_mv")
-                except Exception:
-                    log.exception("Failed to get battery")
+            await self._collect_companion_stats(mc, status)
         finally:
             await self._resume_auto_fetch()
         # Feed the airtime governor from the same counters the UI poll already
@@ -1118,6 +1092,52 @@ class MeshCoreAdapter(RadioAdapter):
         status["uptime_display"] = _fmt_uptime(status.get("uptime_secs"))
         status["health_metrics"] = derive_mesh_health(status)
         return status
+
+    async def _collect_companion_stats(self, mc, status: dict) -> None:
+        """Poll the companion's local radio/core/packet/battery counters into
+        ``status``. Each query self-bounds via the library's own per-command
+        timeout and swallows its own errors, so a wedged link yields a partial
+        status rather than raising."""
+        # All of the following are local companion queries — no radio airtime,
+        # no mesh round-trip — so they're cheap to poll here.
+        try:
+            radio = await mc.commands.get_stats_radio()
+            if radio and radio.type != EventType.ERROR:
+                p = radio.payload
+                status["noise_floor"] = p.get("noise_floor")
+                status["last_rssi"] = p.get("last_rssi")
+                status["last_snr"] = p.get("last_snr")
+                status["tx_air_secs"] = p.get("tx_air_secs")
+                status["rx_air_secs"] = p.get("rx_air_secs")
+        except Exception:
+            log.exception("Failed to get radio stats")
+        try:
+            core = await mc.commands.get_stats_core()
+            if core and core.type != EventType.ERROR:
+                p = core.payload
+                status["uptime_secs"] = p.get("uptime_secs")
+                status["errors"] = p.get("errors")
+                status["queue_len"] = p.get("queue_len")
+                # Core stats also carry battery; prefer it and skip get_bat.
+                if p.get("battery_mv") is not None:
+                    status["battery_mv"] = p.get("battery_mv")
+        except Exception:
+            log.exception("Failed to get core stats")
+        try:
+            packets = await mc.commands.get_stats_packets()
+            if packets and packets.type != EventType.ERROR:
+                p = packets.payload
+                status["recv"] = p.get("recv")
+                status["recv_errors"] = p.get("recv_errors")
+        except Exception:
+            log.exception("Failed to get packet stats")
+        if "battery_mv" not in status:
+            try:
+                bat = await mc.commands.get_bat()
+                if bat and bat.type != EventType.ERROR:
+                    status["battery_mv"] = bat.payload.get("battery_mv")
+            except Exception:
+                log.exception("Failed to get battery")
 
     async def reboot_companion(self) -> bool:
         if not self._mc:

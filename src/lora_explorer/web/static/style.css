@@ -1,3 +1,12 @@
+/* === Fonts (self-hosted — no Google Fonts dependency, works offline) === */
+@font-face {
+    font-family: 'Cinzel';
+    font-style: normal;
+    font-weight: 600;
+    font-display: swap;
+    src: url('/static/vendor/fonts/cinzel-600.woff2') format('woff2');
+}
+
 /* === Reset === */
 *, *::before, *::after { box-sizing: border-box; }
 body, h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, pre { margin: 0; }
@@ -910,7 +919,8 @@ table mark {
     --pico-border-color: transparent;
     --pico-color: inherit;
 }
-.radio-device .radio-btn i {
+.radio-device .radio-btn i,
+.radio-device .radio-btn .svg-icon {
     position: absolute;
     top: 50%;
     left: 50%;

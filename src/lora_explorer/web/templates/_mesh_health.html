@@ -1,0 +1,19 @@
+{# Mesh Health rows — rendered standalone and fetched by the Settings page after
+   load (see /api/companion/mesh-health) so the live companion stat queries never
+   block the page render. Expects `companion` (from get_companion_status). #}
+{% if companion and companion.connected and companion.health_metrics %}
+<p class="doc-hint" style="margin-bottom: 0;">Totals since last companion reboot — tap the ⓘ on any row for details.</p>
+<div class="mesh-health">
+    {% for m in companion.health_metrics %}
+    <div class="health-row">
+        <span class="health-dot health-{{ m.level }}"></span>
+        <span class="health-label">{{ m.label }}<button type="button" class="cond-info" aria-label="About {{ m.label }}" data-tip="{{ m.detail }}">ⓘ</button></span>
+        <span class="health-value">{{ m.value }}</span>
+    </div>
+    {% endfor %}
+</div>
+{% elif companion and companion.connected %}
+<p class="doc-hint">Base Camp companion is connected but returned no mesh health metrics.</p>
+{% else %}
+<p class="doc-hint">Connect your Base Camp companion to see mesh health metrics.</p>
+{% endif %}

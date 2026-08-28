@@ -61,7 +61,7 @@ class MockRadioAdapter(RadioAdapter):
             return None
         return response
 
-    async def get_companion_status(self):
+    async def get_companion_status(self, include_stats=True):
         return {"connected": self.connected, "connection": "TCP mock:4000"}
 
     def get_contacts(self):

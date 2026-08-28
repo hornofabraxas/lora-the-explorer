@@ -506,7 +506,10 @@ async def dashboard(request: Request):
         # so surface the linking card (QR + contact link). Only fetch companion
         # status in this narrow pre-link window — established players skip it.
         if not needs_setup and radio and not await db.get_known_nodes():
-            ctx["companion"] = await radio.get_companion_status()
+            # Only the contact URI/identity is needed for the linking card, and
+            # it comes from cached self-info — skip the live stat queries so the
+            # onboarding page never blocks on a slow companion.
+            ctx["companion"] = await radio.get_companion_status(include_stats=False)
         return await _template(request, "dashboard.html", ctx)
 
     key = player["key"]
@@ -768,8 +771,6 @@ async def radio_page(request: Request):
     hex_count = await db.count_discovered_hexes(key)
     post_count = await db.count_player_posts(key)
     furthest_survey = await db.get_furthest_survey(key)
-    radio = request.app.state.radio
-    companion = await radio.get_companion_status()
     selected_node = player.get("last_survey_sender") or ""
     nodes = await db.get_known_nodes()
 
@@ -791,7 +792,6 @@ async def radio_page(request: Request):
         "charter_ready": charter_ready,
         "charter_min_miles": CHARTER_MIN_DISTANCE_MILES,
         "furthest_survey": furthest_survey,
-        "companion_connected": companion.get("connected", False),
         "selected_node": selected_node,
         "nodes": nodes,
         "telemetry_timeout": TELEMETRY_TIMEOUT_FLOOD,
@@ -1484,7 +1484,11 @@ async def settings_page(request: Request):
         b["time_ago"] = _format_time_ago(b["created_at"])
 
     radio = request.app.state.radio
-    companion = await radio.get_companion_status()
+    # Basic identity only (connected / node / contact URI) — instant, no device
+    # round-trip. The live radio/battery/mesh-health counters are hydrated after
+    # load via /api/companion/mesh-health so a slow companion never stalls the
+    # Settings render.
+    companion = await radio.get_companion_status(include_stats=False)
 
     # Spyglasses the base camp can reach, for the test-message target picker.
     # Same source as the Radio page's spyglass selector.
@@ -1848,8 +1852,19 @@ async def api_telemetry_stats(request: Request):
 async def get_companion_config(request: Request):
     radio = request.app.state.radio
     config = radio.get_connection_config()
-    status = await radio.get_companion_status()
+    # Only the connected flag is needed here — skip the live stat round-trip.
+    status = await radio.get_companion_status(include_stats=False)
     return JSONResponse({**config, "connected": status.get("connected", False)})
+
+
+@router.get("/api/companion/mesh-health", response_class=HTMLResponse)
+async def companion_mesh_health(request: Request):
+    """Rendered Mesh Health rows, fetched by the Settings page after load so the
+    live companion stat queries (which can be slow on a wedged link) never block
+    the page render. Returns an HTML fragment for direct injection."""
+    radio = request.app.state.radio
+    companion = await radio.get_companion_status(include_stats=True) if radio else {}
+    return await _template(request, "_mesh_health.html", {"companion": companion})
 
 
 @router.post("/api/companion/config")
@@ -1943,7 +1958,10 @@ async def help_page(request: Request):
     # environmental (version/OS) or a coarse boolean/type — NEVER coordinates,
     # pubkeys, node/display names, hosts, or logs. The app itself sends nothing;
     # the player is the transport. Keep this list conservative.
-    companion = await radio.get_companion_status() if radio else {}
+    # `connected` is just "a companion link object exists" — an instant, local
+    # check. Avoid get_companion_status() here so the Help page never blocks on a
+    # live device round-trip just to render a diagnostics boolean.
+    companion_connected = bool(radio and radio._mc is not None)
     mp_registered = bool(mp_manager and mp_manager.registered)
     diagnostics = {
         "version": __version__,
@@ -1951,7 +1969,7 @@ async def help_page(request: Request):
         "os": f"{platform.system()} {platform.release()} ({platform.machine()})",
         "python": platform.python_version(),
         "connection_type": config.get("connection_type", "unknown"),
-        "companion_connected": bool(companion.get("connected")),
+        "companion_connected": companion_connected,
         "multiplayer_registered": mp_registered,
         "pvp_enabled": bool(mp_manager and getattr(mp_manager, "pvp_enabled", False)),
     }

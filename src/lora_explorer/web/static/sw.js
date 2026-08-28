@@ -5,31 +5,52 @@
 // straight to the network — the SW must not buffer or cache them.
 //
 // Strategy:
-//   - Map tiles + CDN libs/fonts (cross-origin, effectively immutable) → cache-first.
-//   - Same-origin /static/ assets → cache-first (bump CACHE_VERSION on release).
+//   - Map tiles (cross-origin, effectively immutable) → cache-first.
+//   - Same-origin /static/ assets (incl. self-hosted Leaflet + fonts) →
+//     cache-first (bump CACHE_VERSION on release).
 //   - Same-origin navigations (HTML) → network-first, cached copy as offline fallback.
 //   - Everything else (API, auth, non-GET) → default network, untouched.
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE = 'lora-shell-' + CACHE_VERSION;
 const TILE_CACHE = 'lora-tiles-v1';
 
 const SHELL_ASSETS = [
-    '/static/style.css',
+    // NB: style.css is intentionally omitted — the page requests it with a
+    // cache-busting ?v=N query that a query-less precache entry would never
+    // match, so it's cached on first load by the runtime /static/ rule below.
     '/static/pico.min.css',
     '/static/icon-192.png',
     '/static/icon-512.png',
     '/static/icon.svg',
     '/static/manifest.json',
+    // Self-hosted front-end libraries/fonts (no CDN dependency) — precache so
+    // the map pages render fully even on a first load with no internet. The
+    // marker/layer PNGs are referenced by leaflet.css (relative url()) and by
+    // Leaflet's default marker at runtime, so they must be precached too.
+    '/static/vendor/leaflet/leaflet.css',
+    '/static/vendor/leaflet/leaflet.js',
+    '/static/vendor/leaflet/images/marker-icon.png',
+    '/static/vendor/leaflet/images/marker-icon-2x.png',
+    '/static/vendor/leaflet/images/marker-shadow.png',
+    '/static/vendor/leaflet/images/layers.png',
+    '/static/vendor/leaflet/images/layers-2x.png',
+    '/static/vendor/fonts/cinzel-600.woff2',
 ];
 
+// Map tiles are the only remaining cross-origin fetch; everything else is now
+// same-origin /static/ (handled by the cache-first rule below).
 const TILE_HOSTS = ['tile.openstreetmap.org', 'basemaps.cartocdn.com'];
-const CDN_HOSTS = ['unpkg.com', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', (event) => {
     self.skipWaiting();
+    // Cache each asset independently (not addAll, which is atomic) so one bad
+    // path — e.g. a future renamed vendor file — can't silently abort the whole
+    // precache and quietly break offline support.
     event.waitUntil(
-        caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS).catch(() => {}))
+        caches.open(SHELL_CACHE).then((cache) =>
+            Promise.allSettled(SHELL_ASSETS.map((a) => cache.add(a)))
+        )
     );
 });
 
@@ -65,12 +86,6 @@ self.addEventListener('fetch', (event) => {
     // Map tiles → cache-first in a dedicated cache.
     if (TILE_HOSTS.some((h) => url.hostname.endsWith(h))) {
         event.respondWith(cacheFirst(req, TILE_CACHE));
-        return;
-    }
-
-    // CDN libraries + fonts → cache-first in the shell cache.
-    if (CDN_HOSTS.some((h) => url.hostname.endsWith(h))) {
-        event.respondWith(cacheFirst(req, SHELL_CACHE));
         return;
     }
 

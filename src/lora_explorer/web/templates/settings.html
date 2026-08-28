@@ -275,20 +275,42 @@
 
 <details class="doc-section doc-section-collapse">
     <summary class="doc-section-title">📶 Mesh Health <span class="details-arrow">▶</span></summary>
-    {% if companion and companion.connected and companion.health_metrics %}
-    <p class="doc-hint" style="margin-bottom: 0;">Totals since last companion reboot — tap the ⓘ on any row for details.</p>
-    <div class="mesh-health">
-        {% for m in companion.health_metrics %}
-        <div class="health-row">
-            <span class="health-dot health-{{ m.level }}"></span>
-            <span class="health-label">{{ m.label }}<button type="button" class="cond-info" aria-label="About {{ m.label }}" data-tip="{{ m.detail }}">ⓘ</button></span>
-            <span class="health-value">{{ m.value }}</span>
-        </div>
-        {% endfor %}
-    </div>
+    {# Live counters need a device round-trip, so they're hydrated after load via
+       /api/companion/mesh-health rather than blocking the page render. #}
+    <div id="mesh-health-body" data-connected="{{ 'true' if companion and companion.connected else 'false' }}">
+    {% if companion and companion.connected %}
+        <p class="doc-hint">Loading mesh health…</p>
     {% else %}
-    <p class="doc-hint">Connect your Base Camp companion to see mesh health metrics.</p>
+        <p class="doc-hint">Connect your Base Camp companion to see mesh health metrics.</p>
     {% endif %}
+    </div>
+    <script>
+    (function() {
+        var body = document.getElementById('mesh-health-body');
+        if (!body || body.dataset.connected !== 'true') return;
+        var details = body.closest('details');
+        // Only poll the companion when the section is actually opened — a live
+        // stat round-trip is wasted on a panel the user never expands.
+        var loaded = false;
+        function load() {
+            if (loaded) return;
+            loaded = true;
+            fetch('/api/companion/mesh-health')
+                .then(function(r) { return r.ok ? r.text() : Promise.reject(); })
+                .then(function(html) { body.innerHTML = html; })
+                .catch(function() {
+                    loaded = false;  // let a later re-open retry
+                    body.innerHTML = '<p class="doc-hint">Mesh health unavailable — the Base Camp companion did not respond.</p>';
+                });
+        }
+        if (details) {
+            details.addEventListener('toggle', function() { if (details.open) load(); });
+            if (details.open) load();
+        } else {
+            load();
+        }
+    })();
+    </script>
 
     <div class="settings-subhead">Telemetry Diagnostics</div>
     <div id="telem-stats">
