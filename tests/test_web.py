@@ -683,6 +683,25 @@ async def test_backup_restore_cycle(app, engine, adapter, db):
     assert player["xp"] == original_xp
 
 
+def test_restore_rejects_filename_outside_backups_dir(tmp_path):
+    """The restore filename comes from a URL path segment; a separator or `..`
+    (incl. Windows backslashes, one segment on that platform) must never resolve
+    outside the backups dir."""
+    from lora_explorer.game.backup import restore_backup, backup_dir
+    import sqlite3
+
+    db_file = tmp_path / "explorer.db"
+    sqlite3.connect(str(db_file)).close()
+    bdir = backup_dir(str(db_file))
+    bdir.mkdir(parents=True, exist_ok=True)
+    # A real file one level up that a traversal would otherwise reach.
+    outside = tmp_path / "outside.db"
+    outside.write_bytes(b"not yours")
+
+    for evil in ("..", "../outside.db", "..\\outside.db", "sub/../../outside.db"):
+        assert restore_backup(str(db_file), evil) is False
+
+
 def test_backup_list_and_prune(tmp_path):
     from lora_explorer.game.backup import create_backup, list_backups, backup_dir
     import os
@@ -1210,6 +1229,22 @@ async def test_change_password(app):
     )
     assert status == 303
     assert "success" in headers.get("location", "")
+
+
+@pytest.mark.asyncio
+async def test_change_password_invalidates_old_sessions(app):
+    """Changing the password rotates the session-signing secret, so a cookie
+    minted before the change (e.g. one stolen earlier) must stop working."""
+    status, _, headers = await _asgi_request(
+        app, "POST", "/settings/change-password",
+        data={"current_password": "testpass123", "new_password": "newpass1234", "confirm_password": "newpass1234"},
+    )
+    assert status == 303
+    assert "success" in headers.get("location", "")
+    # The fixture's pre-change cookie is still what _asgi_request sends.
+    status, _, headers = await _asgi_request(app, "GET", "/settings")
+    assert status == 302
+    assert headers.get("location") == "/login"
 
 
 @pytest.mark.asyncio

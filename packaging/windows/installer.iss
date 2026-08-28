@@ -14,7 +14,7 @@
 [Setup]
 AppName=LoRa the Explorer
 AppVersion={#AppVersion}
-AppPublisher=Justin Walls
+AppPublisher=hornofabraxas
 AppPublisherURL=https://github.com/hornofabraxas/lora-the-explorer
 DefaultDirName={autopf}\LoRaTheExplorer
 DefaultGroupName=LoRa the Explorer

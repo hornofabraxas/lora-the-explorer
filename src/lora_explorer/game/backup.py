@@ -67,7 +67,14 @@ def create_backup(db_path: str) -> str | None:
 
 def restore_backup(db_path: str, backup_filename: str) -> bool:
     bdir = backup_dir(db_path)
-    src = bdir / backup_filename
+    # The filename arrives from a URL path segment. Containment check: it must be
+    # a bare filename resolving to a file directly inside the backups dir —
+    # rejects separator/`..` tricks (incl. Windows backslashes, where a single
+    # segment like `..\..\x` would otherwise traverse).
+    src = (bdir / backup_filename).resolve()
+    if Path(backup_filename).name != backup_filename or src.parent != bdir.resolve():
+        log.error("Rejected restore filename outside backups dir: %r", backup_filename)
+        return False
     if not src.exists():
         log.error("Backup file not found: %s", src)
         return False

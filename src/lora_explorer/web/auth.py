@@ -15,16 +15,34 @@ LOCKOUT_SECONDS = 300  # 5 minutes
 _failed_attempts: dict[str, list[float]] = {}
 
 
-def _get_secret(db_path: str) -> str:
-    secret_path = os.path.join(os.path.dirname(db_path), ".session_secret")
-    if os.path.exists(secret_path):
-        with open(secret_path) as f:
-            return f.read().strip()
+def _secret_path(db_path: str) -> str:
+    return os.path.join(os.path.dirname(db_path), ".session_secret")
+
+
+def _write_secret(secret_path: str) -> str:
     secret = os.urandom(32).hex()
     os.makedirs(os.path.dirname(secret_path), exist_ok=True)
     with open(secret_path, "w") as f:
         f.write(secret)
+    # Signing-key material: owner-only, so another local account can't mint
+    # session cookies. (Best-effort on Windows, where chmod is mostly a no-op.)
+    os.chmod(secret_path, 0o600)
     return secret
+
+
+def _get_secret(db_path: str) -> str:
+    secret_path = _secret_path(db_path)
+    if os.path.exists(secret_path):
+        with open(secret_path) as f:
+            return f.read().strip()
+    return _write_secret(secret_path)
+
+
+def rotate_secret(db_path: str) -> str:
+    """Replace the session-signing secret, invalidating every outstanding session
+    cookie. Called on password change so a previously stolen cookie can't outlive
+    the credential it was minted under."""
+    return _write_secret(_secret_path(db_path))
 
 
 def hash_password(password: str) -> str:

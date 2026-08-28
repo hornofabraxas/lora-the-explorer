@@ -799,4 +799,6 @@ async def help_page(request: Request):
 
 
 if __name__ == "__main__":
+    # Dev tool only: serves mock data with NO auth. 0.0.0.0 so a phone on the
+    # same LAN can preview UI changes — don't run it on an untrusted network.
     uvicorn.run(app, host="0.0.0.0", port=1493)

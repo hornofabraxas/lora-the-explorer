@@ -1450,12 +1450,12 @@ async def test_command_stores_friendly_name_from_prefix_contact(adapter, engine,
     """A command's sender_key is a pubkey *prefix*, but contacts are keyed by
     full public key. The stored spyglass name must resolve to the friendly
     adv_name, not fall back to the raw hex prefix (the 'shows as MAC' bug)."""
-    adapter.contacts = {"abc123def456789": {"adv_name": "Justin's Spyglass"}}
+    adapter.contacts = {"abc123def456789": {"adv_name": "Vesper's Spyglass"}}
     await engine._handle_message(
         IncomingMessage(sender_key="abc123", text="/lora survey")
     )
     nodes = await db.get_known_nodes()
-    assert any(n["name"] == "Justin's Spyglass" for n in nodes)
+    assert any(n["name"] == "Vesper's Spyglass" for n in nodes)
     assert not any(n["name"] == "abc123" for n in nodes)
 
 
@@ -1463,13 +1463,13 @@ async def test_command_stores_friendly_name_from_prefix_contact(adapter, engine,
 async def test_command_without_contact_does_not_clobber_good_name(adapter, engine, db):
     """If a command arrives while the contact isn't loaded, we must not
     overwrite a friendly name already reconciled — only touch last_seen."""
-    await db.upsert_known_node("abc123", "Justin's Spyglass")
+    await db.upsert_known_node("abc123", "Vesper's Spyglass")
     adapter.contacts = {}  # transient miss — contacts not loaded yet
     await engine._handle_message(
         IncomingMessage(sender_key="abc123", text="/lora survey")
     )
     nodes = await db.get_known_nodes()
-    assert any(n["name"] == "Justin's Spyglass" for n in nodes)
+    assert any(n["name"] == "Vesper's Spyglass" for n in nodes)
 
 
 # --- Relic drop rolls (_roll_relic) ---

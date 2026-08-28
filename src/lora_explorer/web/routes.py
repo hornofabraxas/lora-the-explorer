@@ -17,7 +17,7 @@ from .. import update_check as update_check_module
 from ..game.backup import list_backups, create_backup, restore_backup
 from .auth import (
     hash_password, verify_password, create_session_cookie,
-    _get_secret, COOKIE_NAME, SESSION_MAX_AGE,
+    _get_secret, rotate_secret, COOKIE_NAME, SESSION_MAX_AGE,
     is_rate_limited, record_failed_attempt, clear_failed_attempts,
 )
 from . import oidc as oidc_module
@@ -1635,7 +1635,9 @@ async def change_password(request: Request):
         return _flash_redirect("/settings", "New passwords do not match.", "error")
 
     await db.set_setting("password_hash", hash_password(new_password))
-    secret = _get_secret(request.app.state.config["db_path"])
+    # Rotate the session-signing secret so every existing cookie dies with the
+    # old password; re-issue one under the new secret so this session survives.
+    secret = rotate_secret(request.app.state.config["db_path"])
     cookie = create_session_cookie(secret)
     response = _flash_redirect("/settings", "Password changed successfully.", "success")
     response.set_cookie(
