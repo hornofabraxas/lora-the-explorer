@@ -958,12 +958,11 @@ async def outposts_page(request: Request):
     mp_registered = bool(mp_manager and mp_manager.registered)
     pvp_enabled = bool(getattr(mp_manager, "_pvp_enabled", False))
 
-    # Supply Drops — the periodic bundle of logged surveys goes out to the Worker
-    # (BUNDLE_INTERVAL, currently 2h), which rolls PvP item drops. Surface the
-    # pending count, next-run time, and a short history so the cadence is legible
-    # off the live feed.
+    # Supply Drops — the hourly bundle of logged surveys goes out to the Worker,
+    # which rolls PvP item drops. Surface the pending count, next-run time, and a
+    # short history so the cadence is legible off the live feed.
     supply_last_at = mp_manager._last_push_at if mp_manager else None
-    # Count down to the recurring bundle *check*, not the last successful push
+    # Count down to the recurring hourly *check*, not the last successful push
     # — a queue of 0 surveys never advances _last_push_at, which is why "Next
     # Drop" used to read "Due" forever. Fall back to the old estimate only if
     # the loop hasn't recorded a tick yet.

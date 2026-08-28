@@ -23,9 +23,10 @@ log = logging.getLogger(__name__)
 # per-install-per-day request cost ≈ 86400/interval for each fixed loop.
 #
 # How often local game state is bundled up and pushed to the Worker (surveys →
-# renown, item drops). Renown accrues over days and drops aren't time-sensitive,
-# so 2h is imperceptible; ~12/day.
-BUNDLE_INTERVAL = 7200
+# renown, item drops). This is the Supply Drop cadence, surfaced to players as an
+# "Hourly airdrop" (outposts.html keys "Hourly" off this being 3600 and the tip
+# says "hourly"), so keep it at 1h unless the player-facing copy changes too.
+BUNDLE_INTERVAL = 3600
 # Idle baseline for the defense+raid status poll — the steady-state floor. Raids
 # travel ≥1h (TRAVEL_MIN_SECONDS on the Worker), so a 30-minute idle cadence still
 # leaves ~30 min of warning before the *closest* possible raid lands (most travel
@@ -46,7 +47,9 @@ POLL_INTERVAL_IDLE = 1800
 POLL_ARRIVAL_MARGIN = 20
 POLL_MIN_INTERVAL = 30
 # The leaderboard changes slowly (renown accrues over days) and the Worker caches
-# it 6h, so a 2h poll is still fresher than the rebuild; ~12/day.
+# it 6h, so a 2h poll is still fresher than the rebuild — no player-visible cost.
+# Lengthened to 2h purely for scaling headroom (unlike the hourly Supply Drop
+# bundle above, which is player-facing and stays at 1h). ~12/day.
 LEADERBOARD_INTERVAL = 7200
 
 
