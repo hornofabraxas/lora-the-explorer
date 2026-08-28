@@ -4,15 +4,23 @@ A location-based exploration RPG you play over long-range **LoRa radio**. Walk o
 world, survey the ground you cover, build a network of outposts, and grow from a lone surveyor into a
 ranked member of the World's End Society.
 
-It runs as a small, self-hosted web app that is happy on a Raspberry Pi or any always-on computer,
-and installs three ways: **Docker**, a **Windows installer**, or **from source** (Python 3.12+).
+The game is a small, self-hosted web app, happy on a Raspberry Pi or any always-on computer, and it
+installs three ways: **Docker**, a **Windows installer**, or **from source** (Python 3.12+).
 
 **Single-player is the whole game.** Surveying, outposts, upgrades, weekly contracts, the merchant,
 relics, achievements, and ranks all work on their own and send nothing to anyone. **Multiplayer is
 entirely opt-in:** join the shared war ledger to appear on a leaderboard, scout rival explorers, and
 raid their outposts, sharing only a coarse, roughly 50-mile location.
 
-> **The setting:** the World's End Society, a guild of surveyors mapping what is left of the world.
+> [!IMPORTANT]
+> This is not a standalone app. The machine running the game server needs **its own companion LoRa
+> radio node** wired to it (on the MeshCore network), and you carry a **second handheld LoRa device**
+> in the field. That radio hardware is an unusual requirement for a web app, so it is worth knowing
+> before you start. See [What you'll need](#what-youll-need).
+
+> The setting: the World's End Society, a guild of surveyors mapping what is left of the world.
+
+---
 
 ## A look around
 
@@ -33,6 +41,8 @@ right along the bottom: Briefing, Radio, Outposts, Ledger, and Multiplayer.
     <td width="25%"><img src="docs/screenshots/multiplayer2.png" alt="Warfront"><br><sub><b>Warfront.</b> Scout rival explorers and raid their outposts. Distances stay deliberately coarse.</sub></td>
   </tr>
 </table>
+
+---
 
 ## How to play
 
@@ -61,6 +71,8 @@ Radio-only (fallback):    spyglass ─(LoRa: command, GPS, reply)─> companion 
 Either way, the server works out which territory your GPS puts you in, pays out the rewards, and
 updates the dashboard. Only the actions that need to prove your location ever touch the radio;
 everything else (maps, upgrades, the merchant, multiplayer) happens on the dashboard.
+
+---
 
 ## Game mechanics
 
@@ -92,6 +104,8 @@ everything else (maps, upgrades, the merchant, multiplayer) happens on the dashb
 - **Earn combat titles** like Warlord for topping the Warfront. Only a coarse location and anonymous
   outpost tokens ever leave your server.
 
+---
+
 ## Getting started
 
 ### What you'll need
@@ -108,7 +122,8 @@ everything else (maps, upgrades, the merchant, multiplayer) happens on the dashb
 
 Pick the option that matches where you want to run the server.
 
-**Docker (Linux, macOS, Raspberry Pi, or Windows).** The recommended way:
+<details open>
+<summary><b>Docker</b> (Linux, macOS, Raspberry Pi, or Windows). The recommended way.</summary>
 
 ```bash
 docker run -d --name lora-the-explorer -p 1492:1492 -e TZ=America/Phoenix -v /path/to/data:/app/data ghcr.io/hornofabraxas/lora-the-explorer:latest
@@ -117,23 +132,30 @@ docker run -d --name lora-the-explorer -p 1492:1492 -e TZ=America/Phoenix -v /pa
 Set `TZ` to your own [timezone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). It
 sets the clock shown in radio replies, so you can tell a fresh reply from a stale one. Anything the
 game resets on a schedule (the daily survey limit, the dispatch) runs on UTC and is unaffected.
+</details>
 
-**Windows, without Docker or Python.** Download the `LoRaTheExplorer-Setup-X.Y.Z.exe` installer from
-the [releases page](https://github.com/hornofabraxas/lora-the-explorer/releases). It adds a Start
-Menu shortcut and runs as a system-tray app: right-click the tray icon for **Open Dashboard**, **Open
-Log Folder**, or **Quit**. Your data (including your survey history, so treat it as sensitive) lives
-in `%LOCALAPPDATA%\LoRaTheExplorer\` and is **not** removed by uninstalling.
+<details>
+<summary><b>Windows</b>, without Docker or Python.</summary>
 
-The installer is unsigned, so Windows SmartScreen will warn you on first run. This is a solo hobby
-project without a code-signing certificate, not a real threat. Click **More info**, then **Run
-anyway** if you trust the source, or build it yourself from `packaging/windows/`.
+Download the `LoRaTheExplorer-Setup-X.Y.Z.exe` installer from the
+[releases page](https://github.com/hornofabraxas/lora-the-explorer/releases). It adds a Start Menu
+shortcut and runs as a system-tray app: right-click the tray icon for **Open Dashboard**, **Open Log
+Folder**, or **Quit**. Your data (including your survey history, so treat it as sensitive) lives in
+`%LOCALAPPDATA%\LoRaTheExplorer\` and is **not** removed by uninstalling.
 
-**From source (Python 3.12 or newer):**
+**Heads up:** the installer is unsigned, so Windows SmartScreen will warn you on first run. This is a
+solo hobby project without a code-signing certificate, not a real threat. Click **More info**, then
+**Run anyway** if you trust the source, or build it yourself from `packaging/windows/`.
+</details>
+
+<details>
+<summary><b>From source</b> (Python 3.12 or newer).</summary>
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -e ".[dev]"
 .venv/bin/python -m lora_explorer
 ```
+</details>
 
 ### First run
 
@@ -141,6 +163,8 @@ Open `http://localhost:1492` and follow the setup wizard. It walks you through c
 (or single sign-on), connecting your companion radio, and dropping a pin for your home base. On your
 phone, use your browser's "Add to Home Screen" to install the dashboard like an app. Then head
 outside and take your first survey.
+
+---
 
 ## Field commands
 
@@ -154,38 +178,7 @@ text from your spyglass when you are playing radio-only:
 | `/lora <name>` | Name the post, completing the charter |
 | `/lora upkeep` | Tend a Survey Post, resetting its ruin timer |
 
-## Privacy & your data
-
-**Please read this before you deploy it.**
-
-Your install's database holds **a detailed history of where you have physically been**: your home
-coordinates, every survey's location, and every place you have discovered.
-
-- **You are responsible for your own instance.** If you host it for other people, the responsibility
-  for their data is yours.
-- **Do not expose the dashboard to the open internet** without a password, and treat backup files as
-  sensitive. A backup is your full location history.
-- **Single-player sends nothing anywhere.** No telemetry, no analytics, no phone-home.
-- **Multiplayer is opt-in.** It sends only a coarse location snapped to a roughly 50-mile grid, plus
-  anonymous outpost tokens. It never sends your precise location or your survey history.
-- **The update check is opt-in and off by default.** When on, it is a plain request to GitHub's
-  public release list with no personal data attached.
-- **The hosted multiplayer service is 18+.**
-
-Full detail: **[PRIVACY.md](PRIVACY.md)** · **[TERMS.md](TERMS.md)** · **[SECURITY.md](SECURITY.md)**
-
-## Play safely
-
-This game asks you to walk around real places. **Never play while driving.** Watch your
-surroundings, do not trespass, and follow local law, including the radio regulations that apply to
-LoRa in your country. Your safety and your compliance are your own responsibility.
-
-## Multiplayer service
-
-The hosted war ledger lives at `lora.nukeradio.net` and is **invite-only** while the game is in
-alpha. The service is open source too, so you can read exactly what it does with the coarse data you
-send it, or run your own. See the companion repo,
-[`lora-worker`](https://github.com/hornofabraxas/lora-worker).
+---
 
 ## Updating
 
@@ -200,6 +193,23 @@ version in place.
 check that is off by default. Both are a plain request to GitHub's public release list with no
 personal data attached. If you play multiplayer and the service has moved past what your version can
 talk to, you will see an "Update required" banner. Local play keeps working either way.
+
+---
+
+## Community
+
+[Discord](https://discord.gg/EHXemsA2SS) for support, privacy requests, invite codes, and mesh talk.
+
+---
+
+## Multiplayer service
+
+The hosted war ledger lives at `lora.nukeradio.net` and is **invite-only** while the game is in
+alpha. The service is open source too, so you can read exactly what it does with the coarse data you
+send it, or run your own. See the companion repo,
+[`lora-worker`](https://github.com/hornofabraxas/lora-worker).
+
+---
 
 ## Responsible LoRa mesh usage
 
@@ -224,9 +234,38 @@ safeguards working together:
 These are automatic and adaptive: the app reads live airtime signals from your companion node and
 backs off on its own. There is nothing to configure.
 
-## Community
+---
 
-[Discord](https://discord.gg/EHXemsA2SS) for support, privacy requests, invite codes, and mesh talk.
+## Privacy & your data
+
+> [!IMPORTANT]
+> Please read this before you deploy it. Your install's database holds **a detailed history of where
+> you have physically been**: your home coordinates, every survey's location, and every place you have
+> discovered.
+
+- **You are responsible for your own instance.** If you host it for other people, the responsibility
+  for their data is yours.
+- **Do not expose the dashboard to the open internet** without a password, and treat backup files as
+  sensitive. A backup is your full location history.
+- **Single-player sends nothing anywhere.** No telemetry, no analytics, no phone-home.
+- **Multiplayer is opt-in.** It sends only a coarse location snapped to a roughly 50-mile grid, plus
+  anonymous outpost tokens. It never sends your precise location or your survey history.
+- **The update check is opt-in and off by default.** When on, it is a plain request to GitHub's
+  public release list with no personal data attached.
+- **The hosted multiplayer service is 18+.**
+
+Full detail: [PRIVACY.md](PRIVACY.md) · [TERMS.md](TERMS.md) · [SECURITY.md](SECURITY.md)
+
+---
+
+## Play safely
+
+> [!CAUTION]
+> This game asks you to walk around real places. **Never play while driving.** Watch your
+> surroundings, do not trespass, and follow local law, including the radio regulations that apply to
+> LoRa in your country. Your safety and your compliance are your own responsibility.
+
+---
 
 ## License
 
