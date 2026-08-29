@@ -1,6 +1,6 @@
 [project]
 name = "lora-the-explorer"
-version = "0.3.6"
+version = "0.3.7"
 description = "A location-based exploration RPG played over LoRa mesh radio"
 license = "MIT"
 requires-python = ">=3.12"
@@ -43,4 +43,14 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.setuptools.package-data]
-lora_explorer = ["web/templates/*.html", "web/static/*"]
+# Recursive globs are required: web/static holds nested subdirs (vendor/leaflet,
+# vendor/fonts) whose files a single-level "web/static/*" silently drops from the
+# wheel — which shipped every Leaflet map broken (missing leaflet.js/css) on a
+# fresh install. Keep the flat patterns alongside the recursive "**/*" so both
+# top-level files and every subdirectory are packaged.
+lora_explorer = [
+    "web/templates/*.html",
+    "web/templates/**/*.html",
+    "web/static/*",
+    "web/static/**/*",
+]
