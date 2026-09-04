@@ -13,10 +13,17 @@ Thresholds are source-backed (see docs/lora-mesh-airtime-review.md):
 * MIN_FLOOD_SPACING_S — serialize floods base-camp-wide. Caps the game's own
   contribution no matter how many players are active. 20s is under the 35s
   per-player floor, so a lone explorer is never gated by it.
-* TX_BUDGET_PCT — ceiling on our own rolling transmit duty. Meshtastic's
-  firmware polices a node's own TX at half the regional duty cycle (5% in the
-  strictest EU band); 1% is 5x stricter while still leaving room for ~3
-  concurrent drivers at full cadence.
+* TX_BUDGET_PCT: ceiling on our own rolling transmit duty. We run at 908 MHz
+  in the US 902-928 ISM band, which carries no FCC duty-cycle limit, so this
+  gate is mesh etiquette, not regulation. MeshCore's own firmware default for a
+  repeater's TX-duty budget is 50%, and Meshtastic self-polices a node at about
+  half the regional duty cycle (~5% in a duty-cycle-limited EU band); 5% is
+  therefore a conservative responsible-node ceiling, ~10x stricter than the
+  MeshCore firmware default. It also has to clear a single active base camp:
+  one surveying driver was observed near 3% TX (a telemetry flood plus its
+  reply), so a lower ceiling starves the very reply the player is waiting on.
+  The independent BUSY_BACKOFF_PCT gate below still throttles cadence whenever
+  the whole channel (TX+RX) is actually busy.
 * BUSY_BACKOFF_PCT — channel-busy (TX+RX) level above which we double the
   per-player survey interval. 30% matches the "channel busy" warn line the
   dashboard already shows players, and sits under the 25%/40% community
@@ -27,7 +34,7 @@ import asyncio
 import time
 
 MIN_FLOOD_SPACING_S = 20.0
-TX_BUDGET_PCT = 1.0
+TX_BUDGET_PCT = 5.0
 BUSY_BACKOFF_PCT = 30.0
 # Rolling window the TX / channel-busy rates are measured over. Long enough to
 # smooth out a single burst of surveys, short enough to react within a driving
