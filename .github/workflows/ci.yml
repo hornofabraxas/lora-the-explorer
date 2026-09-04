@@ -19,6 +19,12 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          # Cache the pip download dir, keyed on a hash of pyproject.toml. Edits
+          # to the dependency list change the key and force a fresh resolve, so
+          # the cache can never pin a stale version — it only skips re-downloading
+          # byte-identical wheels.
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - run: pip install .[dev]
       - run: pytest tests/ -q
 
@@ -31,6 +37,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # buildx (docker-container driver) is required for the type=gha layer cache
+      # below; the default docker builder can't export to it.
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -40,6 +49,12 @@ jobs:
         with:
           push: true
           tags: ghcr.io/${{ github.repository }}:latest
+          # Shared scope so the tagged release build (below) reuses the layers
+          # this main build just cached. Content-addressed: any change to the
+          # base image, copied files, or a RUN line invalidates that layer and
+          # everything after it, so a stale layer can never be served.
+          cache-from: type=gha,scope=lora-image
+          cache-to: type=gha,scope=lora-image,mode=max
 
   # Fires only on a pushed tag matching v* (e.g. `git tag v0.2.0 && git push
   # origin v0.2.0`) — a deliberate, versioned release, distinct from the
@@ -56,6 +71,7 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -65,6 +81,13 @@ jobs:
         with:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          # Same shared scope as the main :latest build, so this release reuses
+          # whatever layers didn't change since. A release always bumps the
+          # version in pyproject.toml, so the dependency layer rebuilds here even
+          # on a cache hit for the base image; source-only main builds still get
+          # the cached dependency layer.
+          cache-from: type=gha,scope=lora-image
+          cache-to: type=gha,scope=lora-image,mode=max
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -85,6 +108,8 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - run: pip install .[windows]
       - name: Build with PyInstaller
         run: pyinstaller packaging/windows/lora-explorer.spec --noconfirm
