@@ -1758,3 +1758,185 @@ async def test_no_update_required_banner_by_default(app):
     status, body = await _get(app, "/")
     assert status == 200
     assert "Update required" not in body
+
+
+# --- Spyglass registration (add a spyglass to Base Camp by public key) ---
+
+def test_normalize_pubkey_accepts_spaced_and_rejects_bad():
+    from lora_explorer.radio.meshcore_adapter import _normalize_pubkey
+    spaced = "A2 7A 6C 14 93 0B F3 1C D6 72 61 39 07 31 D0 24 FE F2 28 C7 D2 32 E6 BD 88 DB 81 83 E3 02 CD D9"
+    out = _normalize_pubkey(spaced)
+    assert out == spaced.replace(" ", "").lower()
+    assert len(out) == 64
+    # colons and hyphens between bytes are tolerated too
+    assert _normalize_pubkey("aa:bb-" + "cc" * 30) == "aabb" + "cc" * 30
+    # rejects: empty, wrong length, non-hex-but-right-length
+    assert _normalize_pubkey("") is None
+    assert _normalize_pubkey("ab" * 30) is None
+    assert _normalize_pubkey("zz" * 32) is None
+
+
+def test_clamp_contact_name_limits_to_32_bytes():
+    from lora_explorer.radio.meshcore_adapter import _clamp_contact_name
+    assert _clamp_contact_name("  Vesper  ") == "Vesper"
+    assert len(_clamp_contact_name("x" * 50).encode("utf-8")) <= 32
+
+
+@pytest.mark.asyncio
+async def test_meshcore_add_spyglass_builds_client_contact():
+    """The adapter builds a minimal client contact (type 1, unknown/flood route)
+    from a pasted key + name and hands it to the companion's add_contact."""
+    import types as _types
+    from lora_explorer.radio.meshcore_adapter import MeshCoreAdapter
+    from meshcore import EventType
+
+    class FakeCmds:
+        def __init__(self):
+            self.added = None
+        async def add_contact(self, contact):
+            self.added = contact
+            return _types.SimpleNamespace(type=EventType.OK, payload={})
+        async def get_contacts(self, *a, **k):
+            return _types.SimpleNamespace(type=EventType.OK, payload={})
+
+    class FakeMC:
+        def __init__(self):
+            self.commands = FakeCmds()
+            self.self_info = {}
+        async def stop_auto_message_fetching(self):
+            pass
+        async def start_auto_message_fetching(self):
+            pass
+
+    ad = MeshCoreAdapter(connection_type="wifi", host="x", port=1)
+    ad._mc = FakeMC()
+    res = await ad.add_spyglass_contact("A2 7A 6C 14 " + "00" * 28, "Vesper")
+    assert res["ok"] is True
+    c = ad._mc.commands.added
+    assert c["public_key"] == ("a27a6c14" + "00" * 28)
+    assert c["type"] == 1            # client node, not a repeater
+    assert c["out_path_len"] == -1   # unknown route -> flood the first message
+    assert c["adv_name"] == "Vesper"
+
+
+@pytest.mark.asyncio
+async def test_meshcore_add_spyglass_rejects_bad_key():
+    from lora_explorer.radio.meshcore_adapter import MeshCoreAdapter
+    ad = MeshCoreAdapter(connection_type="wifi", host="x", port=1)
+    ad._mc = object()  # present but never used: bad key is rejected first
+    res = await ad.add_spyglass_contact("not-a-key", "")
+    assert res["ok"] is False
+    assert "hex" in res["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_add_spyglass_route_success(app):
+    app.state.radio.add_spyglass_contact = AsyncMock(
+        return_value={"ok": True, "public_key": "a2" * 32, "name": "Vesper"})
+    status, body, _ = await _asgi_request(
+        app, "POST", "/api/companion/add-spyglass",
+        json_body={"public_key": "A2" * 32, "name": "Vesper"})
+    assert status == 200
+    assert json.loads(body)["ok"] is True
+    app.state.radio.add_spyglass_contact.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_add_spyglass_route_failure_returns_400_with_count(app):
+    app.state.radio.add_spyglass_contact = AsyncMock(
+        return_value={"ok": False, "error": "full", "contact_count": 350})
+    status, body, _ = await _asgi_request(
+        app, "POST", "/api/companion/add-spyglass",
+        json_body={"public_key": "zz", "name": ""})
+    assert status == 400
+    assert json.loads(body)["contact_count"] == 350
+
+
+@pytest.mark.asyncio
+async def test_free_contact_slot_route(app):
+    app.state.radio.prune_stalest_repeater = AsyncMock(
+        return_value={"ok": True, "removed": {"public_key": "bb" * 32, "name": "Old RPT"}})
+    status, body, _ = await _asgi_request(app, "POST", "/api/companion/free-contact-slot")
+    assert status == 200
+    assert json.loads(body)["ok"] is True
+    app.state.radio.prune_stalest_repeater.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_meshcore_prune_removes_only_stalest_repeater():
+    """Prune must pick the stalest repeater (smallest last_advert) and never a
+    spyglass, and it removes exactly that one contact."""
+    import types as _types
+    from lora_explorer.radio.meshcore_adapter import MeshCoreAdapter
+    from meshcore import EventType
+
+    contacts = {
+        "aa" * 32: {"public_key": "aa" * 32, "type": 2, "adv_name": "RPT-new", "last_advert": 900},
+        "bb" * 32: {"public_key": "bb" * 32, "type": 2, "adv_name": "RPT-stale", "last_advert": 100},
+        "cc" * 32: {"public_key": "cc" * 32, "type": 1, "adv_name": "A Spyglass", "last_advert": 1},
+    }
+
+    class FakeCmds:
+        def __init__(self):
+            self.removed = None
+        async def get_contacts(self, *a, **k):
+            return _types.SimpleNamespace(type=EventType.OK, payload=dict(contacts))
+        async def remove_contact(self, key):
+            self.removed = key
+            contacts.pop(key, None)
+            return _types.SimpleNamespace(type=EventType.OK, payload={})
+
+    class FakeMC:
+        def __init__(self):
+            self.commands = FakeCmds()
+        async def stop_auto_message_fetching(self):
+            pass
+        async def start_auto_message_fetching(self):
+            pass
+
+    ad = MeshCoreAdapter(connection_type="wifi", host="x", port=1)
+    ad._mc = FakeMC()
+    res = await ad.prune_stalest_repeater()
+    assert res["ok"] is True
+    # Removed the stale repeater, not the newer one and not the spyglass.
+    assert ad._mc.commands.removed == "bb" * 32
+    assert res["removed"]["name"] == "RPT-stale"
+
+
+@pytest.mark.asyncio
+async def test_meshcore_prune_noop_when_no_repeaters():
+    import types as _types
+    from lora_explorer.radio.meshcore_adapter import MeshCoreAdapter
+    from meshcore import EventType
+
+    class FakeCmds:
+        async def get_contacts(self, *a, **k):
+            # Only a spyglass present; nothing prunable.
+            return _types.SimpleNamespace(
+                type=EventType.OK,
+                payload={"cc" * 32: {"public_key": "cc" * 32, "type": 1, "adv_name": "Spy", "last_advert": 1}},
+            )
+        async def remove_contact(self, key):
+            raise AssertionError("must not remove a non-repeater")
+
+    class FakeMC:
+        def __init__(self):
+            self.commands = FakeCmds()
+        async def stop_auto_message_fetching(self):
+            pass
+        async def start_auto_message_fetching(self):
+            pass
+
+    ad = MeshCoreAdapter(connection_type="wifi", host="x", port=1)
+    ad._mc = FakeMC()
+    res = await ad.prune_stalest_repeater()
+    assert res["ok"] is False
+    assert "repeater" in res["error"].lower()
+
+
+@pytest.mark.asyncio
+async def test_add_spyglass_route_rejects_invalid_json_body(app):
+    status, body, _ = await _asgi_request(
+        app, "POST", "/api/companion/add-spyglass", data=None)
+    assert status == 400
+    assert json.loads(body)["ok"] is False

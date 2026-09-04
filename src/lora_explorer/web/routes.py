@@ -1944,6 +1944,39 @@ async def scan_ble(request: Request):
     return JSONResponse({"devices": devices})
 
 
+@router.post("/api/companion/add-spyglass")
+async def add_spyglass(request: Request):
+    """Register a new spyglass with Base Camp from its public key. Base Camp only
+    delivers a spyglass's /lora survey once it holds that spyglass as a contact,
+    so a fresh device can't link until this runs. The player enters the key (and
+    an optional name) from Settings → Link a spyglass; the spyglass then appears
+    in-game the moment it sends its first /lora survey."""
+    radio = request.app.state.radio
+    if not radio:
+        return JSONResponse({"ok": False, "error": "No companion configured"}, status_code=400)
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Invalid request body"}, status_code=400)
+    result = await radio.add_spyglass_contact(
+        public_key=str(data.get("public_key", "")),
+        name=str(data.get("name", "")),
+    )
+    return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+
+
+@router.post("/api/companion/free-contact-slot")
+async def free_contact_slot(request: Request):
+    """Forget Base Camp's stalest repeater to make room when its contact list is
+    full. Offered as a one-click retry path when add-spyglass reports the table
+    is full; only ever removes a repeater, never a spyglass."""
+    radio = request.app.state.radio
+    if not radio:
+        return JSONResponse({"ok": False, "error": "No companion configured"}, status_code=400)
+    result = await radio.prune_stalest_repeater()
+    return JSONResponse(result, status_code=200 if result.get("ok") else 400)
+
+
 # --- Help ---
 
 @router.get("/help", response_class=HTMLResponse)

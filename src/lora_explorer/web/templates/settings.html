@@ -227,6 +227,19 @@
     {% endif %}
 
     {% if companion and companion.connected %}
+    <div class="settings-subhead">Register a spyglass by key</div>
+    <p class="doc-hint" style="margin-top: 0;">
+        If a spyglass sends <code>/lora survey</code> but never links, Base Camp doesn't yet know its key. Read the spyglass's <strong>public key</strong> from its MeshCore app and paste it here so Base Camp adds it directly. Then send <code>/lora survey</code> from the spyglass.
+    </p>
+    <div style="display: flex; flex-direction: column; gap: 0.5rem; max-width: 32rem;">
+        <input type="text" id="spyglass-key" placeholder="Spyglass public key (e.g. A2 7A 6C 14 …)" autocomplete="off" spellcheck="false" style="margin: 0; font-family: monospace; font-size: 0.8rem;">
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end;">
+            <input type="text" id="spyglass-name" placeholder="Name (optional)" autocomplete="off" maxlength="32" style="margin: 0; flex: 1 1 12rem; min-width: 10rem;">
+            <button type="button" id="register-spyglass-btn" class="game-btn game-btn-secondary" onclick="registerSpyglass()">Register Spyglass</button>
+        </div>
+    </div>
+    <div id="register-spyglass-status" class="save-result"></div>
+
     <div class="settings-subhead">Test Base Camp &gt; Spyglass connectivity</div>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end;">
         {% if spyglasses %}
@@ -244,6 +257,73 @@
         ⚠ Test message sends a flood packet over the mesh — use sparingly.
     </p>
     <script>
+    function doRegisterSpyglass(freeSlotFirst) {
+        var btn = document.getElementById('register-spyglass-btn');
+        var status = document.getElementById('register-spyglass-status');
+        var key = document.getElementById('spyglass-key').value.trim();
+        var name = document.getElementById('spyglass-name').value.trim();
+        if (!key) {
+            status.className = 'save-result error';
+            status.textContent = '✗ Enter the spyglass public key first.';
+            return;
+        }
+        btn.disabled = true;
+        status.className = 'save-result info';
+
+        function register() {
+            status.textContent = '⏳ Registering with Base Camp…';
+            fetch('/api/companion/add-spyglass', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ public_key: key, name: name }),
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                btn.disabled = false;
+                if (data.ok) {
+                    status.className = 'save-result success';
+                    status.innerHTML = '✓ Registered <strong>' + (data.name || 'spyglass') +
+                        '</strong>. Now send <code>/lora survey</code> from the spyglass to link it.';
+                } else if (data.contact_count && !freeSlotFirst) {
+                    // Table likely full; offer a one-click prune + retry.
+                    status.className = 'save-result error';
+                    status.innerHTML = '✗ ' + (data.error || 'Registration failed.') +
+                        ' Base Camp holds ' + data.contact_count + ' contacts. ' +
+                        '<button type="button" class="game-btn game-btn-secondary game-btn-sm" ' +
+                        'style="margin-top:0.4rem;" onclick="freeSlotAndRetry()">Free a slot &amp; retry</button>';
+                } else {
+                    status.className = 'save-result error';
+                    status.textContent = '✗ ' + (data.error || 'Registration failed.');
+                }
+            })
+            .catch(function() {
+                btn.disabled = false;
+                status.className = 'save-result error';
+                status.textContent = '✗ Request failed. Check your connection to the game server.';
+            });
+        }
+
+        if (!freeSlotFirst) { register(); return; }
+        status.textContent = '⏳ Freeing a contact slot…';
+        fetch('/api/companion/free-contact-slot', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) { register(); }
+            else {
+                btn.disabled = false;
+                status.className = 'save-result error';
+                status.textContent = '✗ ' + (data.error || 'Could not free a slot.');
+            }
+        })
+        .catch(function() {
+            btn.disabled = false;
+            status.className = 'save-result error';
+            status.textContent = '✗ Request failed. Check your connection to the game server.';
+        });
+    }
+    window.registerSpyglass = function() { doRegisterSpyglass(false); };
+    window.freeSlotAndRetry = function() { doRegisterSpyglass(true); };
+
     window.sendTestMessage = function() {
         var btn = document.getElementById('test-msg-btn');
         var status = document.getElementById('test-msg-status');
@@ -266,7 +346,7 @@
         .catch(function() {
             btn.disabled = false;
             status.className = 'save-result error';
-            status.textContent = '✗ Request failed — check your connection to the game server.';
+            status.textContent = '✗ Request failed. Check your connection to the game server.';
         });
     };
     </script>

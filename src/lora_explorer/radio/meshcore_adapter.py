@@ -63,6 +63,35 @@ TELEMETRY_LOG_MAX_ENTRIES = 200
 # MeshCore contact `type` in the add-contact URI. A Base Camp node is a plain
 # companion node from a spyglass's point of view. (2=Repeater, 3=Room, 4=Sensor.)
 CONTACT_TYPE_COMPANION = 1
+CONTACT_TYPE_REPEATER = 2
+
+# MeshCore adv_name is a 32-byte field; clamp the player-supplied spyglass name
+# so it can't overflow the fixed slot when the contact record is serialized.
+CONTACT_NAME_MAX_BYTES = 32
+
+
+def _normalize_pubkey(raw: str) -> str | None:
+    """A 64-hex-char (32-byte) MeshCore public key from whatever the player
+    pasted. Accepts spaces and colons between bytes and any case (the device
+    UIs show keys grouped like `A2 7A 6C …`). Returns the lowercased bare hex,
+    or None if it isn't exactly 32 bytes of hex."""
+    if not raw:
+        return None
+    cleaned = raw.strip().lower().replace(" ", "").replace(":", "").replace("-", "")
+    if len(cleaned) != 64:
+        return None
+    try:
+        bytes.fromhex(cleaned)
+    except ValueError:
+        return None
+    return cleaned
+
+
+def _clamp_contact_name(name: str) -> str:
+    """Trim a name to fit MeshCore's 32-byte adv_name slot without splitting a
+    multi-byte character."""
+    encoded = (name or "").strip().encode("utf-8")[:CONTACT_NAME_MAX_BYTES]
+    return encoded.decode("utf-8", "ignore")
 
 
 def _build_contact_uri(public_key: str, name: str) -> str | None:
@@ -1148,6 +1177,95 @@ class MeshCoreAdapter(RadioAdapter):
         except Exception:
             log.exception("Failed to reboot companion")
             return False
+
+    async def add_spyglass_contact(self, public_key: str, name: str = "") -> dict:
+        """Register a spyglass as a Base Camp contact from its public key alone.
+
+        Base Camp only surfaces a direct message from a node it already has as a
+        contact (CONTACT_MSG_RECV never fires for an unknown sender), so a brand
+        new spyglass can't link until Base Camp knows its key. The player reads
+        the key off the device and enters it here; we build a minimal client
+        contact with no known route and hand it to the companion. out_path_len
+        -1 is the firmware's "path unknown" sentinel, so the first message floods
+        and the reply teaches the route, exactly like adding a contact from a QR
+        that carried no path.
+
+        Returns ``{"ok": bool, ...}``: on success ``public_key`` + ``name``; on
+        failure ``error`` (a human string) plus ``contact_count`` so the caller
+        can offer to free a slot when Base Camp's contact table is full.
+        """
+        if not self._mc:
+            return {"ok": False, "error": "Companion not connected"}
+        key = _normalize_pubkey(public_key)
+        if key is None:
+            return {"ok": False, "error": "Public key must be 32 bytes (64 hex characters)"}
+        display_name = _clamp_contact_name(name) or f"Spyglass {key[:6]}"
+        contact = {
+            "public_key": key,
+            "type": CONTACT_TYPE_COMPANION,  # a spyglass is a client node
+            "flags": 0,
+            "out_path": "",
+            "out_path_len": -1,              # unknown route -> flood the first message
+            "out_path_hash_mode": 0,
+            "adv_name": display_name,
+            "last_advert": 0,
+            "adv_lat": 0.0,
+            "adv_lon": 0.0,
+        }
+        await self._pause_auto_fetch()
+        try:
+            result = await self._mc.commands.add_contact(contact)
+            if result is not None and result.type != EventType.ERROR:
+                await self._refresh_contacts()
+                log.info("Registered spyglass contact %s (%s)", key[:8], display_name)
+                return {"ok": True, "public_key": key, "name": display_name}
+            # The most common add failure is a full contact table; hand a fresh
+            # count back so the caller can offer to prune a stale repeater and
+            # retry. get_contacts is a local companion query (no mesh airtime).
+            log.warning("Companion rejected add_contact for %s: %s", key[:8], result)
+            await self._refresh_contacts()
+            return {
+                "ok": False,
+                "error": "The companion rejected the contact (its contact list may be full).",
+                "contact_count": len(self._contacts),
+            }
+        except Exception:
+            log.exception("Failed to add spyglass contact %s", key[:8])
+            return {"ok": False, "error": "Error talking to the companion"}
+        finally:
+            await self._resume_auto_fetch()
+
+    async def prune_stalest_repeater(self) -> dict:
+        """Remove the single stalest repeater contact (oldest advert) to free a
+        slot when Base Camp's contact table is full. Only ever touches a repeater
+        (type 2), never a spyglass or the base-camp node itself, and a repeater
+        keeps relaying flood traffic whether or not Base Camp lists it as a
+        contact, so forgetting one is safe. Returns the removed contact, or an
+        error when there's nothing prunable."""
+        if not self._mc:
+            return {"ok": False, "error": "Companion not connected"}
+        await self._pause_auto_fetch()
+        try:
+            await self._refresh_contacts()
+            repeaters = [c for c in self._contacts.values() if c.get("type") == CONTACT_TYPE_REPEATER]
+            if not repeaters:
+                return {"ok": False, "error": "No repeater contacts to remove."}
+            # Stalest = smallest last_advert (0/unknown sorts first, which is fine:
+            # a repeater we have never heard advert from is the best to forget).
+            stalest = min(repeaters, key=lambda c: c.get("last_advert", 0) or 0)
+            result = await self._mc.commands.remove_contact(stalest["public_key"])
+            if result is None or result.type == EventType.ERROR:
+                log.warning("Failed to remove repeater %s: %s", stalest["public_key"][:8], result)
+                return {"ok": False, "error": "The companion refused to remove the contact."}
+            await self._refresh_contacts()
+            removed = {"public_key": stalest["public_key"], "name": stalest.get("adv_name", "Unknown")}
+            log.info("Pruned stale repeater %s (%s) to free a contact slot", removed["public_key"][:8], removed["name"])
+            return {"ok": True, "removed": removed, "contact_count": len(self._contacts)}
+        except Exception:
+            log.exception("Failed to prune a repeater contact")
+            return {"ok": False, "error": "Error talking to the companion"}
+        finally:
+            await self._resume_auto_fetch()
 
     def get_connection_config(self) -> dict:
         return {

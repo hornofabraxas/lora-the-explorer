@@ -90,3 +90,12 @@ class RadioAdapter(ABC):
 
     async def reboot_companion(self) -> bool:
         return False
+
+    async def add_spyglass_contact(self, public_key: str, name: str = "") -> dict:
+        """Register a spyglass as a companion contact from its public key so its
+        commands are delivered. Adapters without a companion can't do this."""
+        return {"ok": False, "error": "No companion connection"}
+
+    async def prune_stalest_repeater(self) -> dict:
+        """Free a contact slot by forgetting the stalest repeater."""
+        return {"ok": False, "error": "No companion connection"}
