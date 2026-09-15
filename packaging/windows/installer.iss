@@ -33,8 +33,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
 
+[InstallDelete]
+Type: filesandordirs; Name: "{app}\*"
+; Delete the old files during the update.
+
 [Files]
-Source: "..\..\dist\LoRaTheExplorer\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\dist\LoRaTheExplorer\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\LoRa the Explorer"; Filename: "{app}\LoRaTheExplorer.exe"
