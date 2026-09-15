@@ -11,3 +11,4 @@ build/
 .pytest_cache/
 dist-installer/
 packaging/windows/icon.ico
+packaging/windows/_version.txt

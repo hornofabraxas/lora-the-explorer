@@ -9,6 +9,7 @@ Produces dist/LoRaTheExplorer/ (onedir, not onefile) — a self-contained
 folder rather than a single slow-to-unpack .exe, and the shape
 installer.iss then wraps into an actual installer.
 """
+import tomllib
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_all
@@ -41,6 +42,19 @@ for pkg in COLLECT_ALL:
     datas += d
     binaries += b
     hiddenimports += h
+
+# Stamp the version into the bundle. A frozen app can't trust
+# importlib.metadata for its own version: the metadata folder name carries the
+# version, so an in-place Windows upgrade could leave the previous release's
+# folder beside the new one and the lookup returns whichever is enumerated
+# first (see lora_explorer/__init__.py). pyproject.toml stays the single
+# source; this only copies it to where the frozen app can read it directly.
+_version = tomllib.loads(
+    (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"),
+)["project"]["version"]
+_version_txt = REPO_ROOT / "packaging" / "windows" / "_version.txt"
+_version_txt.write_text(_version, encoding="utf-8")
+datas += [(str(_version_txt), "lora_explorer")]
 
 # Generated here (not committed as a binary asset) so the installer icon is
 # always derived from the same source art the web UI already uses.
