@@ -1372,6 +1372,23 @@ async def api_select_node(request: Request):
     return JSONResponse({"ok": True})
 
 
+@router.post("/api/spyglasses/forget")
+async def api_forget_spyglass(request: Request):
+    """Remove a spyglass from the known list (game list only, Base Camp's
+    radio contacts are left alone). It reappears if it transmits again."""
+    db = request.app.state.db
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    key = (body.get("key") or "").strip()
+    if not key:
+        return JSONResponse({"ok": False, "error": "No spyglass given."}, status_code=400)
+    if not await db.forget_known_node(key):
+        return JSONResponse({"ok": False, "error": "That spyglass isn't in the list."}, status_code=404)
+    return JSONResponse({"ok": True})
+
+
 @router.post("/api/posts/{post_id}/rename")
 async def api_rename_post(request: Request, post_id: int):
     engine = request.app.state.engine
@@ -1495,6 +1512,8 @@ async def settings_page(request: Request):
     # Spyglasses the base camp can reach, for the test-message target picker.
     # Same source as the Radio page's spyglass selector.
     spyglasses = await db.get_known_nodes()
+    for s in spyglasses:
+        s["time_ago"] = _format_time_ago(s["last_seen"])
     default_spyglass = (player.get("last_survey_sender") if player else "") or ""
     if default_spyglass and not any(s["key"] == default_spyglass for s in spyglasses):
         default_spyglass = ""

@@ -1187,6 +1187,28 @@ class Database:
             (name, key),
         )
 
+    async def forget_known_node(self, key: str) -> bool:
+        """Drop a spyglass from the known list. Returns False if it wasn't there.
+
+        If it was the selected spyglass, the selection (and its cached last
+        fix) is cleared too, so GPS requests stop targeting a node the player
+        can no longer see. `players.key` is never touched: it anchors the save.
+        Forgetting is not blocking; the next command from this key re-adds it.
+
+        Deliberately not wrapped in `transaction()`: its flag is shared across
+        the one connection, so opening one from a web request could interleave
+        with an engine transaction. Each statement is safe on its own."""
+        cursor = await self._execute("DELETE FROM known_nodes WHERE key = ?", (key,))
+        if cursor.rowcount == 0:
+            return False
+        await self._execute(
+            "UPDATE players SET last_survey_sender = NULL, last_survey_lat = NULL, "
+            "last_survey_lon = NULL, last_survey_at = NULL "
+            "WHERE last_survey_sender = ?",
+            (key,),
+        )
+        return True
+
     async def get_known_nodes(self) -> list[dict]:
         rows = await self._fetchall(
             "SELECT key, name, last_seen FROM known_nodes ORDER BY name"

@@ -370,6 +370,96 @@
     };
     </script>
     {% endif %}
+
+    {% if spyglasses %}
+    {% set selected_spyglass = player.last_survey_sender if player else "" %}
+    <div class="settings-subhead">Known spyglasses</div>
+    <div id="known-spyglasses">
+    <figure>
+    <table>
+        <thead>
+            <tr>
+                <th>Spyglass</th>
+                <th>Last heard</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in spyglasses %}
+            <tr data-key="{{ s.key }}">
+                <td>
+                    {{ s.name }}{% if s.key == selected_spyglass %} <small style="opacity: 0.6;">(selected)</small>{% endif %}
+                    <br><code style="font-size: 0.72rem; opacity: 0.6;">{{ s.key[:12] }}</code>
+                </td>
+                <td>{{ s.time_ago }}</td>
+                <td>
+                    <form class="forget-spyglass-form" style="margin: 0;">
+                        <input type="hidden" name="key" value="{{ s.key }}">
+                        <button type="submit" class="game-btn game-btn-danger game-btn-sm confirm-btn" data-confirm-text="Forget?">Forget</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </figure>
+    </div>
+    <div id="forget-spyglass-status" class="save-result"></div>
+    <p style="font-size: 0.8rem; opacity: 0.6; margin: 0.4rem 0 0;">
+        Forgetting only removes a spyglass from this list. If it transmits again, it reappears.
+    </p>
+    <script>
+    (function() {
+        var status = document.getElementById('forget-spyglass-status');
+        document.querySelectorAll('.forget-spyglass-form').forEach(function(form) {
+            // Fires only on the confirm tap: the first tap's submit is
+            // cancelled by the shared .confirm-btn handler in base.html.
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var btn = form.querySelector('button');
+                var key = form.elements.key.value;
+                btn.disabled = true;
+                fetch('/api/spyglasses/forget', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: key }),
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.ok) {
+                        btn.disabled = false;
+                        status.className = 'save-result error';
+                        status.textContent = '✗ ' + (data.error || 'Could not forget that spyglass.');
+                        return;
+                    }
+                    var row = form.closest('tr');
+                    var name = row.cells[0].firstChild.textContent.trim();
+                    row.remove();
+                    // Keep the test-message picker in step with the list.
+                    var picker = document.getElementById('test-target');
+                    if (picker) {
+                        Array.prototype.forEach.call(picker.options, function(o) {
+                            if (o.value === key) o.remove();
+                        });
+                        if (!picker.options.length) picker.remove();
+                    }
+                    if (!document.querySelector('.forget-spyglass-form')) {
+                        document.getElementById('known-spyglasses').innerHTML =
+                            '<small style="opacity: 0.6;">No spyglasses in the list.</small>';
+                    }
+                    status.className = 'save-result success';
+                    status.textContent = '✓ Forgot ' + name + '.';
+                })
+                .catch(function() {
+                    btn.disabled = false;
+                    status.className = 'save-result error';
+                    status.textContent = '✗ Request failed. Check your connection to the game server.';
+                });
+            });
+        });
+    })();
+    </script>
+    {% endif %}
 </details>
 
 <details class="doc-section doc-section-collapse">

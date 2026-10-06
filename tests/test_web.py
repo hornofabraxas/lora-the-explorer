@@ -638,6 +638,63 @@ async def test_settings_page_no_player(app):
     assert "Backups" in body
 
 
+# --- Forget spyglass ---
+
+@pytest.mark.asyncio
+async def test_settings_lists_known_spyglasses(app, engine, adapter):
+    await adapter.simulate_message("/lora survey")
+    status, body = await _get(app, "/settings")
+    assert status == 200
+    assert "Known spyglasses" in body
+    assert "TESTNODE" in body
+    assert "forget-spyglass-form" in body
+
+
+@pytest.mark.asyncio
+async def test_forget_selected_spyglass_clears_selection(app, engine, adapter, db):
+    await adapter.simulate_message("/lora survey")
+    player = await db.get_first_player()
+    assert player["last_survey_sender"] == "abc123"
+
+    status, _, _ = await _post_json(app, "/api/spyglasses/forget", {"key": "abc123"})
+    assert status == 200
+    assert await db.get_known_nodes() == []
+    player = await db.get_first_player()
+    assert player["last_survey_sender"] is None
+    assert player["last_survey_lat"] is None
+    # The save's identity is untouched.
+    assert player["key"] == "abc123"
+
+
+@pytest.mark.asyncio
+async def test_forget_other_spyglass_keeps_selection(app, engine, adapter, db):
+    await adapter.simulate_message("/lora survey")
+    await db.upsert_known_node("old999", "Old Spyglass")
+
+    status, _, _ = await _post_json(app, "/api/spyglasses/forget", {"key": "old999"})
+    assert status == 200
+    assert [n["key"] for n in await db.get_known_nodes()] == ["abc123"]
+    player = await db.get_first_player()
+    assert player["last_survey_sender"] == "abc123"
+
+
+@pytest.mark.asyncio
+async def test_forget_unknown_or_missing_spyglass(app):
+    status, _, _ = await _post_json(app, "/api/spyglasses/forget", {"key": "nope"})
+    assert status == 404
+    status, _, _ = await _post_json(app, "/api/spyglasses/forget", {})
+    assert status == 400
+
+
+@pytest.mark.asyncio
+async def test_forgotten_spyglass_reappears_when_it_transmits(app, engine, adapter, db):
+    await adapter.simulate_message("/lora survey")
+    await _post_json(app, "/api/spyglasses/forget", {"key": "abc123"})
+    assert await db.get_known_nodes() == []
+    await adapter.simulate_message("/lora survey")
+    assert [n["key"] for n in await db.get_known_nodes()] == ["abc123"]
+
+
 # --- Backups ---
 
 @pytest.mark.asyncio
